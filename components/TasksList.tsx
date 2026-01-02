@@ -3,6 +3,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/config'
+
+const checkDb = () => {
+  if (!db) {
+    throw new Error('Firestore is not initialized. Please check your .env.local file.')
+  }
+  return db
+}
 import { UserProfile, getAllUsers } from '@/lib/firebase/profile'
 import PhotoEvidence from './PhotoEvidence'
 import { 
@@ -112,7 +119,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         }
       }
       
-      const tasksRef = collection(db, 'tasks')
+      const tasksRef = collection(checkDb(), 'tasks')
       const q = query(tasksRef)
       const snapshot = await getDocs(q)
       const tasksData = snapshot.docs.map(doc => ({
@@ -167,7 +174,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
             return
           }
           // Tạo 1 nhiệm vụ ngày
-          const docRef = await addDoc(collection(db, 'tasks'), {
+          const docRef = await addDoc(collection(checkDb(), 'tasks'), {
             title: newTask.title,
             description: newTask.description,
             type: 'daily',
@@ -429,7 +436,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         setToast({ show: true, message: 'Firestore chưa được khởi tạo', type: 'error' })
         return
       }
-      await updateDoc(doc(db, 'tasks', task.id), {
+      await updateDoc(doc(checkDb(), 'tasks', task.id), {
         status: 'in_progress'
       })
       loadTasks()
@@ -450,7 +457,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         setToast({ show: true, message: 'Firestore chưa được khởi tạo', type: 'error' })
         return
       }
-      await updateDoc(doc(db, 'tasks', task.id), {
+      await updateDoc(doc(checkDb(), 'tasks', task.id), {
         status: 'completed',
         completedAt: Timestamp.now()
       })
