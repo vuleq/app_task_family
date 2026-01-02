@@ -9,6 +9,13 @@ import { useI18n } from '@/lib/i18n/context'
 import { getTranslatedTaskTitle } from '@/lib/i18n/templateTranslations'
 import Toast from './Toast'
 
+const checkDb = () => {
+  if (!db) {
+    throw new Error('Firestore is not initialized. Please check your .env.local file.')
+  }
+  return db
+}
+
 interface Task {
   id: string
   title: string
@@ -42,7 +49,7 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
 
   const loadPendingTasks = async () => {
     try {
-      const tasksRef = collection(db, 'tasks')
+      const tasksRef = collection(checkDb(), 'tasks')
       const q = query(tasksRef, where('status', '==', 'completed'))
       const snapshot = await getDocs(q)
       let tasksData = snapshot.docs.map(doc => ({
@@ -83,7 +90,7 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
   const handleApprove = async (task: Task) => {
     try {
       // Cập nhật trạng thái task
-      await updateDoc(doc(db, 'tasks', task.id), {
+      await updateDoc(doc(checkDb(), 'tasks', task.id), {
         status: 'approved',
         approvedAt: Timestamp.now()
       })
@@ -117,7 +124,7 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
 
   const handleReject = async (task: Task) => {
     try {
-      await updateDoc(doc(db, 'tasks', task.id), {
+      await updateDoc(doc(checkDb(), 'tasks', task.id), {
         status: 'pending'
       })
       setToast({ show: true, message: 'Đã từ chối nhiệm vụ', type: 'success' })
