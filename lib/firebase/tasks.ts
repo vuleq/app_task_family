@@ -1,0 +1,268 @@
+import {
+  collection,
+  getDocs,
+  addDoc,
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  Timestamp,
+} from 'firebase/firestore'
+import { db } from './config'
+
+const checkDb = () => {
+  if (!db) {
+    throw new Error('Firestore is not initialized. Please check your .env.local file.')
+  }
+  return db
+}
+
+export interface TaskTemplate {
+  id: string
+  title: string
+  description: string
+  type: 'daily' | 'weekly' | 'monthly'
+  category?: 'hoc' | 'khac' // Category: việc học hoặc việc khác
+  xpReward: number
+  coinReward: number
+  createdBy: string
+  createdAt: any
+}
+
+export interface Task {
+  id: string
+  title: string
+  description: string
+  assignedTo: string
+  assignedToName: string
+  createdBy: string
+  createdByName?: string
+  status: 'pending' | 'in_progress' | 'completed' | 'approved'
+  type: 'daily' | 'weekly' | 'monthly'
+  xpReward: number
+  coinReward: number
+  createdAt: any
+  completedAt?: any
+  evidence?: string
+  // Cho nhiệm vụ tuần/tháng
+  parentTaskId?: string // ID của nhiệm vụ tổng hợp (weekly/monthly)
+  groupKey?: string // Key để nhóm các nhiệm vụ ngày lại
+  requiredCount?: number // Số nhiệm vụ ngày cần hoàn thành (6 cho tuần, 26 cho tháng)
+  completedCount?: number // Số nhiệm vụ ngày đã hoàn thành
+}
+
+// Lấy tất cả task templates
+export const getTaskTemplates = async (userId: string): Promise<TaskTemplate[]> => {
+  if (!db) return []
+  const templatesRef = collection(checkDb(), 'taskTemplates')
+  const q = query(templatesRef, where('createdBy', '==', userId))
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as TaskTemplate[]
+}
+
+// Lưu task template
+export const saveTaskTemplate = async (
+  title: string,
+  description: string,
+  type: 'daily' | 'weekly' | 'monthly',
+  xpReward: number,
+  coinReward: number,
+  createdBy: string,
+  category?: 'hoc' | 'khac' // Category: việc học hoặc việc khác
+): Promise<string> => {
+  if (!db) throw new Error('Firestore not initialized')
+  const templateRef = collection(checkDb(), 'taskTemplates')
+  const docRef = await addDoc(templateRef, {
+    title,
+    description,
+    type,
+    category: category || null,
+    xpReward,
+    coinReward,
+    createdBy,
+    createdAt: Timestamp.now(),
+  })
+  return docRef.id
+}
+
+// Xóa task template
+export const deleteTaskTemplate = async (templateId: string): Promise<void> => {
+  if (!db) throw new Error('Firestore not initialized')
+  await deleteDoc(doc(checkDb(), 'taskTemplates', templateId))
+}
+
+// Tạo nhiệm vụ từ template
+export const createTaskFromTemplate = async (
+  template: TaskTemplate,
+  assignedTo: string,
+  assignedToName: string,
+  createdBy: string,
+  createdByName: string
+): Promise<string> => {
+  if (!db) throw new Error('Firestore not initialized')
+  const tasksRef = collection(checkDb(), 'tasks')
+  
+  // Tạo title với prefix nếu có category
+  let taskTitle = template.title
+  if (template.category) {
+    const typeLabel = template.type === 'daily' ? 'Nhiệm vụ ngày' :
+                     template.type === 'weekly' ? 'Nhiệm vụ tuần' :
+                     'Nhiệm vụ tháng'
+    const categoryLabel = template.category === 'hoc' ? 'Việc học' : 'Việc khác'
+    taskTitle = `${typeLabel} - ${categoryLabel} - ${template.title}`
+  }
+  
+  const docRef = await addDoc(tasksRef, {
+    title: taskTitle,
+    description: template.description,
+    type: template.type,
+    assignedTo,
+    assignedToName,
+    createdBy,
+    createdByName,
+    status: 'pending',
+    xpReward: template.xpReward,
+    coinReward: template.coinReward,
+    createdAt: Timestamp.now(),
+  })
+  return docRef.id
+}
+
+// Tạo nhiều nhiệm vụ ngày từ một nhiệm vụ ngày (cho tuần/tháng)
+export const createRecurringDailyTasks = async (
+  baseTask: {
+    title: string
+    description: string
+    assignedTo: string
+    assignedToName: string
+    xpReward: number
+    coinReward: number
+  },
+  createdBy: string,
+  createdByName: string,
+  numberOfDays: number,
+  taskType: 'weekly' | 'monthly'
+): Promise<{ parentTaskId: string; dailyTaskIds: string[] }> => {
+  if (!db) throw new Error('Firestore not initialized')
+  const tasksRef = collection(checkDb(), 'tasks')
+  const dailyTaskIds: string[] = []
+  const today = new Date()
+  
+  // Tạo groupKey để nhóm các nhiệm vụ
+  const groupKey = `${baseTask.title}_${createdBy}_${baseTask.assignedTo}_${Date.now()}`
+
+  // Tạo nhiệm vụ tổng hợp (weekly/monthly) để theo dõi tiến độ
+  const parentTaskRef = await addDoc(tasksRef, {
+    title: baseTask.title,
+    description: baseTask.description,
+    type: taskType,
+    assignedTo: baseTask.assignedTo,
+    assignedToName: baseTask.assignedToName,
+    createdBy,
+    createdByName,
+    status: 'pending',
+    xpReward: baseTask.xpReward * numberOfDays, // Tổng XP cho tất cả nhiệm vụ
+    coinReward: baseTask.coinReward * numberOfDays, // Tổng Coins cho tất cả nhiệm vụ
+    createdAt: Timestamp.now(),
+    groupKey,
+    requiredCount: numberOfDays,
+    completedCount: 0,
+  })
+  const parentTaskId = parentTaskRef.id
+
+  // Tạo các nhiệm vụ ngày và liên kết với nhiệm vụ tổng hợp
+  for (let i = 0; i < numberOfDays; i++) {
+    const taskDate = new Date(today)
+    taskDate.setDate(today.getDate() + i)
+    
+    const taskTitle = `${baseTask.title} - ${taskDate.toLocaleDateString('vi-VN', { 
+      weekday: 'short', 
+      day: 'numeric', 
+      month: 'numeric' 
+    })}`
+
+    const docRef = await addDoc(tasksRef, {
+      title: taskTitle,
+      description: baseTask.description,
+      type: 'daily',
+      assignedTo: baseTask.assignedTo,
+      assignedToName: baseTask.assignedToName,
+      createdBy,
+      createdByName,
+      status: 'pending',
+      xpReward: baseTask.xpReward,
+      coinReward: baseTask.coinReward,
+      createdAt: Timestamp.now(),
+      scheduledDate: Timestamp.fromDate(taskDate),
+      parentTaskId,
+      groupKey,
+    })
+    dailyTaskIds.push(docRef.id)
+  }
+
+  return { parentTaskId, dailyTaskIds }
+}
+
+// Kiểm tra và cập nhật tiến độ nhiệm vụ tuần/tháng
+export const checkAndUpdateParentTask = async (
+  parentTaskId: string,
+  groupKey: string
+): Promise<boolean> => {
+  try {
+    if (!db) return false
+
+    // Đếm số nhiệm vụ ngày đã hoàn thành trong nhóm (chỉ đếm nhiệm vụ ngày, không đếm nhiệm vụ tổng hợp)
+    const tasksRef = collection(checkDb(), 'tasks')
+    
+    // Lấy tất cả nhiệm vụ trong nhóm
+    const groupQuery = query(tasksRef, where('groupKey', '==', groupKey))
+    const groupSnapshot = await getDocs(groupQuery)
+    
+    // Đếm số nhiệm vụ ngày đã hoàn thành (completed hoặc approved)
+    // Chỉ đếm nhiệm vụ có parentTaskId (tức là nhiệm vụ ngày, không phải nhiệm vụ tổng hợp)
+    let completedCount = 0
+    groupSnapshot.forEach(doc => {
+      const task = doc.data()
+      // Chỉ đếm nhiệm vụ ngày (có parentTaskId) và đã hoàn thành/approved
+      if (task.parentTaskId && (task.status === 'completed' || task.status === 'approved')) {
+        completedCount++
+      }
+    })
+
+    // Lấy nhiệm vụ tổng hợp
+    const parentTaskRef = doc(checkDb(), 'tasks', parentTaskId)
+    const parentTaskSnap = await getDoc(parentTaskRef)
+    
+    if (!parentTaskSnap.exists()) {
+      return false
+    }
+
+    const parentTask = parentTaskSnap.data()
+    const requiredCount = parentTask.requiredCount || 0
+
+    // Cập nhật số lượng đã hoàn thành
+    await updateDoc(parentTaskRef, {
+      completedCount,
+    })
+
+    // Nếu đã hoàn thành đủ số lượng → tự động hoàn thành nhiệm vụ tổng hợp
+    if (completedCount >= requiredCount && (parentTask.status === 'pending' || parentTask.status === 'in_progress')) {
+      await updateDoc(parentTaskRef, {
+        status: 'completed',
+        completedAt: Timestamp.now(),
+      })
+      return true // Đã hoàn thành
+    }
+
+    return false
+  } catch (error) {
+    console.error('Error checking parent task:', error)
+    return false
+  }
+}
+
