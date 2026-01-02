@@ -7,6 +7,13 @@ import { UserProfile, updateProfile, getProfile } from '@/lib/firebase/profile'
 import { useI18n } from '@/lib/i18n/context'
 import Toast from './Toast'
 
+const checkDb = () => {
+  if (!db) {
+    throw new Error('Firestore is not initialized. Please check your .env.local file.')
+  }
+  return db
+}
+
 interface Reward {
   id: string
   name: string
@@ -38,7 +45,7 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
 
   const loadRewards = async () => {
     try {
-      const rewardsRef = collection(db, 'rewards')
+      const rewardsRef = collection(checkDb(), 'rewards')
       const snapshot = await getDocs(rewardsRef)
       const rewardsData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -54,7 +61,7 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
 
   const loadMyRewards = async () => {
     try {
-      const userRewardsRef = collection(db, 'userRewards')
+      const userRewardsRef = collection(checkDb(), 'userRewards')
       const q = query(userRewardsRef, where('userId', '==', currentUserId))
       const snapshot = await getDocsQuery(q)
       const myRewardsData = snapshot.docs.map(doc => ({
@@ -80,7 +87,7 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
       })
 
       // Thêm vào userRewards
-      await addDoc(collection(db, 'userRewards'), {
+      await addDoc(collection(checkDb(), 'userRewards'), {
         userId: currentUserId,
         rewardId: reward.id,
         rewardName: reward.name,
@@ -104,7 +111,7 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
     }
 
     try {
-      await addDoc(collection(db, 'rewards'), {
+      await addDoc(collection(checkDb(), 'rewards'), {
         name: newReward.name,
         description: newReward.description,
         coinCost: newReward.coinCost
@@ -139,7 +146,7 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
     }
 
     try {
-      const rewardRef = doc(db, 'rewards', editingReward.id)
+      const rewardRef = doc(checkDb(), 'rewards', editingReward.id)
       await updateDoc(rewardRef, {
         name: editingReward.name,
         description: editingReward.description,
@@ -163,7 +170,7 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
     }
 
     try {
-      const rewardRef = doc(db, 'rewards', rewardId)
+      const rewardRef = doc(checkDb(), 'rewards', rewardId)
       await deleteDoc(rewardRef)
       loadRewards()
       setToast({ show: true, message: language === 'vi' ? 'Đã xóa phần thưởng thành công!' : 'Reward deleted successfully!', type: 'success' })
