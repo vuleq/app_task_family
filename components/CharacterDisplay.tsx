@@ -17,15 +17,21 @@ export default function CharacterDisplay({
   // Outfit đã được tắt theo yêu cầu
   // const [showOutfit, setShowOutfit] = useState(true)
   const level = calculateLevel(profile.xp)
-  // Đảm bảo characterAvatar luôn có giá trị (mặc định là 1)
-  const characterAvatar = profile.characterAvatar || 1
-  const assets = getCharacterAssets(level, characterAvatar)
+  // Lấy assets với characterBase, gender và profession
+  const assets = getCharacterAssets(
+    level, 
+    profile.characterBase,
+    profile.gender, 
+    profile.profession
+  )
   const xpProgress = getXPProgress(profile.xp)
   
   // Debug log
   console.log('CharacterDisplay Debug:', {
     level,
-    characterAvatar,
+    characterBase: profile.characterBase,
+    gender: profile.gender,
+    profession: profile.profession,
     characterPath: assets.character,
     outfitPath: assets.outfit,
     backgroundPath: assets.background
@@ -83,7 +89,7 @@ export default function CharacterDisplay({
         {/* Face - Layer 2b (mặt từ avatar1-7) */}
         {assets.face ? (
           <img
-            key={`face-${characterAvatar}-${level}`}
+            key={`face-${profile.characterBase || 'default'}-${level}`}
             src={assets.face}
             alt="Face"
             className="absolute inset-0 w-full h-full object-contain"
@@ -117,7 +123,7 @@ export default function CharacterDisplay({
         ) : (
           // Fallback: Nếu không có face, dùng avatar đầy đủ
           <img
-            key={`avatar-${characterAvatar}-${level}`}
+            key={`avatar-${profile.characterBase || 'default'}-${level}`}
             src={assets.character || '/pic-avatar/avatar1.png'}
             alt="Character"
             className="absolute inset-0 w-full h-full object-contain"

@@ -35,10 +35,38 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
   const [newChest, setNewChest] = useState({ name: '', cost: 50, chestType: 'wood' as 'wood' | 'silver' | 'gold' | 'mystery' | 'legendary' })
   const [editingChest, setEditingChest] = useState<Chest & { chestType?: string } | null>(null)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
+  const [openingVideoUrl, setOpeningVideoUrl] = useState<string | null>(null)
+  const [videoEnded, setVideoEnded] = useState(false)
+  const [showRewardDelay, setShowRewardDelay] = useState(false) // Delay để hiển thị phần thưởng
 
   useEffect(() => {
     loadData()
   }, [])
+
+  // Sắp xếp chests theo thứ tự: Wood → Silver → Gold → Mystery → Legendary
+  const sortChestsByType = (chests: Chest[]): Chest[] => {
+    const order: Record<string, number> = {
+      'wood': 1,
+      'silver': 2,
+      'gold': 3,
+      'mystery': 4,
+      'legendary': 5,
+    }
+    
+    return [...chests].sort((a, b) => {
+      const typeA = getChestTypeFromItemPool(a.itemPool)
+      const typeB = getChestTypeFromItemPool(b.itemPool)
+      const orderA = order[typeA] || 999
+      const orderB = order[typeB] || 999
+      
+      // Nếu cùng loại, sắp xếp theo cost (từ thấp đến cao)
+      if (orderA === orderB) {
+        return a.cost - b.cost
+      }
+      
+      return orderA - orderB
+    })
+  }
 
   const loadData = async () => {
     try {
@@ -46,7 +74,9 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
         getAllChests(),
         getUserChests(currentUserId),
       ])
-      setChests(chestsData)
+      // Sắp xếp chests theo thứ tự mong muốn
+      const sortedChests = sortChestsByType(chestsData)
+      setChests(sortedChests)
       setUserChests(userChestsData)
     } catch (error) {
       console.error('Error loading chests:', error)
@@ -76,6 +106,59 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
   const handleOpen = async (userChestId: string) => {
     if (opening) return
 
+    // Tìm chest tương ứng để lấy openingMediaUrl
+    const userChest = userChests.find(uc => uc.id === userChestId)
+    const chest = userChest ? chests.find(c => c.id === userChest.chestId) : null
+    
+    // Xác định chest type
+    const chestType = chest ? getChestTypeFromItemPool(chest.itemPool) : null
+    
+    // Ưu tiên: 1. openingMediaUrl từ database, 2. URL từ mapping, 3. Không có video
+    const videoUrl = chest?.openingMediaUrl || (chestType ? chestOpeningVideoUrls[chestType] : null)
+    
+    // Mở rương ngay để lấy phần thưởng (không đợi video xong)
+    setOpening(userChestId)
+    let rewardItem: ChestItem | null = null
+    
+    try {
+      // Mở rương ngay để lấy phần thưởng
+      rewardItem = await openChest(userChestId, currentUserId)
+      loadData()
+      if (onChestOpened) onChestOpened()
+    } catch (error: any) {
+      console.error('Error opening chest:', error)
+      setToast({ show: true, message: error.message || t('chestSystem.openError'), type: 'error' })
+      setOpening(null)
+      return
+    }
+    
+    // Nếu có video/animation, hiển thị video với phần thưởng overlay (delay 2-3 giây)
+    if (videoUrl && rewardItem) {
+      setOpeningVideoUrl(videoUrl)
+      setVideoEnded(false)
+      setShowRewardDelay(false) // Reset delay state
+      setShowResult(null) // Chưa hiển thị phần thưởng ngay
+      console.log(`[ChestSystem] Playing opening video for ${chestType} chest with reward:`, rewardItem)
+      
+      // Delay 2.5 giây trước khi hiển thị phần thưởng
+      setTimeout(() => {
+        setShowResult(rewardItem)
+        setShowRewardDelay(true)
+      }, 2500) // 2.5 giây delay
+      
+      // Video sẽ tự động đóng khi xong, phần thưởng đã hiển thị
+      return
+    }
+
+    // Nếu không có video, chỉ hiển thị phần thưởng
+    if (rewardItem) {
+      setShowResult(rewardItem)
+    }
+    setOpening(null)
+  }
+
+  // Mở rương trực tiếp (không có video)
+  const openChestDirectly = async (userChestId: string) => {
     setOpening(userChestId)
     try {
       const item = await openChest(userChestId, currentUserId)
@@ -88,6 +171,19 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     } finally {
       setOpening(null)
     }
+  }
+
+  // Xử lý khi video kết thúc
+  const handleVideoEnd = async () => {
+    setVideoEnded(true)
+    // Đóng video sau 1s, phần thưởng vẫn hiển thị
+    setTimeout(() => {
+      setOpeningVideoUrl(null)
+      setVideoEnded(false)
+      setShowRewardDelay(false)
+      setOpening(null)
+      // Phần thưởng đã được hiển thị trong modal showResult, không cần làm gì thêm
+    }, 1000)
   }
 
   const getRarityColor = (rarity: string) => {
@@ -168,6 +264,58 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     return 'wood'
   }
 
+  // Mapping các chest type với URL thực tế trên Cloudinary (ảnh đóng)
+  const chestImageUrls: Record<string, string> = {
+    wood: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356618/wood_chest_closed_iagexl.png',
+    silver: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356711/silver_chest_closed_pcyuoh.png',
+    gold: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356728/gold_chest_closed_qfovoa.png',
+    mystery: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356739/mystery_chest_closed_ljqpnj.png',
+    legendary: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356745/legendary_chest_closed_aurtuy.png',
+  }
+
+  // Mapping các chest type với URL video mở rương trên Cloudinary
+  const chestOpeningVideoUrls: Record<string, string> = {
+    wood: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360488/wooden_chest_open_l9b8jv.mp4',
+    silver: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360533/silver_chest_open_flmbw7.mp4',
+    gold: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360576/gold_chest_open_o7mz7g.mp4',
+    mystery: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360618/mystery_chest_open_xaa7pc.mp4',
+    legendary: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360650/legendary_chest_open_juqrdc.mp4',
+  }
+
+  // Lấy URL hình ảnh rương dựa trên chest type
+  const getChestImageUrl = (chest: Chest): string | null => {
+    // Nếu có closedImageUrl trong database, dùng nó (ưu tiên cao nhất)
+    if (chest.closedImageUrl) {
+      console.log(`[ChestSystem] Using database URL for chest ${chest.id}:`, chest.closedImageUrl)
+      return chest.closedImageUrl
+    }
+    
+    // Nếu không có, xác định chest type và dùng URL từ mapping
+    const chestType = getChestTypeFromItemPool(chest.itemPool)
+    
+    // Kiểm tra xem có URL trong mapping không
+    if (chestImageUrls[chestType]) {
+      console.log(`[ChestSystem] Using mapped URL for ${chestType} chest:`, chestImageUrls[chestType])
+      return chestImageUrls[chestType]
+    }
+    
+    // Fallback: thử tìm trong folder (nếu có)
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dvuy40chj'
+    const fallbackUrl = `https://res.cloudinary.com/${cloudName}/image/upload/family-tasks/chests/${chestType}/${chestType}_chest_closed.png`
+    console.log(`[ChestSystem] Using fallback URL for ${chestType} chest:`, fallbackUrl)
+    return fallbackUrl
+  }
+
+  // Lấy URL hình ảnh cho user chest (rương của user)
+  const getUserChestImageUrl = (userChest: UserChest): string | null => {
+    // Tìm chest tương ứng
+    const chest = chests.find(c => c.id === userChest.chestId)
+    if (chest) {
+      return getChestImageUrl(chest)
+    }
+    return null
+  }
+
   const handleEditChest = (chest: Chest) => {
     if (!profile.isRoot) {
       setToast({ show: true, message: language === 'vi' 
@@ -233,6 +381,40 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
 
   const unopenedChests = userChests.filter(c => !c.opened)
   const openedChests = userChests.filter(c => c.opened)
+  
+  // Group các rương đã mở giống nhau theo chestId và receivedItem
+  interface GroupedOpenedChest {
+    chestId: string
+    chestName: string
+    receivedItem: ChestItem | undefined
+    count: number
+    firstChest: UserChest // Giữ lại một chest để lấy thông tin
+  }
+  
+  const groupedOpenedChests: GroupedOpenedChest[] = []
+  const chestGroups = new Map<string, GroupedOpenedChest>()
+  
+  openedChests.forEach(userChest => {
+    // Tạo key dựa trên chestId và receivedItem.id (nếu có)
+    const key = userChest.receivedItem 
+      ? `${userChest.chestId}_${userChest.receivedItem.id}`
+      : `${userChest.chestId}_no_item`
+    
+    if (chestGroups.has(key)) {
+      const group = chestGroups.get(key)!
+      group.count++
+    } else {
+      chestGroups.set(key, {
+        chestId: userChest.chestId,
+        chestName: userChest.chestName,
+        receivedItem: userChest.receivedItem,
+        count: 1,
+        firstChest: userChest,
+      })
+    }
+  })
+  
+  groupedOpenedChests.push(...Array.from(chestGroups.values()))
 
   return (
     <div className="space-y-6">
@@ -364,7 +546,9 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
       <div>
         <h4 className="font-medium text-gray-700 mb-3">{t('chestSystem.shop')}</h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {chests.map(chest => (
+          {chests.map(chest => {
+            const chestImageUrl = getChestImageUrl(chest)
+            return (
             <div
               key={chest.id}
               className="bg-white border-2 border-gray-200 rounded-lg p-4 hover:border-purple-400 transition-all"
@@ -382,6 +566,38 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
                   </button>
                 )}
               </div>
+              
+              {/* Hình ảnh rương */}
+              {chestImageUrl && (
+                <div className="mb-3 flex justify-center">
+                  <img
+                    src={chestImageUrl}
+                    alt={chest.name}
+                    className="w-24 h-24 object-contain"
+                    onError={(e) => {
+                      // Fallback nếu ảnh không load được
+                      const target = e.target as HTMLImageElement
+                      const chestType = getChestTypeFromItemPool(chest.itemPool)
+                      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+                      
+                      console.error(`[ChestSystem] Failed to load chest image: ${chestImageUrl}`)
+                      console.log(`[ChestSystem] Chest type: ${chestType}, Cloud name: ${cloudName}`)
+                      console.log(`[ChestSystem] Please check Cloudinary Dashboard for actual file name in folder: family-tasks/chests/${chestType}/`)
+                      
+                      // Hiển thị emoji fallback
+                      target.style.display = 'none'
+                      const parent = target.parentElement
+                      if (parent) {
+                        parent.innerHTML = '<div class="text-4xl">📦</div>'
+                      }
+                    }}
+                    onLoad={() => {
+                      console.log(`[ChestSystem] Successfully loaded chest image: ${chestImageUrl}`)
+                    }}
+                  />
+                </div>
+              )}
+              
               <p className="text-sm text-gray-600 mb-3">
                 {t('chestSystem.price')}: <span className="font-bold text-yellow-600">{chest.cost} Coins</span>
               </p>
@@ -404,7 +620,8 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
                   : t('chestSystem.notEnoughCoins')}
               </button>
             </div>
-          ))}
+          )
+          })}
         </div>
       </div>
 
@@ -415,12 +632,37 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
             {t('chestSystem.myChests')} ({unopenedChests.length})
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {unopenedChests.map(userChest => (
+            {unopenedChests.map(userChest => {
+              const chestImageUrl = getUserChestImageUrl(userChest)
+              return (
               <div
                 key={userChest.id}
                 className="bg-gradient-to-br from-yellow-100 to-orange-100 border-2 border-yellow-400 rounded-lg p-4 text-center"
               >
-                <div className="text-6xl mb-2">📦</div>
+                {/* Hình ảnh rương */}
+                {chestImageUrl ? (
+                  <div className="mb-2 flex justify-center">
+                    <img
+                      src={chestImageUrl}
+                      alt={userChest.chestName}
+                      className="w-20 h-20 object-contain"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        console.error(`[ChestSystem] Failed to load user chest image: ${chestImageUrl}`, e)
+                        target.style.display = 'none'
+                        const parent = target.parentElement
+                        if (parent) {
+                          parent.innerHTML = '<div class="text-6xl mb-2">📦</div>'
+                        }
+                      }}
+                      onLoad={() => {
+                        console.log(`[ChestSystem] Successfully loaded user chest image: ${chestImageUrl}`)
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-6xl mb-2">📦</div>
+                )}
                 <h5 className="font-semibold text-gray-800 mb-2">{userChest.chestName}</h5>
                 <button
                   onClick={() => handleOpen(userChest.id)}
@@ -430,42 +672,153 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
                   {opening === userChest.id ? t('chestSystem.opening') : t('chestSystem.open')}
                 </button>
               </div>
-            ))}
+            )
+            })}
           </div>
         </div>
       )}
 
-      {/* Rương đã mở */}
-      {openedChests.length > 0 && (
+      {/* Rương đã mở - Grouped */}
+      {groupedOpenedChests.length > 0 && (
         <div>
-          <h4 className="font-medium text-gray-700 mb-3">{t('chestSystem.openHistory')}</h4>
+          <h4 className="font-medium text-gray-700 mb-3">
+            {t('chestSystem.openHistory')} ({openedChests.length} {language === 'vi' ? 'rương' : 'chests'})
+          </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {openedChests.map(userChest => (
+            {groupedOpenedChests.map((group, index) => {
+              const chestImageUrl = getUserChestImageUrl(group.firstChest)
+              return (
               <div
-                key={userChest.id}
+                key={`${group.chestId}_${group.receivedItem?.id || 'no_item'}_${index}`}
                 className="bg-gray-100 border border-gray-300 rounded-lg p-4"
               >
-                <div className="text-4xl mb-2 text-center">📦</div>
-                <h5 className="font-semibold text-gray-800 mb-2 text-center">
-                  {userChest.chestName}
+                {/* Hình ảnh rương */}
+                {chestImageUrl ? (
+                  <div className="mb-2 flex justify-center">
+                    <img
+                      src={chestImageUrl}
+                      alt={group.chestName}
+                      className="w-16 h-16 object-contain opacity-60"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        console.error(`[ChestSystem] Failed to load opened chest image: ${chestImageUrl}`, e)
+                        target.style.display = 'none'
+                        const parent = target.parentElement
+                        if (parent) {
+                          parent.innerHTML = '<div class="text-4xl mb-2 text-center">📦</div>'
+                        }
+                      }}
+                      onLoad={() => {
+                        console.log(`[ChestSystem] Successfully loaded opened chest image: ${chestImageUrl}`)
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-4xl mb-2 text-center">📦</div>
+                )}
+                <h5 className="font-semibold text-gray-800 mb-1 text-center">
+                  {group.chestName}
                 </h5>
-                {userChest.receivedItem && (
+                {/* Hiển thị count nếu > 1 */}
+                {group.count > 1 && (
+                  <div className="text-center mb-2">
+                    <span className="inline-block bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      x{group.count}
+                    </span>
+                  </div>
+                )}
+                {group.receivedItem && (
                   <div
                     className={`border-2 rounded-lg p-3 mt-2 ${getRarityColor(
-                      userChest.receivedItem.rarity
+                      group.receivedItem.rarity
                     )}`}
                   >
-                    <p className="font-semibold">{userChest.receivedItem.name}</p>
+                    <p className="font-semibold">{group.receivedItem.name}</p>
                     <p className="text-xs mt-1">
-                      {userChest.receivedItem.description || userChest.receivedItem.type}
+                      {group.receivedItem.description || group.receivedItem.type}
                     </p>
                     <p className="text-xs mt-1">
-                      {t('chestSystem.rarity')}: <span className="font-bold">{getRarityName(userChest.receivedItem.rarity)}</span>
+                      {t('chestSystem.rarity')}: <span className="font-bold">{getRarityName(group.receivedItem.rarity)}</span>
                     </p>
                   </div>
                 )}
               </div>
-            ))}
+            )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Modal hiển thị video mở rương với phần thưởng overlay */}
+      {openingVideoUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+          <div className="relative w-full max-w-4xl mx-4">
+            {/* Video container */}
+            <div className="relative">
+              {openingVideoUrl.endsWith('.mp4') || openingVideoUrl.endsWith('.webm') || openingVideoUrl.includes('video') ? (
+                <video
+                  src={openingVideoUrl}
+                  autoPlay
+                  onEnded={handleVideoEnd}
+                  className="w-full h-auto rounded-lg"
+                  controls={false}
+                />
+              ) : (
+                <img
+                  src={openingVideoUrl}
+                  alt="Opening animation"
+                  className="w-full h-auto rounded-lg"
+                  onLoad={() => {
+                    // Nếu là ảnh, tự động đóng sau 3 giây
+                    setTimeout(() => {
+                      handleVideoEnd()
+                    }, 3000)
+                  }}
+                />
+              )}
+              
+              {/* Phần thưởng overlay - hiển thị sau 2.5 giây khi video chạy */}
+              {showResult && showRewardDelay && (
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-6 rounded-b-lg">
+                  <div className="text-center">
+                    <div className="text-4xl mb-2">🎉</div>
+                    <h3 className="text-xl font-bold text-white mb-3">{t('chestSystem.congratulations')}</h3>
+                    <div className={`border-2 rounded-lg p-4 mb-3 ${getRarityColor(showResult.rarity)} bg-white/95`}>
+                      {/* Hình ảnh phần thưởng */}
+                      {showResult.image && (
+                        <div className="mb-3 flex justify-center">
+                          <img
+                            src={showResult.image}
+                            alt={showResult.name}
+                            className="w-24 h-24 object-contain"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                            }}
+                          />
+                        </div>
+                      )}
+                      <p className="text-lg font-bold mb-1">{showResult.name}</p>
+                      <p className="text-xs mb-1">{showResult.description}</p>
+                      <p className="text-xs">
+                        {t('chestSystem.rarity')}: <span className="font-bold">{getRarityName(showResult.rarity)}</span>
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setOpeningVideoUrl(null)
+                        setShowResult(null)
+                        setShowRewardDelay(false)
+                        setOpening(null)
+                      }}
+                      className="px-6 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700"
+                    >
+                      {t('common.close')}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -480,6 +833,20 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
               <div
                 className={`border-4 rounded-lg p-6 mb-4 ${getRarityColor(showResult.rarity)}`}
               >
+                {/* Hình ảnh phần thưởng */}
+                {showResult.image && (
+                  <div className="mb-4 flex justify-center">
+                    <img
+                      src={showResult.image}
+                      alt={showResult.name}
+                      className="w-32 h-32 object-contain"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                      }}
+                    />
+                  </div>
+                )}
                 <p className="text-2xl font-bold mb-2">{showResult.name}</p>
                 <p className="text-sm mb-2">{showResult.description}</p>
                 <p className="text-xs">
@@ -487,7 +854,10 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
                 </p>
               </div>
               <button
-                onClick={() => setShowResult(null)}
+                onClick={() => {
+                  setShowResult(null)
+                  setShowRewardDelay(false)
+                }}
                 className="px-6 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700"
               >
                 {t('chestSystem.close')}

@@ -8,6 +8,7 @@ import {
   doc,
   Timestamp,
   getDoc,
+  deleteDoc,
 } from 'firebase/firestore'
 import { db } from './config'
 import { updateProfile, getProfile } from './profile'
@@ -34,6 +35,8 @@ export interface Chest {
   name: string
   cost: number // Coins để mua
   itemPool: ChestItem[] // Danh sách item có thể nhận được
+  closedImageUrl?: string // URL ảnh rương đóng
+  openingMediaUrl?: string // URL animation/video khi mở rương (có thể là .gif hoặc .mp4)
   createdAt: any
 }
 
@@ -48,29 +51,196 @@ export interface UserChest {
   createdAt: any
 }
 
+/**
+ * Tạo URL hình ảnh phần thưởng dựa trên chest type và item type
+ * Sử dụng tên file hiện có: {chestType}-{itemType}.png
+ * 
+ * Format tên file:
+ * - Wood-coin.png, Wood-XP.png
+ * - Silver-coin.png, Silver-XP.png
+ * - Gold-coin.png, Gold-XP.png
+ * - Mystery-coin.png, Mystery-XP.png
+ * - Legendary-coin.png, Legendary-XP.png
+ * 
+ * @param chestType - Loại rương: 'wood', 'silver', 'gold', 'mystery', 'legendary'
+ * @param itemType - Loại item: 'xp', 'coins', 'special'
+ * @returns URL hình ảnh hoặc undefined
+ */
+export const getRewardImageUrl = (chestType: string, itemType: string): string | undefined => {
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dvuy40chj'
+  
+  // Normalize chest type (lowercase, fix typo)
+  let normalizedChestType = chestType.toLowerCase()
+    .replace('lagendary', 'legendary') // Fix typo: lagendary -> legendary
+  
+  // Normalize item type
+  const normalizedItemType = itemType.toLowerCase()
+  
+  // Capitalize first letter của chest type: Wood, Silver, Gold, Mystery, Legendary
+  const capitalizedChestType = normalizedChestType.charAt(0).toUpperCase() + normalizedChestType.slice(1)
+  
+  // Tạo tên file: {chestType}-{itemType}.png
+  let fileName = ''
+  
+  if (normalizedItemType === 'xp') {
+    // XP items: {chestType}-XP.png (XP viết hoa)
+    fileName = `${capitalizedChestType}-XP.png`
+  } else if (normalizedItemType === 'coins' || normalizedItemType === 'coin') {
+    // Coins items: {chestType}-coin.png (coin viết thường)
+    fileName = `${capitalizedChestType}-coin.png`
+  } else if (normalizedItemType === 'special') {
+    // Special items - fallback to mystery hoặc legendary
+    if (normalizedChestType === 'mystery' || normalizedChestType === 'gold' || normalizedChestType === 'silver') {
+      fileName = 'Mystery-coin.png'
+    } else if (normalizedChestType === 'legendary') {
+      fileName = 'Legendary-coin.png'
+    } else {
+      fileName = 'Wood-coin.png'
+    }
+  } else {
+    return undefined
+  }
+  
+  // Tạo URL từ Cloudinary (sau khi upload)
+  // Format: https://res.cloudinary.com/{cloud-name}/image/upload/family-tasks/chests/rewards/{filename}
+  return `https://res.cloudinary.com/${cloudName}/image/upload/family-tasks/chests/rewards/${fileName}`
+}
+
 // Danh sách item mặc định cho các loại rương
 export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
   common: [
-    { id: 'xp_50', type: 'xp', name: 'XP Nhỏ', value: 50, rarity: 'common', description: 'Nhận 50 XP' },
-    { id: 'xp_100', type: 'xp', name: 'XP Vừa', value: 100, rarity: 'common', description: 'Nhận 100 XP' },
-    { id: 'coins_10', type: 'coins', name: 'Coins Nhỏ', value: 10, rarity: 'common', description: 'Nhận 10 Coins' },
-    { id: 'coins_20', type: 'coins', name: 'Coins Vừa', value: 20, rarity: 'common', description: 'Nhận 20 Coins' },
+    { 
+      id: 'xp_50', 
+      type: 'xp', 
+      name: 'XP Nhỏ', 
+      value: 50, 
+      rarity: 'common', 
+      description: 'Nhận 50 XP',
+      image: getRewardImageUrl('xp', 'common', 50)
+    },
+    { 
+      id: 'xp_100', 
+      type: 'xp', 
+      name: 'XP Vừa', 
+      value: 100, 
+      rarity: 'common', 
+      description: 'Nhận 100 XP',
+      image: getRewardImageUrl('xp', 'common', 100)
+    },
+    { 
+      id: 'coins_10', 
+      type: 'coins', 
+      name: 'Coins Nhỏ', 
+      value: 10, 
+      rarity: 'common', 
+      description: 'Nhận 10 Coins',
+      image: getRewardImageUrl('coins', 'common', 10)
+    },
+    { 
+      id: 'coins_20', 
+      type: 'coins', 
+      name: 'Coins Vừa', 
+      value: 20, 
+      rarity: 'common', 
+      description: 'Nhận 20 Coins',
+      image: getRewardImageUrl('coins', 'common', 20)
+    },
   ],
   rare: [
-    { id: 'xp_200', type: 'xp', name: 'XP Lớn', value: 200, rarity: 'rare', description: 'Nhận 200 XP' },
-    { id: 'xp_300', type: 'xp', name: 'XP Rất Lớn', value: 300, rarity: 'rare', description: 'Nhận 300 XP' },
-    { id: 'coins_50', type: 'coins', name: 'Coins Lớn', value: 50, rarity: 'rare', description: 'Nhận 50 Coins' },
-    { id: 'coins_100', type: 'coins', name: 'Coins Rất Lớn', value: 100, rarity: 'rare', description: 'Nhận 100 Coins' },
+    { 
+      id: 'xp_200', 
+      type: 'xp', 
+      name: 'XP Lớn', 
+      value: 200, 
+      rarity: 'rare', 
+      description: 'Nhận 200 XP',
+      image: getRewardImageUrl('xp', 'rare', 200)
+    },
+    { 
+      id: 'xp_300', 
+      type: 'xp', 
+      name: 'XP Rất Lớn', 
+      value: 300, 
+      rarity: 'rare', 
+      description: 'Nhận 300 XP',
+      image: getRewardImageUrl('xp', 'rare', 300)
+    },
+    { 
+      id: 'coins_50', 
+      type: 'coins', 
+      name: 'Coins Lớn', 
+      value: 50, 
+      rarity: 'rare', 
+      description: 'Nhận 50 Coins',
+      image: getRewardImageUrl('coins', 'rare', 50)
+    },
+    { 
+      id: 'coins_100', 
+      type: 'coins', 
+      name: 'Coins Rất Lớn', 
+      value: 100, 
+      rarity: 'rare', 
+      description: 'Nhận 100 Coins',
+      image: getRewardImageUrl('coins', 'rare', 100)
+    },
   ],
   epic: [
-    { id: 'xp_500', type: 'xp', name: 'XP Khổng Lồ', value: 500, rarity: 'epic', description: 'Nhận 500 XP' },
-    { id: 'coins_200', type: 'coins', name: 'Coins Khổng Lồ', value: 200, rarity: 'epic', description: 'Nhận 200 Coins' },
-    { id: 'special_boost', type: 'special', name: 'Tăng Tốc', value: 1, rarity: 'epic', description: 'XP x2 trong 1 ngày' },
+    { 
+      id: 'xp_500', 
+      type: 'xp', 
+      name: 'XP Khổng Lồ', 
+      value: 500, 
+      rarity: 'epic', 
+      description: 'Nhận 500 XP',
+      image: getRewardImageUrl('xp', 'epic', 500)
+    },
+    { 
+      id: 'coins_200', 
+      type: 'coins', 
+      name: 'Coins Khổng Lồ', 
+      value: 200, 
+      rarity: 'epic', 
+      description: 'Nhận 200 Coins',
+      image: getRewardImageUrl('coins', 'epic', 200)
+    },
+    { 
+      id: 'special_boost', 
+      type: 'special', 
+      name: 'Tăng Tốc', 
+      value: 1, 
+      rarity: 'epic', 
+      description: 'XP x2 trong 1 ngày',
+      image: getRewardImageUrl('special', 'epic')
+    },
   ],
   legendary: [
-    { id: 'xp_1000', type: 'xp', name: 'XP Thần Thánh', value: 1000, rarity: 'legendary', description: 'Nhận 1000 XP' },
-    { id: 'coins_500', type: 'coins', name: 'Coins Thần Thánh', value: 500, rarity: 'legendary', description: 'Nhận 500 Coins' },
-    { id: 'special_levelup', type: 'special', name: 'Lên Level Ngay', value: 1, rarity: 'legendary', description: 'Tự động lên 1 level' },
+    { 
+      id: 'xp_1000', 
+      type: 'xp', 
+      name: 'XP Thần Thánh', 
+      value: 1000, 
+      rarity: 'legendary', 
+      description: 'Nhận 1000 XP',
+      image: getRewardImageUrl('xp', 'legendary', 1000)
+    },
+    { 
+      id: 'coins_500', 
+      type: 'coins', 
+      name: 'Coins Thần Thánh', 
+      value: 500, 
+      rarity: 'legendary', 
+      description: 'Nhận 500 Coins',
+      image: getRewardImageUrl('coins', 'legendary', 500)
+    },
+    { 
+      id: 'special_levelup', 
+      type: 'special', 
+      name: 'Lên Level Ngay', 
+      value: 1, 
+      rarity: 'legendary', 
+      description: 'Tự động lên 1 level',
+      image: getRewardImageUrl('special', 'legendary')
+    },
   ],
 }
 
@@ -211,13 +381,30 @@ export const openChest = async (userChestId: string, userId: string): Promise<Ch
     throw new Error('Rương không có item nào')
   }
   
+  // Xác định chest type từ itemPool để điều chỉnh weights phù hợp
+  const hasLegendary = itemPool.some(item => item.rarity === 'legendary')
+  const hasEpic = itemPool.some(item => item.rarity === 'epic')
+  const hasRare = itemPool.some(item => item.rarity === 'rare')
+  const hasCommon = itemPool.some(item => item.rarity === 'common')
+  
+  // Nếu là Legendary chest (chỉ có epic + legendary), ưu tiên legendary items
+  const isLegendaryChest = hasEpic && hasLegendary && !hasCommon && !hasRare
+  
   // Weighted random dựa trên rarity
-  const weights: Record<string, number> = {
-    common: 50,
-    rare: 30,
-    epic: 15,
-    legendary: 5,
-  }
+  // Nếu là Legendary chest, tăng weight cho legendary items
+  const weights: Record<string, number> = isLegendaryChest
+    ? {
+        common: 0,
+        rare: 0,
+        epic: 20,  // Giảm weight của epic
+        legendary: 80, // Tăng weight của legendary lên rất cao
+      }
+    : {
+        common: 50,
+        rare: 30,
+        epic: 15,
+        legendary: 5,
+      }
   
   const weightedItems: ChestItem[] = []
   itemPool.forEach(item => {
@@ -228,7 +415,26 @@ export const openChest = async (userChestId: string, userId: string): Promise<Ch
   })
   
   const randomIndex = Math.floor(Math.random() * weightedItems.length)
-  const receivedItem = weightedItems[randomIndex]
+  const receivedItem = { ...weightedItems[randomIndex] }
+  
+  // Xác định chest type từ itemPool để chọn đúng hình ảnh
+  let chestType = 'wood' // default
+  if (hasCommon && hasRare && hasEpic && hasLegendary) {
+    chestType = 'mystery'
+  } else if (hasEpic && hasLegendary && !hasCommon && !hasRare) {
+    chestType = 'legendary'
+  } else if (hasRare && hasEpic && !hasLegendary) {
+    chestType = 'gold'
+  } else if (hasCommon && hasRare && !hasEpic && !hasLegendary) {
+    chestType = 'silver'
+  } else if (hasCommon && !hasRare && !hasEpic && !hasLegendary) {
+    chestType = 'wood'
+  }
+  
+  // Thêm image URL vào receivedItem dựa trên chest type và item type
+  if (!receivedItem.image) {
+    receivedItem.image = getRewardImageUrl(chestType, receivedItem.type)
+  }
   
   // Cập nhật user chest
   await updateDoc(userChestRef, {
@@ -267,17 +473,53 @@ export const openChest = async (userChestId: string, userId: string): Promise<Ch
 }
 
 /**
- * Lấy tất cả rương của user
+ * Lấy tất cả rương của user (tự động xóa rương đã mở quá 7 ngày)
  */
 export const getUserChests = async (userId: string): Promise<UserChest[]> => {
   const userChestsRef = collection(checkDb(), 'userChests')
   const q = query(userChestsRef, where('userId', '==', userId))
   const snapshot = await getDocs(q)
   
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as UserChest[]
+  const now = Timestamp.now()
+  const sevenDaysAgo = Timestamp.fromMillis(now.toMillis() - 7 * 24 * 60 * 60 * 1000)
+  
+  const userChests: UserChest[] = []
+  const chestsToDelete: string[] = []
+  
+  snapshot.docs.forEach(docSnap => {
+    const data = docSnap.data() as UserChest
+    const userChest = {
+      id: docSnap.id,
+      ...data,
+    } as UserChest
+    
+    // Nếu rương đã mở và đã quá 7 ngày, đánh dấu để xóa
+    if (userChest.opened && userChest.openedAt) {
+      const openedAt = userChest.openedAt as Timestamp
+      if (openedAt.toMillis() < sevenDaysAgo.toMillis()) {
+        chestsToDelete.push(docSnap.id)
+        return // Không thêm vào danh sách trả về
+      }
+    }
+    
+    userChests.push(userChest)
+  })
+  
+  // Xóa các rương cũ (async, không đợi)
+  if (chestsToDelete.length > 0) {
+    Promise.all(
+      chestsToDelete.map(chestId => {
+        const chestRef = doc(checkDb(), 'userChests', chestId)
+        return deleteDoc(chestRef).catch(err => {
+          console.error(`Error deleting old chest ${chestId}:`, err)
+        })
+      })
+    ).catch(err => {
+      console.error('Error deleting old chests:', err)
+    })
+  }
+  
+  return userChests
 }
 
 /**

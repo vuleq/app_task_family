@@ -15,6 +15,10 @@ export interface CloudinaryUploadResponse {
   width: number
   height: number
   format: string
+  eager?: Array<{
+    secure_url: string
+    format: string
+  }>
 }
 
 /**
@@ -43,11 +47,17 @@ export const uploadImageToCloudinary = async (
     throw new Error('Ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn 10MB')
   }
 
-  // Tạo FormData
+  // Tạo FormData với optimization parameters
   const formData = new FormData()
   formData.append('file', file)
   formData.append('upload_preset', uploadPreset)
   formData.append('folder', folder)
+  
+  // Tự động optimize ảnh: compress, convert WebP, quality tốt
+  // Eager transformation: tạo version đã optimize ngay khi upload
+  formData.append('eager', 'f_auto,q_auto:good')
+  // f_auto: tự động chọn format tốt nhất (WebP nếu browser hỗ trợ)
+  // q_auto:good: tự động điều chỉnh quality để cân bằng chất lượng và dung lượng (thường ~80%)
 
   try {
     // Upload lên Cloudinary
@@ -79,10 +89,114 @@ export const uploadImageToCloudinary = async (
     }
 
     const data: CloudinaryUploadResponse = await response.json()
-    return data.secure_url
+    
+    // Nếu có eager transformation (version đã optimize), dùng nó
+    // Nếu không, dùng secure_url và thêm transformation vào URL
+    if (data.eager && data.eager.length > 0) {
+      return data.eager[0].secure_url
+    }
+    
+    // Fallback: thêm transformation vào URL để tự động optimize khi load
+    // f_auto: tự động chọn format tốt nhất (WebP nếu browser hỗ trợ)
+    // q_auto:good: tự động điều chỉnh quality (~80%)
+    return data.secure_url.replace('/upload/', '/upload/f_auto,q_auto:good/')
   } catch (error: any) {
     console.error('Cloudinary upload error:', error)
     throw new Error(error.message || 'Lỗi khi upload ảnh')
+  }
+}
+
+/**
+ * Upload video lên Cloudinary
+ * @param file - File video cần upload
+ * @param folder - Thư mục lưu trữ (mặc định: 'family-tasks')
+ * @returns URL của video đã upload
+ */
+export const uploadVideoToCloudinary = async (
+  file: File,
+  folder: string = 'family-tasks'
+): Promise<string> => {
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+
+  if (!cloudName || !uploadPreset) {
+    throw new Error(
+      'Cloudinary chưa được cấu hình. Vui lòng thêm NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME và NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET vào .env.local'
+    )
+  }
+
+  // Kiểm tra kích thước file (giới hạn 50MB cho video)
+  const maxSize = 50 * 1024 * 1024 // 50MB
+  if (file.size > maxSize) {
+    throw new Error('Video quá lớn. Vui lòng chọn video nhỏ hơn 50MB')
+  }
+
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('upload_preset', uploadPreset)
+  formData.append('folder', folder)
+  formData.append('resource_type', 'video') // Quan trọng: chỉ định đây là video
+  
+  // Optimize video: compress, quality tốt
+  formData.append('eager', 'q_auto:good')
+  // q_auto:good: tự động điều chỉnh quality video
+
+  try {
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`,
+      {
+        method: 'POST',
+        body: formData,
+      }
+    )
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error?.message || 'Lỗi khi upload video lên Cloudinary')
+    }
+
+    const data: CloudinaryUploadResponse = await response.json()
+    
+    // Nếu có eager transformation (version đã optimize), dùng nó
+    if (data.eager && data.eager.length > 0) {
+      return data.eager[0].secure_url
+    }
+    
+    // Fallback: thêm transformation vào URL
+    return data.secure_url.replace('/upload/', '/upload/q_auto:good/')
+  } catch (error: any) {
+    console.error('Cloudinary video upload error:', error)
+    throw new Error(error.message || 'Lỗi khi upload video')
+  }
+}
+
+/**
+ * Upload ảnh/video cho chest (rương)
+ * @param file - File ảnh hoặc video
+ * @param chestId - ID của rương
+ * @param type - Loại file: 'closed' (ảnh rương đóng), 'opening' (animation/video khi mở), 'item' (ảnh item)
+ * @param itemId - ID của item (chỉ cần khi type = 'item')
+ * @returns URL của file đã upload
+ */
+export const uploadChestMedia = async (
+  file: File,
+  chestId: string,
+  type: 'closed' | 'opening' | 'item',
+  itemId?: string
+): Promise<string> => {
+  // Xác định folder dựa trên type
+  let folder = `family-tasks/chests/${chestId}`
+  if (type === 'item' && itemId) {
+    folder = `family-tasks/chests/${chestId}/items`
+  }
+
+  // Kiểm tra xem là video hay image
+  const isVideo = file.type.startsWith('video/')
+  
+  if (isVideo) {
+    return await uploadVideoToCloudinary(file, folder)
+  } else {
+    return await uploadImageToCloudinary(file, folder)
   }
 }
 

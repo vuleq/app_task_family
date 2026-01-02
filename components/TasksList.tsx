@@ -12,6 +12,8 @@ import {
   createTaskFromTemplate,
   createRecurringDailyTasks,
   checkAndUpdateParentTask,
+  deleteTask,
+  deleteMultipleTasks,
   TaskTemplate 
 } from '@/lib/firebase/tasks'
 import CreateDefaultTemplates from './CreateDefaultTemplates'
@@ -102,6 +104,20 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         setLoading(false)
         return
       }
+      
+      // Auto-delete old completed tasks (chỉ root, chạy ngầm)
+      if (profile.isRoot) {
+        try {
+          const { autoDeleteOldCompletedTasks } = await import('@/lib/firebase/tasks')
+          const deletedCount = await autoDeleteOldCompletedTasks()
+          if (deletedCount > 0) {
+            console.log(`Auto-deleted ${deletedCount} old completed tasks`)
+          }
+        } catch (error) {
+          console.error('Error auto-deleting old tasks:', error)
+        }
+      }
+      
       const tasksRef = collection(db, 'tasks')
       const q = query(tasksRef)
       const snapshot = await getDocs(q)
@@ -462,12 +478,55 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         setToast({ show: true, message: 'Firestore chưa được khởi tạo', type: 'error' })
         return
       }
-      await deleteDoc(doc(db, 'tasks', taskId))
+      
+      // Sử dụng hàm deleteTask từ tasks.ts với kiểm tra quyền
+      await deleteTask(taskId, currentUser.uid, profile.isRoot || false)
       loadTasks()
       setToast({ show: true, message: t('tasks.taskDeleted'), type: 'success' })
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting task:', error)
-      setToast({ show: true, message: t('tasks.taskDeleteError'), type: 'error' })
+      setToast({ 
+        show: true, 
+        message: error.message || t('tasks.taskDeleteError'), 
+        type: 'error' 
+      })
+    }
+  }
+  
+  // Xóa nhiều tasks cùng lúc (chỉ root)
+  const handleDeleteMultipleTasks = async (taskIds: string[]) => {
+    if (!profile.isRoot) {
+      setToast({ 
+        show: true, 
+        message: language === 'vi' ? 'Chỉ root user mới có quyền xóa nhiều tasks' : 'Only root user can delete multiple tasks', 
+        type: 'error' 
+      })
+      return
+    }
+    
+    if (!confirm(language === 'vi' 
+      ? `Bạn có chắc muốn xóa ${taskIds.length} nhiệm vụ?`
+      : `Are you sure you want to delete ${taskIds.length} tasks?`)) {
+      return
+    }
+    
+    try {
+      await deleteMultipleTasks(taskIds, currentUser.uid, profile.isRoot)
+      loadTasks()
+      setToast({ 
+        show: true, 
+        message: language === 'vi' 
+          ? `✅ Đã xóa ${taskIds.length} nhiệm vụ!` 
+          : `✅ Deleted ${taskIds.length} tasks!`, 
+        type: 'success' 
+      })
+    } catch (error: any) {
+      console.error('Error deleting multiple tasks:', error)
+      setToast({ 
+        show: true, 
+        message: error.message || (language === 'vi' ? 'Lỗi khi xóa nhiều tasks' : 'Error deleting multiple tasks'), 
+        type: 'error' 
+      })
     }
   }
 
@@ -938,7 +997,8 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                         {t('tasks.completeTask')}
                       </button>
                     )}
-                    {task.createdBy === currentUser.uid && (
+                    {/* Cho phép root user hoặc user tạo task xóa task */}
+                    {(profile.isRoot || task.createdBy === currentUser.uid) && (
                       <button
                         onClick={() => handleDeleteTask(task.id)}
                         className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"

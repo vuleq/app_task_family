@@ -6,6 +6,7 @@ import {
   serverTimestamp,
   collection,
   getDocs,
+  deleteField,
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from './config'
@@ -17,7 +18,10 @@ export interface UserProfile {
   email: string
   avatar?: string
   image?: string
-  characterAvatar?: number // Số avatar được chọn (1-7), mặc định random dựa trên user ID
+  characterBase?: 'nam1' | 'nam2' | 'nu1' | 'nu2' // Avatar cơ bản ban đầu: nam1, nam2, nu1, nu2
+  characterAvatar?: number // Số avatar được chọn (1-7) - DEPRECATED, dùng characterBase thay thế
+  gender?: 'nam' | 'nu' // Giới tính: nam hoặc nu (tự động từ characterBase)
+  profession?: 'bs' | 'ch' | 'cs' | string // Nghề nghiệp: bs (bác sĩ), ch (cứu hỏa), cs (cảnh sát), etc.
   xp: number
   coins: number
   role: 'parent' | 'child'
@@ -106,6 +110,37 @@ export const updateProfile = async (
   const profileRef = doc(checkDb(), 'users', userId)
   await updateDoc(profileRef, {
     ...updates,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+/**
+ * Reset XP về 0 và xóa profession để user có thể chọn lại nghề khi lên lại level 5
+ */
+export const resetXPAndProfession = async (userId: string): Promise<void> => {
+  const profileRef = doc(checkDb(), 'users', userId)
+  await updateDoc(profileRef, {
+    xp: 0,
+    profession: deleteField(), // Xóa profession khỏi database
+    updatedAt: serverTimestamp(),
+  })
+}
+
+/**
+ * Root user reset XP và coin của user khác
+ */
+export const resetUserXPAndCoins = async (targetUserId: string, resetterUserId: string): Promise<void> => {
+  // Kiểm tra quyền root
+  const resetterProfile = await getProfile(resetterUserId)
+  if (!resetterProfile || !resetterProfile.isRoot) {
+    throw new Error('Chỉ root user mới có quyền reset XP và coin của user khác')
+  }
+  
+  const profileRef = doc(checkDb(), 'users', targetUserId)
+  await updateDoc(profileRef, {
+    xp: 0,
+    coins: 0,
+    profession: deleteField(), // Xóa profession khi reset
     updatedAt: serverTimestamp(),
   })
 }

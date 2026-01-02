@@ -102,29 +102,72 @@ export const getAssetPath = (level: number, type: 'outfit' | 'bg' | 'pet' | 'cha
 }
 
 /**
- * Lấy tất cả asset paths cho một level
+ * Lấy tất cả asset paths cho một level với naming convention mới
  * @param level - Level hiện tại
- * @param characterAvatar - Số avatar (1-7), nếu không có sẽ dùng avatar1
+ * @param characterBase - Avatar cơ bản ban đầu: 'nam1', 'nam2', 'nu1', 'nu2'
+ * @param gender - Giới tính: 'nam' hoặc 'nu' (tự động từ characterBase nếu không có)
+ * @param profession - Nghề nghiệp: 'bs', 'ch', 'cs', etc.
  */
-export const getCharacterAssets = (level: number, characterAvatar?: number): {
+export const getCharacterAssets = (
+  level: number, 
+  characterBase?: 'nam1' | 'nam2' | 'nu1' | 'nu2',
+  gender?: 'nam' | 'nu',
+  profession?: string
+): {
   outfit: string | null
   background: string | null
   pet: string | null
   character: string | null
   base: string | null
-  face: string | null // Thêm face layer (mặt từ avatar1-7)
+  face: string | null
 } => {
-  // Lấy avatar number (1-7), mặc định là 1
-  const avatarNum = characterAvatar && characterAvatar >= 1 && characterAvatar <= 7 
-    ? characterAvatar 
-    : 1
+  // Tự động suy ra gender từ characterBase nếu chưa có
+  let finalGender = gender
+  if (!finalGender && characterBase) {
+    if (characterBase.startsWith('nam')) {
+      finalGender = 'nam'
+    } else if (characterBase.startsWith('nu')) {
+      finalGender = 'nu'
+    }
+  }
   
+  // Level 1-4: Luôn dùng file cơ bản (chưa được chọn nghề)
+  // Level >= 5: Nếu đã chọn profession thì dùng file theo nghề, nếu chưa thì dùng file cơ bản
+  if (level >= 5 && finalGender && profession) {
+    // Level 5+: Đã chọn nghề → dùng file theo nghề
+    const assetLevel = getAssetLevel(level)
+    const characterPath = `/pic-avatar/${finalGender}_${profession}_level${assetLevel}.png`
+    
+    return {
+      outfit: null,
+      background: null,
+      pet: null,
+      base: null,
+      face: null,
+      character: characterPath, // File chính: nam_bs_level5.png, nu_ch_level10.png, etc.
+    }
+  }
+  
+  // Level 1-4 hoặc Level >= 5 nhưng chưa chọn nghề: dùng file avatar cơ bản
+  // Format: nam1.png, nam2.png, nu1.png, nu2.png
+  if (characterBase) {
+    return {
+      outfit: null,
+      background: null,
+      pet: null,
+      base: null,
+      face: null,
+      character: `/pic-avatar/${characterBase}.png`, // File cơ bản: nam1.png, nu1.png, etc.
+    }
+  }
+  
+  // Fallback: dùng naming convention cũ (backward compatible)
   return {
     outfit: getAssetPath(level, 'outfit'),
     background: getAssetPath(level, 'bg'),
     pet: getAssetPath(level, 'pet'),
-    base: '/pic-avatar/avatarbase.png', // Body base chung cho tất cả
-    face: `/pic-avatar/avatar${avatarNum}.png`, // Mặt từ avatar1-7
-    character: `/pic-avatar/avatar${avatarNum}.png`, // Fallback: dùng avatar đầy đủ nếu không có base
+    base: '/pic-avatar/avatarbase.png',
+    face: '/pic-avatar/avatar1.png',
+    character: '/pic-avatar/avatar1.png',
   }
 }

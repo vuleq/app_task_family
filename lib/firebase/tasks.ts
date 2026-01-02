@@ -266,3 +266,100 @@ export const checkAndUpdateParentTask = async (
   }
 }
 
+/**
+ * Xóa task (chỉ root user hoặc user tạo task mới có quyền)
+ */
+export const deleteTask = async (taskId: string, userId: string, isRoot: boolean = false): Promise<void> => {
+  if (!db) throw new Error('Firestore not initialized')
+  
+  const taskRef = doc(checkDb(), 'tasks', taskId)
+  const taskSnap = await getDoc(taskRef)
+  
+  if (!taskSnap.exists()) {
+    throw new Error('Task không tồn tại')
+  }
+  
+  const task = taskSnap.data() as Task
+  
+  // Kiểm tra quyền: chỉ root hoặc user tạo task mới có quyền xóa
+  if (!isRoot && task.createdBy !== userId) {
+    throw new Error('Bạn không có quyền xóa task này')
+  }
+  
+  // Nếu là parent task, cần xóa tất cả child tasks
+  if (!task.parentTaskId && task.groupKey) {
+    // Tìm tất cả tasks có cùng groupKey
+    const tasksRef = collection(checkDb(), 'tasks')
+    const groupQuery = query(tasksRef, where('groupKey', '==', task.groupKey))
+    const groupSnapshot = await getDocs(groupQuery)
+    
+    // Xóa tất cả tasks trong group
+    const deletePromises = groupSnapshot.docs.map(docSnap => deleteDoc(docSnap.ref))
+    await Promise.all(deletePromises)
+  } else {
+    // Xóa task đơn lẻ
+    await deleteDoc(taskRef)
+  }
+}
+
+/**
+ * Xóa nhiều tasks cùng lúc (chỉ root user)
+ */
+export const deleteMultipleTasks = async (taskIds: string[], userId: string, isRoot: boolean = false): Promise<void> => {
+  if (!isRoot) {
+    throw new Error('Chỉ root user mới có quyền xóa nhiều tasks cùng lúc')
+  }
+  
+  if (!db) throw new Error('Firestore not initialized')
+  
+  const deletePromises = taskIds.map(taskId => {
+    const taskRef = doc(checkDb(), 'tasks', taskId)
+    return deleteDoc(taskRef).catch(err => {
+      console.error(`Error deleting task ${taskId}:`, err)
+      // Không throw để tiếp tục xóa các task khác
+    })
+  })
+  
+  await Promise.all(deletePromises)
+}
+
+/**
+ * Tự động xóa các task đã hoàn thành quá 30 ngày
+ */
+export const autoDeleteOldCompletedTasks = async (): Promise<number> => {
+  if (!db) return 0
+  
+  const tasksRef = collection(checkDb(), 'tasks')
+  const now = Timestamp.now()
+  const thirtyDaysAgo = Timestamp.fromMillis(now.toMillis() - 30 * 24 * 60 * 60 * 1000)
+  
+  // Lấy tất cả tasks đã hoàn thành hoặc approved
+  const completedQuery = query(
+    tasksRef,
+    where('status', 'in', ['completed', 'approved'])
+  )
+  const snapshot = await getDocs(completedQuery)
+  
+  let deletedCount = 0
+  const deletePromises: Promise<void>[] = []
+  
+  snapshot.docs.forEach(docSnap => {
+    const task = docSnap.data() as Task
+    const completedAt = task.completedAt as Timestamp | undefined
+    
+    // Nếu task đã hoàn thành quá 30 ngày, đánh dấu để xóa
+    if (completedAt && completedAt.toMillis() < thirtyDaysAgo.toMillis()) {
+      deletePromises.push(
+        deleteDoc(docSnap.ref).then(() => {
+          deletedCount++
+        }).catch(err => {
+          console.error(`Error deleting old task ${docSnap.id}:`, err)
+        })
+      )
+    }
+  })
+  
+  await Promise.all(deletePromises)
+  return deletedCount
+}
+

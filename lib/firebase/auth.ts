@@ -55,7 +55,8 @@ export const getCurrentUser = (): Promise<User | null> => {
 export const onAuthStateChangedSafe = (callback: (user: User | null) => void) => {
   if (!auth) {
     console.warn('Firebase Auth is not initialized')
-    callback(null)
+    // Gọi callback ngay lập tức với null để app không bị stuck ở loading
+    setTimeout(() => callback(null), 0)
     return () => {}
   }
   return onAuthStateChanged(auth, callback)

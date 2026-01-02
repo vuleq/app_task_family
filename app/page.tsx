@@ -25,6 +25,12 @@ export default function Home() {
   const router = useRouter()
 
   useEffect(() => {
+    // Timeout để tránh stuck ở loading quá lâu (10 giây)
+    const timeoutId = setTimeout(() => {
+      console.warn('Loading timeout - forcing loading to false')
+      setLoading(false)
+    }, 10000)
+
     const unsubscribe = onAuthStateChangedSafe(async (user) => {
       if (user) {
         try {
@@ -61,16 +67,21 @@ export default function Home() {
           setError(t('errors.cannotLoadUser'))
         } finally {
           setLoading(false)
+          clearTimeout(timeoutId)
         }
       } else {
         setUser(null)
         setProfile(null)
         setError(null)
         setLoading(false)
+        clearTimeout(timeoutId)
       }
     })
 
-    return () => unsubscribe()
+    return () => {
+      unsubscribe()
+      clearTimeout(timeoutId)
+    }
   }, [])
 
   if (loading) {

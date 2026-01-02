@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { UserProfile, updateProfile } from '@/lib/firebase/profile'
+import { useState, useRef, useEffect } from 'react'
+import { UserProfile, updateProfile, resetXPAndProfession, getAllUsers, resetUserXPAndCoins } from '@/lib/firebase/profile'
 import { logout } from '@/lib/firebase/auth'
 import { useRouter } from 'next/navigation'
 import { uploadImageToCloudinary } from '@/lib/cloudinary'
@@ -16,7 +16,7 @@ interface ProfilePageProps {
 }
 
 export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
-  const { t } = useI18n()
+  const { t, language } = useI18n()
   const [name, setName] = useState(profile.name)
   const [avatar, setAvatar] = useState(profile.avatar || '')
   const [image, setImage] = useState(profile.image || '')
@@ -200,57 +200,62 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
             />
           </div>
 
-          {/* Character Avatar Selection - Ẩn nếu đã chọn nhân vật */}
-          {!profile.characterAvatar && (
+          {/* Character Base Selection - Ẩn nếu đã chọn nhân vật */}
+          {!profile.characterBase && (
           <div className="border-t border-gray-200 pt-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               {t('profile.selectCharacter')}
             </label>
             <div className="grid grid-cols-4 gap-2 mb-4">
-              {[1, 2, 3, 4, 5, 6, 7].map((num) => {
+              {(['nam1', 'nam2', 'nu1', 'nu2'] as const).map((base) => {
                 const currentLevel = calculateLevel(profile.xp)
-                const previewAssets = getCharacterAssets(currentLevel, num)
+                const previewAssets = getCharacterAssets(
+                  currentLevel, 
+                  base,
+                  profile.gender, 
+                  profile.profession
+                )
+                const genderLabel = base.startsWith('nam') ? 'Nam' : 'Nữ'
+                const numLabel = base.endsWith('1') ? '1' : '2'
+                
                 return (
                   <button
-                    key={num}
+                    key={base}
                     onClick={async () => {
                       try {
-                        await updateProfile(profile.id, { characterAvatar: num })
-                        onUpdate({ ...profile, characterAvatar: num })
-                        setToast({ show: true, message: `Đã chọn nhân vật ${num}!`, type: 'success' })
+                        // Tự động set gender từ characterBase
+                        const gender = base.startsWith('nam') ? 'nam' : 'nu'
+                        await updateProfile(profile.id, { 
+                          characterBase: base,
+                          gender: gender
+                        })
+                        onUpdate({ ...profile, characterBase: base, gender: gender })
+                        setToast({ show: true, message: `Đã chọn ${genderLabel} ${numLabel}!`, type: 'success' })
                       } catch (error) {
-                        console.error('Error updating character avatar:', error)
+                        console.error('Error updating character base:', error)
                         setToast({ show: true, message: 'Lỗi khi cập nhật nhân vật', type: 'error' })
                       }
                     }}
                     className={`relative w-full aspect-square rounded-lg overflow-hidden border-2 ${
-                      profile.characterAvatar === num
+                      profile.characterBase === base
                         ? 'border-purple-600 ring-2 ring-purple-300'
                         : 'border-gray-300 hover:border-purple-400'
                     }`}
-                    title={`Nhân vật ${num}`}
+                    title={`${genderLabel} ${numLabel}`}
                   >
-                    {/* Preview với background */}
-                    {previewAssets.background && (
-                      <img
-                        src={previewAssets.background}
-                        alt="BG"
-                        className="absolute inset-0 w-full h-full object-cover opacity-30"
-                      />
-                    )}
                     <img
-                      src={`/pic-avatar/avatar${num}.png`}
-                      alt={`Avatar ${num}`}
+                      src={previewAssets.character || `/pic-avatar/${base}.png`}
+                      alt={`${genderLabel} ${numLabel}`}
                       className="relative w-full h-full object-contain z-10"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none'
                         const parent = (e.target as HTMLImageElement).parentElement
                         if (parent) {
-                          parent.innerHTML = `<div class="w-full h-full flex items-center justify-center text-gray-400 text-xs">${num}</div>`
+                          parent.innerHTML = `<div class="w-full h-full flex items-center justify-center text-gray-400 text-xs">${genderLabel} ${numLabel}</div>`
                         }
                       }}
                     />
-                    {profile.characterAvatar === num && (
+                    {profile.characterBase === base && (
                       <div className="absolute top-1 right-1 bg-purple-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs z-30">
                         ✓
                       </div>
@@ -267,6 +272,89 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
             <h3 className="text-lg font-semibold text-gray-800 mb-4">{t('profile.character')}</h3>
             <CharacterDisplay profile={profile} size="medium" showLevelInfo={true} />
           </div>
+
+          {/* Profession Selection - Chỉ hiển thị khi level >= 5 */}
+          {currentLevel >= 5 && (
+            <div className="border-t border-gray-200 pt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {language === 'vi' ? '🎓 Chọn Nghề Nghiệp' : '🎓 Choose Profession'}
+                {!profile.profession && (
+                  <span className="ml-2 text-xs text-orange-600">
+                    {language === 'vi' ? '(Chưa chọn)' : '(Not selected)'}
+                  </span>
+                )}
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { code: 'bs', name: language === 'vi' ? '👨‍⚕️ Bác Sĩ' : '👨‍⚕️ Doctor', nameEn: 'Doctor' },
+                  { code: 'ch', name: language === 'vi' ? '🚒 Cứu Hỏa' : '🚒 Firefighter', nameEn: 'Firefighter' },
+                  { code: 'cs', name: language === 'vi' ? '👮 Cảnh Sát' : '👮 Police', nameEn: 'Police' },
+                ].map((prof) => (
+                  <button
+                    key={prof.code}
+                    onClick={async () => {
+                      // Nếu đã chọn nghề rồi, không cho thay đổi
+                      if (profile.profession) {
+                        setToast({ 
+                          show: true, 
+                          message: language === 'vi' 
+                            ? '⚠️ Bạn đã chọn nghề rồi, không thể thay đổi!' 
+                            : '⚠️ You have already chosen a profession, cannot change!', 
+                          type: 'error' 
+                        })
+                        return
+                      }
+                      
+                      try {
+                        await updateProfile(profile.id, { profession: prof.code })
+                        onUpdate({ ...profile, profession: prof.code })
+                        setToast({ 
+                          show: true, 
+                          message: language === 'vi' 
+                            ? `✅ Đã chọn nghề: ${prof.name}! (Không thể thay đổi)` 
+                            : `✅ Selected profession: ${prof.nameEn}! (Cannot change)`, 
+                          type: 'success' 
+                        })
+                      } catch (error) {
+                        console.error('Error updating profession:', error)
+                        setToast({ 
+                          show: true, 
+                          message: language === 'vi' ? 'Lỗi khi cập nhật nghề nghiệp' : 'Error updating profession', 
+                          type: 'error' 
+                        })
+                      }
+                    }}
+                    disabled={!!profile.profession}
+                    className={`relative px-4 py-3 rounded-lg border-2 transition-all ${
+                      profile.profession === prof.code
+                        ? 'border-purple-600 bg-purple-50 ring-2 ring-purple-300'
+                        : profile.profession
+                        ? 'border-gray-200 bg-gray-100 opacity-50 cursor-not-allowed'
+                        : 'border-gray-300 hover:border-purple-400 bg-white'
+                    }`}
+                    title={profile.profession ? (language === 'vi' ? 'Đã chọn nghề, không thể thay đổi' : 'Profession already chosen, cannot change') : prof.name}
+                  >
+                    <div className="text-center">
+                      <div className="text-2xl mb-1">{prof.name.split(' ')[0]}</div>
+                      <div className="text-sm font-medium text-gray-700">{prof.name.split(' ').slice(1).join(' ')}</div>
+                    </div>
+                    {profile.profession === prof.code && (
+                      <div className="absolute top-1 right-1 bg-purple-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                        ✓
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+              {currentLevel >= 5 && !profile.profession && (
+                <p className="mt-2 text-xs text-gray-500">
+                  {language === 'vi' 
+                    ? '💡 Bạn đã đạt Level 5! Hãy chọn nghề nghiệp để nhân vật có trang phục đặc biệt.'
+                    : '💡 You reached Level 5! Choose a profession to unlock special outfits.'}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Stats */}
           <div className="grid grid-cols-2 gap-4">
@@ -329,12 +417,20 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
               <button
                 onClick={async () => {
                   // Reset XP trực tiếp không cần confirm
+                  // Khi reset XP về 0, cũng xóa profession để user có thể chọn lại nghề khi lên lại level 5
                   setTestingLevel(true)
                   try {
-                    await updateProfile(profile.id, { xp: 0 })
-                    const updatedProfile = { ...profile, xp: 0 }
+                    await resetXPAndProfession(profile.id)
+                    
+                    const updatedProfile = { ...profile, xp: 0, profession: undefined }
                     onUpdate(updatedProfile)
-                    setToast({ show: true, message: '✅ Đã reset XP về 0! Level mới: 1', type: 'success' })
+                    setToast({ 
+                      show: true, 
+                      message: language === 'vi' 
+                        ? '✅ Đã reset XP về 0! Level mới: 1. Nghề nghiệp đã được xóa, bạn có thể chọn lại khi lên Level 5.' 
+                        : '✅ Reset XP to 0! New level: 1. Profession cleared, you can choose again at Level 5.', 
+                      type: 'success' 
+                    })
                   } catch (error) {
                     console.error('Error resetting XP:', error)
                     setToast({ show: true, message: 'Lỗi khi reset XP', type: 'error' })
@@ -348,23 +444,91 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
                 {testingLevel ? 'Đang reset...' : '🔄 Reset XP về 0'}
               </button>
             </div>
+            <div className="mt-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">💰 Test Coins</h4>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={async () => {
+                    setTestingLevel(true)
+                    try {
+                      const newCoins = profile.coins + 100
+                      await updateProfile(profile.id, { coins: newCoins })
+                      const updatedProfile = { ...profile, coins: newCoins }
+                      onUpdate(updatedProfile)
+                      setToast({ show: true, message: `✅ Đã thêm 100 Coins! Tổng: ${newCoins} Coins`, type: 'success' })
+                    } catch (error) {
+                      console.error('Error updating coins:', error)
+                      setToast({ show: true, message: 'Lỗi khi thêm Coins', type: 'error' })
+                    } finally {
+                      setTestingLevel(false)
+                    }
+                  }}
+                  disabled={testingLevel}
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm hover:bg-yellow-700 disabled:opacity-50"
+                >
+                  {testingLevel ? 'Đang thêm...' : '+100 Coins'}
+                </button>
+                <button
+                  onClick={async () => {
+                    setTestingLevel(true)
+                    try {
+                      const newCoins = profile.coins + 500
+                      await updateProfile(profile.id, { coins: newCoins })
+                      const updatedProfile = { ...profile, coins: newCoins }
+                      onUpdate(updatedProfile)
+                      setToast({ show: true, message: `✅ Đã thêm 500 Coins! Tổng: ${newCoins} Coins`, type: 'success' })
+                    } catch (error) {
+                      console.error('Error updating coins:', error)
+                      setToast({ show: true, message: 'Lỗi khi thêm Coins', type: 'error' })
+                    } finally {
+                      setTestingLevel(false)
+                    }
+                  }}
+                  disabled={testingLevel}
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm hover:bg-yellow-700 disabled:opacity-50"
+                >
+                  {testingLevel ? 'Đang thêm...' : '+500 Coins'}
+                </button>
+                <button
+                  onClick={async () => {
+                    setTestingLevel(true)
+                    try {
+                      const newCoins = profile.coins + 1000
+                      await updateProfile(profile.id, { coins: newCoins })
+                      const updatedProfile = { ...profile, coins: newCoins }
+                      onUpdate(updatedProfile)
+                      setToast({ show: true, message: `✅ Đã thêm 1000 Coins! Tổng: ${newCoins} Coins`, type: 'success' })
+                    } catch (error) {
+                      console.error('Error updating coins:', error)
+                      setToast({ show: true, message: 'Lỗi khi thêm Coins', type: 'error' })
+                    } finally {
+                      setTestingLevel(false)
+                    }
+                  }}
+                  disabled={testingLevel}
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm hover:bg-yellow-700 disabled:opacity-50"
+                >
+                  {testingLevel ? 'Đang thêm...' : '+1000 Coins'}
+                </button>
+              </div>
+            </div>
             <p className="text-xs text-gray-500 mt-2">
               Level hiện tại: <span className="font-bold">{currentLevel}</span>
             </p>
           </div>
 
-          {/* Root Management - Chỉ root mới có thể set root cho user khác */}
+          {/* Root Management - Quản lý users */}
           {profile.isRoot && (
             <div className="border-t border-gray-200 pt-6 mb-6">
               <h4 className="text-sm font-medium text-gray-700 mb-3">{t('profile.rootManagement')}</h4>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
                 <p className="text-sm text-gray-700 mb-2">
                   <strong>{t('profile.rootStatus')}:</strong> {t('profile.rootStatusYes')}
                 </p>
-                <p className="text-xs text-gray-600">
-                  {t('profile.rootInstructions')}
-                </p>
               </div>
+              
+              {/* User Management Section */}
+              <UserManagementSection currentUserId={profile.id} />
             </div>
           )}
 
@@ -386,6 +550,131 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// Component quản lý users cho root
+function UserManagementSection({ currentUserId }: { currentUserId: string }) {
+  const { t, language } = useI18n()
+  const [users, setUsers] = useState<UserProfile[]>([])
+  const [loading, setLoading] = useState(false)
+  const [resetting, setResetting] = useState<string | null>(null)
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
+
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  const loadUsers = async () => {
+    setLoading(true)
+    try {
+      const allUsers = await getAllUsers()
+      setUsers(allUsers)
+    } catch (error) {
+      console.error('Error loading users:', error)
+      setToast({ show: true, message: language === 'vi' ? 'Lỗi khi tải danh sách users' : 'Error loading users', type: 'error' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResetUser = async (targetUserId: string, userName: string) => {
+    if (!confirm(language === 'vi' 
+      ? `Bạn có chắc muốn reset XP và Coin của "${userName}" về 0?`
+      : `Are you sure you want to reset XP and Coins of "${userName}" to 0?`)) {
+      return
+    }
+
+    setResetting(targetUserId)
+    try {
+      await resetUserXPAndCoins(targetUserId, currentUserId)
+      setToast({ 
+        show: true, 
+        message: language === 'vi' 
+          ? `✅ Đã reset XP và Coin của "${userName}" về 0!` 
+          : `✅ Reset XP and Coins of "${userName}" to 0!`, 
+        type: 'success' 
+      })
+      // Reload users để cập nhật
+      await loadUsers()
+    } catch (error: any) {
+      console.error('Error resetting user:', error)
+      setToast({ 
+        show: true, 
+        message: error.message || (language === 'vi' ? 'Lỗi khi reset user' : 'Error resetting user'), 
+        type: 'error' 
+      })
+    } finally {
+      setResetting(null)
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-3">
+        <h5 className="text-sm font-semibold text-gray-700">
+          {language === 'vi' ? '👥 Quản lý Users' : '👥 User Management'}
+        </h5>
+        <button
+          onClick={loadUsers}
+          disabled={loading}
+          className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+        >
+          {loading ? (language === 'vi' ? 'Đang tải...' : 'Loading...') : '🔄 Refresh'}
+        </button>
+      </div>
+      
+      {loading && users.length === 0 ? (
+        <div className="text-center py-4 text-gray-500">
+          {language === 'vi' ? 'Đang tải...' : 'Loading...'}
+        </div>
+      ) : users.length === 0 ? (
+        <div className="text-center py-4 text-gray-500">
+          {language === 'vi' ? 'Không có users nào' : 'No users found'}
+        </div>
+      ) : (
+        <div className="max-h-96 overflow-y-auto space-y-2">
+          {users.map(user => (
+            <div
+              key={user.id}
+              className="bg-white border border-gray-200 rounded-lg p-3 flex justify-between items-center"
+            >
+              <div className="flex-1">
+                <p className="font-medium text-gray-800">{user.name}</p>
+                <p className="text-xs text-gray-500">{user.email}</p>
+                <div className="flex gap-4 mt-1 text-xs">
+                  <span className="text-blue-600">XP: {user.xp}</span>
+                  <span className="text-yellow-600">Coins: {user.coins}</span>
+                  {user.isRoot && (
+                    <span className="text-purple-600 font-bold">🔐 Root</span>
+                  )}
+                </div>
+              </div>
+              {user.id !== currentUserId && (
+                <button
+                  onClick={() => handleResetUser(user.id, user.name)}
+                  disabled={resetting === user.id}
+                  className="ml-3 px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
+                >
+                  {resetting === user.id 
+                    ? (language === 'vi' ? 'Đang reset...' : 'Resetting...')
+                    : (language === 'vi' ? '🔄 Reset XP/Coin' : '🔄 Reset XP/Coin')
+                  }
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
+        />
+      )}
     </div>
   )
 }
