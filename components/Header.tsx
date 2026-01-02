@@ -44,10 +44,11 @@ export default function Header({ profile }: HeaderProps) {
             </div>
             <div>
               <h2 className="text-lg font-bold text-gray-800">{profile.name}</h2>
-              <div className="flex items-center space-x-3 text-sm">
+              {/* Ẩn XP và Coins cho public version */}
+              {/* <div className="flex items-center space-x-3 text-sm">
                 <span className="text-primary-600 font-medium">XP: {profile.xp}</span>
                 <span className="text-yellow-600 font-medium">Coins: {profile.coins}</span>
-              </div>
+              </div> */}
             </div>
           </div>
 

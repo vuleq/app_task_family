@@ -368,8 +368,8 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
             </div>
           </div>
 
-          {/* Test Level (Development Only) */}
-          <div className="border-t border-gray-200 pt-4">
+          {/* Test Level (Development Only) - Ẩn cho public version */}
+          {/* <div className="border-t border-gray-200 pt-4">
             <h4 className="text-sm font-medium text-gray-700 mb-2">{t('profile.testLevel')}</h4>
             <div className="flex space-x-2">
               <button
@@ -515,7 +515,7 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
             <p className="text-xs text-gray-500 mt-2">
               Level hiện tại: <span className="font-bold">{currentLevel}</span>
             </p>
-          </div>
+          </div> */}
 
           {/* Root Management - Quản lý users */}
           {profile.isRoot && (
