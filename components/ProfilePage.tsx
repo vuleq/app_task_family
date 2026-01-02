@@ -668,13 +668,12 @@ function UserManagementSection({ currentUserId }: { currentUserId: string }) {
         </div>
       )}
       
-      {toast.show && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast({ ...toast, show: false })}
-        />
-      )}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        show={toast.show}
+        onClose={() => setToast({ ...toast, show: false })}
+      />
     </div>
   )
 }

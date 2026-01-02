@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/config'
 import { UserProfile, getAllUsers } from '@/lib/firebase/profile'
@@ -72,12 +72,6 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
     coinReward: 5 
   })
 
-  useEffect(() => {
-    loadTasks()
-    loadUsers()
-    loadTemplates()
-  }, [])
-
   const loadUsers = async () => {
     try {
       const allUsers = await getAllUsers()
@@ -88,16 +82,16 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
     }
   }
 
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     try {
       const templatesData = await getTaskTemplates(currentUser.uid)
       setTemplates(templatesData)
     } catch (error) {
       console.error('Error loading templates:', error)
     }
-  }
+  }, [currentUser.uid])
 
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     try {
       if (!db) {
         console.error('Firestore not initialized')
@@ -131,7 +125,13 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
     } finally {
       setLoading(false)
     }
-  }
+  }, [db, profile.isRoot])
+
+  useEffect(() => {
+    loadTasks()
+    loadUsers()
+    loadTemplates()
+  }, [loadTasks, loadTemplates])
 
   const handleAddTask = async () => {
     // Chỉ root mới có thể tạo nhiệm vụ
