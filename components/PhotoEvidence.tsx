@@ -6,6 +6,13 @@ import { db } from '@/lib/firebase/config'
 import { uploadImageToCloudinary } from '@/lib/cloudinary'
 import Toast from './Toast'
 
+const checkDb = () => {
+  if (!db) {
+    throw new Error('Firestore is not initialized. Please check your .env.local file.')
+  }
+  return db
+}
+
 interface PhotoEvidenceProps {
   taskId: string
   currentEvidence?: string
@@ -27,7 +34,7 @@ export default function PhotoEvidence({ taskId, currentEvidence, onEvidenceUploa
       const imageUrl = await uploadImageToCloudinary(file, 'task-evidence')
       
       // Lưu URL vào task
-      await updateDoc(doc(db, 'tasks', taskId), {
+      await updateDoc(doc(checkDb(), 'tasks', taskId), {
         evidence: imageUrl
       })
 
