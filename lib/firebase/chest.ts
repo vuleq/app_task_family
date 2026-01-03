@@ -115,8 +115,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       name: 'XP Nhỏ', 
       value: 50, 
       rarity: 'common', 
-      description: 'Nhận 50 XP',
-      image: getRewardImageUrl('xp', 'common', 50)
+      description: 'Nhận 50 XP'
     },
     { 
       id: 'xp_100', 
@@ -124,8 +123,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       name: 'XP Vừa', 
       value: 100, 
       rarity: 'common', 
-      description: 'Nhận 100 XP',
-      image: getRewardImageUrl('xp', 'common', 100)
+      description: 'Nhận 100 XP'
     },
     { 
       id: 'coins_10', 
@@ -133,8 +131,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       name: 'Coins Nhỏ', 
       value: 10, 
       rarity: 'common', 
-      description: 'Nhận 10 Coins',
-      image: getRewardImageUrl('coins', 'common', 10)
+      description: 'Nhận 10 Coins'
     },
     { 
       id: 'coins_20', 
@@ -142,8 +139,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       name: 'Coins Vừa', 
       value: 20, 
       rarity: 'common', 
-      description: 'Nhận 20 Coins',
-      image: getRewardImageUrl('coins', 'common', 20)
+      description: 'Nhận 20 Coins'
     },
   ],
   rare: [
@@ -153,8 +149,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       name: 'XP Lớn', 
       value: 200, 
       rarity: 'rare', 
-      description: 'Nhận 200 XP',
-      image: getRewardImageUrl('xp', 'rare', 200)
+      description: 'Nhận 200 XP'
     },
     { 
       id: 'xp_300', 
@@ -162,8 +157,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       name: 'XP Rất Lớn', 
       value: 300, 
       rarity: 'rare', 
-      description: 'Nhận 300 XP',
-      image: getRewardImageUrl('xp', 'rare', 300)
+      description: 'Nhận 300 XP'
     },
     { 
       id: 'coins_50', 
@@ -171,8 +165,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       name: 'Coins Lớn', 
       value: 50, 
       rarity: 'rare', 
-      description: 'Nhận 50 Coins',
-      image: getRewardImageUrl('coins', 'rare', 50)
+      description: 'Nhận 50 Coins'
     },
     { 
       id: 'coins_100', 
@@ -180,8 +173,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       name: 'Coins Rất Lớn', 
       value: 100, 
       rarity: 'rare', 
-      description: 'Nhận 100 Coins',
-      image: getRewardImageUrl('coins', 'rare', 100)
+      description: 'Nhận 100 Coins'
     },
   ],
   epic: [
@@ -191,8 +183,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       name: 'XP Khổng Lồ', 
       value: 500, 
       rarity: 'epic', 
-      description: 'Nhận 500 XP',
-      image: getRewardImageUrl('xp', 'epic', 500)
+      description: 'Nhận 500 XP'
     },
     { 
       id: 'coins_200', 
@@ -200,8 +191,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       name: 'Coins Khổng Lồ', 
       value: 200, 
       rarity: 'epic', 
-      description: 'Nhận 200 Coins',
-      image: getRewardImageUrl('coins', 'epic', 200)
+      description: 'Nhận 200 Coins'
     },
     { 
       id: 'special_boost', 
@@ -209,8 +199,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       name: 'Tăng Tốc', 
       value: 1, 
       rarity: 'epic', 
-      description: 'XP x2 trong 1 ngày',
-      image: getRewardImageUrl('special', 'epic')
+      description: 'XP x2 trong 1 ngày'
     },
   ],
   legendary: [
@@ -220,8 +209,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       name: 'XP Thần Thánh', 
       value: 1000, 
       rarity: 'legendary', 
-      description: 'Nhận 1000 XP',
-      image: getRewardImageUrl('xp', 'legendary', 1000)
+      description: 'Nhận 1000 XP'
     },
     { 
       id: 'coins_500', 
@@ -229,8 +217,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       name: 'Coins Thần Thánh', 
       value: 500, 
       rarity: 'legendary', 
-      description: 'Nhận 500 Coins',
-      image: getRewardImageUrl('coins', 'legendary', 500)
+      description: 'Nhận 500 Coins'
     },
     { 
       id: 'special_levelup', 
@@ -238,8 +225,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       name: 'Lên Level Ngay', 
       value: 1, 
       rarity: 'legendary', 
-      description: 'Tự động lên 1 level',
-      image: getRewardImageUrl('special', 'legendary')
+      description: 'Tự động lên 1 level'
     },
   ],
 }
@@ -487,10 +473,10 @@ export const getUserChests = async (userId: string): Promise<UserChest[]> => {
   const chestsToDelete: string[] = []
   
   snapshot.docs.forEach(docSnap => {
-    const data = docSnap.data() as UserChest
+    const data = docSnap.data()
     const userChest = {
-      id: docSnap.id,
       ...data,
+      id: docSnap.id,
     } as UserChest
     
     // Nếu rương đã mở và đã quá 7 ngày, đánh dấu để xóa
