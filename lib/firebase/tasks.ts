@@ -46,6 +46,7 @@ export interface Task {
   coinReward: number
   createdAt: any
   completedAt?: any
+  completedDate?: string // Ngày hoàn thành (YYYY-MM-DD) để đếm giới hạn
   startedAt?: any // Thời gian bắt đầu làm (khi chuyển sang in_progress)
   evidence?: string
   // Cho nhiệm vụ tuần/tháng
