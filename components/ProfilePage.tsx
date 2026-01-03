@@ -369,7 +369,7 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
             </div>
           </div>
 
-          {/* Test Level (Development Only) */}
+          {/* Test Level (Development Only) - Commented out for public version
           <div className="border-t border-slate-600 pt-4">
             <h4 className="text-sm font-medium text-gray-200 mb-2">{t('profile.testLevel')}</h4>
             <div className="flex space-x-2">
@@ -417,12 +417,9 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
               </button>
               <button
                 onClick={async () => {
-                  // Reset XP trực tiếp không cần confirm
-                  // Khi reset XP về 0, cũng xóa profession để user có thể chọn lại nghề khi lên lại level 5
                   setTestingLevel(true)
                   try {
                     await resetXPAndProfession(profile.id)
-                    
                     const updatedProfile = { ...profile, xp: 0, profession: undefined }
                     onUpdate(updatedProfile)
                     setToast({ 
@@ -516,7 +513,8 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
             <p className="text-xs text-gray-500 mt-2">
               Level hiện tại: <span className="font-bold">{currentLevel}</span>
             </p>
-          </div> */}
+          </div>
+          */}
 
           {/* Root Management - Quản lý users */}
           {profile.isRoot && (
