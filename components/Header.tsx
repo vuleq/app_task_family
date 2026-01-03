@@ -61,11 +61,11 @@ export default function Header({ profile }: HeaderProps) {
             {/* Language Toggle */}
             <button
               onClick={() => setLanguage(language === 'vi' ? 'en' : 'vi')}
-              className="px-3 py-1.5 text-sm border border-slate-600 text-gray-200 rounded-lg font-medium hover:bg-slate-700/50 transition-colors flex items-center space-x-1"
+              className="px-3 py-1.5 text-sm border border-slate-600 text-gray-200 rounded-lg font-medium hover:bg-slate-700/50 transition-colors flex items-center justify-center space-x-1.5 min-w-[70px]"
               title={language === 'vi' ? 'Switch to English' : 'Chuyển sang Tiếng Việt'}
             >
-              <span className="text-lg">{language === 'vi' ? '🇻🇳' : '🇺🇸'}</span>
-              <span>{language === 'vi' ? 'VI' : 'EN'}</span>
+              <span className="text-base leading-none">{language === 'vi' ? '🇻🇳' : '🇺🇸'}</span>
+              <span className="leading-none">{language === 'vi' ? 'VI' : 'EN'}</span>
             </button>
             
             {/* Logout Button */}

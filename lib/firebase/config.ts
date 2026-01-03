@@ -3,13 +3,25 @@ import { getAuth, Auth } from 'firebase/auth'
 import { getFirestore, Firestore } from 'firebase/firestore'
 import { getStorage, FirebaseStorage } from 'firebase/storage'
 
+// Helper function to clean environment variable (remove quotes if present)
+const cleanEnv = (value: string | undefined): string | undefined => {
+  if (!value) return undefined
+  let cleaned = value.trim()
+  // Remove quotes if present (for compatibility with quoted format)
+  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || 
+      (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+    cleaned = cleaned.slice(1, -1)
+  }
+  return cleaned.length > 0 ? cleaned : undefined
+}
+
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_API_KEY),
+  authDomain: cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN),
+  projectId: cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID),
+  storageBucket: cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET),
+  messagingSenderId: cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID),
+  appId: cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_APP_ID),
 }
 
 // Check if Firebase config is valid
@@ -51,5 +63,13 @@ if (typeof window !== 'undefined') {
   }
 }
 
-export { app, auth, db, storage }
+// Helper function to ensure db is initialized
+const checkDb = () => {
+  if (!db) {
+    throw new Error('Firestore is not initialized. Please check your .env.local file.')
+  }
+  return db
+}
+
+export { app, auth, db, storage, checkDb }
 

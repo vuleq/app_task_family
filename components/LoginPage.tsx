@@ -107,7 +107,6 @@ export default function LoginPage() {
             {error}
           </div>
         )}
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
