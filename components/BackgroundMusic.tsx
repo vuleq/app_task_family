@@ -14,6 +14,55 @@ export default function BackgroundMusic({ isLoggedIn }: BackgroundMusicProps) {
   const [volume, setVolume] = useState(0.35) // 35% volume - vừa đủ nghe
   const [isMuted, setIsMuted] = useState(false)
   const [hasInteracted, setHasInteracted] = useState(false)
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
+  
+  // Tạo playlist từ environment variables
+  // Hỗ trợ nhiều cách:
+  // 1. NEXT_PUBLIC_BACKGROUND_MUSIC_URL (single URL - backward compatible)
+  // 2. NEXT_PUBLIC_BACKGROUND_MUSIC_PLAYLIST (comma-separated URLs)
+  // 3. NEXT_PUBLIC_BACKGROUND_MUSIC_URL_1, NEXT_PUBLIC_BACKGROUND_MUSIC_URL_2, ... (multiple URLs)
+  const getPlaylist = (): string[] => {
+    const playlist: string[] = []
+    
+    // Cách 1: Playlist từ biến comma-separated
+    const playlistEnv = process.env.NEXT_PUBLIC_BACKGROUND_MUSIC_PLAYLIST
+    if (playlistEnv) {
+      const urls = playlistEnv.split(',').map(url => url.trim()).filter(url => url.length > 0)
+      if (urls.length > 0) {
+        return urls
+      }
+    }
+    
+    // Cách 2: Nhiều biến URL_1, URL_2, ...
+    let index = 1
+    while (true) {
+      const url = process.env[`NEXT_PUBLIC_BACKGROUND_MUSIC_URL_${index}`]
+      if (url) {
+        playlist.push(url.trim())
+        index++
+      } else {
+        break
+      }
+    }
+    
+    // Cách 3: Single URL (backward compatible)
+    if (playlist.length === 0) {
+      const singleUrl = process.env.NEXT_PUBLIC_BACKGROUND_MUSIC_URL
+      if (singleUrl) {
+        playlist.push(singleUrl.trim())
+      }
+    }
+    
+    // Fallback nếu không có gì
+    if (playlist.length === 0) {
+      playlist.push('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3')
+    }
+    
+    return playlist
+  }
+  
+  const playlist = getPlaylist()
+  const currentTrack = playlist[currentTrackIndex] || playlist[0]
 
   // Load preferences from localStorage
   useEffect(() => {
@@ -139,31 +188,75 @@ export default function BackgroundMusic({ isLoggedIn }: BackgroundMusicProps) {
     }
   }, [volume, isMuted])
 
-  // Handle audio ended (loop)
+  // Handle audio ended - chuyển sang bài tiếp theo hoặc loop lại
   const handleEnded = () => {
-    if (audioRef.current && isPlaying) {
+    if (!audioRef.current || !isPlaying) return
+    
+    // Nếu có nhiều bài trong playlist, chuyển sang bài tiếp theo
+    if (playlist.length > 1) {
+      const nextIndex = (currentTrackIndex + 1) % playlist.length
+      setCurrentTrackIndex(nextIndex)
+      // Audio src sẽ được update tự động qua useEffect
+    } else {
+      // Nếu chỉ có 1 bài, loop lại
       audioRef.current.currentTime = 0
       audioRef.current.play().catch(err => {
         console.error('Error replaying audio:', err)
       })
     }
   }
+  
+  // Update audio src khi currentTrack thay đổi
+  useEffect(() => {
+    if (audioRef.current && currentTrack) {
+      const wasPlaying = isPlaying
+      audioRef.current.src = currentTrack
+      audioRef.current.load()
+      
+      // Nếu đang play, tiếp tục play bài mới
+      if (wasPlaying) {
+        audioRef.current.play().catch(err => {
+          console.error('Error playing next track:', err)
+        })
+      }
+    }
+  }, [currentTrack])
 
   if (!isLoggedIn) {
     return null
   }
 
-  // Nhạc nền dễ chịu - có thể thay đổi URL này
-  // Sử dụng nhạc miễn phí từ các nguồn như:
-  // - Pixabay: https://pixabay.com/music/
-  // - Free Music Archive: https://freemusicarchive.org/
-  // - Hoặc upload lên Cloudinary
-  const musicUrl = process.env.NEXT_PUBLIC_BACKGROUND_MUSIC_URL || 
-    'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' // Placeholder - thay bằng URL thực tế
+  // Nút chuyển bài (chỉ hiển thị nếu có nhiều hơn 1 bài)
+  const handleNextTrack = () => {
+    if (playlist.length > 1) {
+      const nextIndex = (currentTrackIndex + 1) % playlist.length
+      setCurrentTrackIndex(nextIndex)
+    }
+  }
+  
+  const handlePrevTrack = () => {
+    if (playlist.length > 1) {
+      const prevIndex = (currentTrackIndex - 1 + playlist.length) % playlist.length
+      setCurrentTrackIndex(prevIndex)
+    }
+  }
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
-      <div className="bg-white rounded-lg shadow-lg p-3 flex items-center space-x-3 border border-gray-200">
+      <div className="bg-slate-800/90 backdrop-blur-sm rounded-lg shadow-lg p-3 flex items-center space-x-3 border border-slate-700/50">
+        {/* Previous Track Button (chỉ hiển thị nếu có nhiều hơn 1 bài) */}
+        {playlist.length > 1 && (
+          <button
+            onClick={handlePrevTrack}
+            className="w-8 h-8 rounded-full bg-slate-700/50 hover:bg-slate-600 text-gray-200 flex items-center justify-center transition-colors"
+            title={language === 'vi' ? 'Bài trước' : 'Previous track'}
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M8.445 14.832A1 1 0 0010 14v-2.798l5.445 3.63A1 1 0 0017 14V6a1 1 0 00-1.555-.832L10 8.798V6a1 1 0 00-1.555-.832l-6 4a1 1 0 000 1.664l6 4z" />
+            </svg>
+          </button>
+        )}
+        
         {/* Play/Pause Button */}
         <button
           onClick={togglePlay}
@@ -180,12 +273,25 @@ export default function BackgroundMusic({ isLoggedIn }: BackgroundMusicProps) {
             </svg>
           )}
         </button>
+        
+        {/* Next Track Button (chỉ hiển thị nếu có nhiều hơn 1 bài) */}
+        {playlist.length > 1 && (
+          <button
+            onClick={handleNextTrack}
+            className="w-8 h-8 rounded-full bg-slate-700/50 hover:bg-slate-600 text-gray-200 flex items-center justify-center transition-colors"
+            title={language === 'vi' ? 'Bài tiếp theo' : 'Next track'}
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M4.555 5.168A1 1 0 003 6v8a1 1 0 001.555.832l10-6a1 1 0 000-1.664l-10-6zM14 7.755l-7.416 4.551v-9.102L14 7.755z" />
+            </svg>
+          </button>
+        )}
 
         {/* Volume Control */}
         <div className="flex items-center space-x-2">
           <button
             onClick={toggleMute}
-            className="w-8 h-8 text-gray-600 hover:text-gray-800 transition-colors"
+            className="w-8 h-8 text-gray-300 hover:text-gray-100 transition-colors"
             title={isMuted ? (language === 'vi' ? 'Bật tiếng' : 'Unmute') : (language === 'vi' ? 'Tắt tiếng' : 'Mute')}
           >
             {isMuted || volume === 0 ? (
@@ -206,16 +312,23 @@ export default function BackgroundMusic({ isLoggedIn }: BackgroundMusicProps) {
             step="0.01"
             value={isMuted ? 0 : volume}
             onChange={handleVolumeChange}
-            className="w-20 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-500"
+            className="w-20 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-primary-500"
             title={language === 'vi' ? `Âm lượng: ${Math.round(volume * 100)}%` : `Volume: ${Math.round(volume * 100)}%`}
           />
         </div>
+        
+        {/* Track Info (chỉ hiển thị nếu có nhiều hơn 1 bài) */}
+        {playlist.length > 1 && (
+          <div className="text-xs text-gray-400 px-2">
+            {language === 'vi' ? `Bài ${currentTrackIndex + 1}/${playlist.length}` : `Track ${currentTrackIndex + 1}/${playlist.length}`}
+          </div>
+        )}
 
         {/* Hidden Audio Element */}
         <audio
           ref={audioRef}
-          src={musicUrl}
-          loop
+          src={currentTrack}
+          loop={playlist.length === 1} // Chỉ loop nếu chỉ có 1 bài
           preload="auto"
           onEnded={handleEnded}
           onPlay={() => {
