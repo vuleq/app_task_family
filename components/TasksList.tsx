@@ -430,7 +430,8 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         return
       }
       await updateDoc(doc(checkDb(), 'tasks', task.id), {
-        status: 'in_progress'
+        status: 'in_progress',
+        startedAt: Timestamp.now() // Lưu thời gian bắt đầu làm
       })
       loadTasks()
       setToast({ show: true, message: t('tasks.taskStarted'), type: 'success' })
