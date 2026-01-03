@@ -24,11 +24,13 @@ interface Task {
   createdBy: string
   createdByName?: string
   status: string
+  type: 'daily' | 'weekly' | 'monthly' // Thêm type để check limits
   xpReward: number
   coinReward: number
   evidence?: string
   parentTaskId?: string
   groupKey?: string
+  completedDate?: string // Thêm completedDate để check limits
 }
 
 interface TaskApprovalProps {
