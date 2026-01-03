@@ -36,17 +36,39 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
 
     setUploading(true)
     try {
+      // Log thông tin file để debug
+      console.log('[Avatar Upload] Starting upload:', {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        sizeInMB: (file.size / (1024 * 1024)).toFixed(2),
+      })
+
       // Upload lên Cloudinary
-      const url = await uploadImageToCloudinary(file, 'avatars')
+      const url = await uploadImageToCloudinary(file, 'family-tasks/avatars')
+      
+      console.log('[Avatar Upload] Upload successful:', url)
+      
       setAvatar(url)
       // Lưu URL vào profile
       await updateProfile(profile.id, { avatar: url })
       setToast({ show: true, message: t('errors.avatarUpdateSuccess'), type: 'success' })
     } catch (error: any) {
-      console.error('Error uploading avatar:', error)
-      setToast({ show: true, message: error.message || t('errors.avatarUpdateError'), type: 'error' })
+      console.error('[Avatar Upload] Error:', error)
+      
+      // Hiển thị thông báo lỗi chi tiết hơn
+      const errorMessage = error.message || t('errors.avatarUpdateError')
+      setToast({ 
+        show: true, 
+        message: errorMessage, 
+        type: 'error' 
+      })
     } finally {
       setUploading(false)
+      // Reset input để có thể chọn lại file cùng tên
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = ''
+      }
     }
   }
 
@@ -56,17 +78,39 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
 
     setUploading(true)
     try {
+      // Log thông tin file để debug
+      console.log('[Image Upload] Starting upload:', {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        sizeInMB: (file.size / (1024 * 1024)).toFixed(2),
+      })
+
       // Upload lên Cloudinary
-      const url = await uploadImageToCloudinary(file, 'images')
+      const url = await uploadImageToCloudinary(file, 'family-tasks/images')
+      
+      console.log('[Image Upload] Upload successful:', url)
+      
       setImage(url)
       // Lưu URL vào profile
       await updateProfile(profile.id, { image: url })
       setToast({ show: true, message: t('errors.imageUpdateSuccess'), type: 'success' })
     } catch (error: any) {
-      console.error('Error uploading image:', error)
-      setToast({ show: true, message: error.message || t('errors.imageUpdateError'), type: 'error' })
+      console.error('[Image Upload] Error:', error)
+      
+      // Hiển thị thông báo lỗi chi tiết hơn
+      const errorMessage = error.message || t('errors.imageUpdateError')
+      setToast({ 
+        show: true, 
+        message: errorMessage, 
+        type: 'error' 
+      })
     } finally {
       setUploading(false)
+      // Reset input để có thể chọn lại file cùng tên
+      if (imageInputRef.current) {
+        imageInputRef.current.value = ''
+      }
     }
   }
 

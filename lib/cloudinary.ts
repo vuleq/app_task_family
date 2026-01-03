@@ -41,10 +41,42 @@ export const uploadImageToCloudinary = async (
     )
   }
 
+  // Kiểm tra file type - hỗ trợ HEIC/HEIF từ iPhone
+  const allowedTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+  ]
+  
+  // Kiểm tra extension nếu type không rõ (một số browser không nhận diện HEIC)
+  const fileName = file.name.toLowerCase()
+  const hasValidExtension = fileName.endsWith('.jpg') || 
+                             fileName.endsWith('.jpeg') || 
+                             fileName.endsWith('.png') || 
+                             fileName.endsWith('.gif') || 
+                             fileName.endsWith('.webp') ||
+                             fileName.endsWith('.heic') ||
+                             fileName.endsWith('.heif')
+  
+  if (!allowedTypes.includes(file.type) && !hasValidExtension) {
+    throw new Error(
+      `Định dạng ảnh không được hỗ trợ. Vui lòng chọn ảnh JPG, PNG, GIF, WebP, hoặc HEIC. ` +
+      `File hiện tại: ${file.type || 'unknown'}`
+    )
+  }
+
   // Kiểm tra kích thước file (giới hạn 10MB)
   const maxSize = 10 * 1024 * 1024 // 10MB
   if (file.size > maxSize) {
-    throw new Error('Ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn 10MB')
+    const sizeInMB = (file.size / (1024 * 1024)).toFixed(2)
+    throw new Error(
+      `Ảnh quá lớn (${sizeInMB}MB). Vui lòng chọn ảnh nhỏ hơn 10MB. ` +
+      `Bạn có thể nén ảnh trước khi upload.`
+    )
   }
 
   // Tạo FormData với optimization parameters
@@ -70,8 +102,38 @@ export const uploadImageToCloudinary = async (
     )
 
     if (!response.ok) {
-      const error = await response.json()
-      const errorMessage = error.error?.message || 'Lỗi khi upload ảnh lên Cloudinary'
+      let errorMessage = 'Lỗi khi upload ảnh lên Cloudinary'
+      
+      try {
+        const error = await response.json()
+        errorMessage = error.error?.message || errorMessage
+        
+        // Log chi tiết lỗi để debug
+        console.error('[Cloudinary Upload Error]', {
+          status: response.status,
+          statusText: response.statusText,
+          error: error,
+          file: {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+          },
+        })
+      } catch (parseError) {
+        // Nếu không parse được JSON, lấy text
+        const textError = await response.text()
+        console.error('[Cloudinary Upload Error - Text]', {
+          status: response.status,
+          statusText: response.statusText,
+          text: textError,
+          file: {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+          },
+        })
+        errorMessage = textError || errorMessage
+      }
       
       // Cải thiện thông báo lỗi cho "Upload preset not found"
       if (errorMessage.includes('preset') || errorMessage.includes('Preset')) {
@@ -85,7 +147,13 @@ export const uploadImageToCloudinary = async (
         )
       }
       
-      throw new Error(errorMessage)
+      // Thông báo lỗi chi tiết hơn
+      throw new Error(
+        `${errorMessage}\n` +
+        `File: ${file.name}\n` +
+        `Size: ${(file.size / (1024 * 1024)).toFixed(2)}MB\n` +
+        `Type: ${file.type || 'unknown'}`
+      )
     }
 
     const data: CloudinaryUploadResponse = await response.json()
@@ -101,8 +169,33 @@ export const uploadImageToCloudinary = async (
     // q_auto:good: tự động điều chỉnh quality (~80%)
     return data.secure_url.replace('/upload/', '/upload/f_auto,q_auto:good/')
   } catch (error: any) {
-    console.error('Cloudinary upload error:', error)
-    throw new Error(error.message || 'Lỗi khi upload ảnh')
+    console.error('[Cloudinary Upload Error - Catch]', {
+      error: error,
+      message: error.message,
+      stack: error.stack,
+      file: {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+      },
+    })
+    
+    // Cải thiện thông báo lỗi
+    if (error.message) {
+      throw error // Giữ nguyên error message đã được format
+    }
+    
+    // Nếu là network error
+    if (error.name === 'TypeError' || error.message?.includes('fetch')) {
+      throw new Error(
+        'Không thể kết nối đến Cloudinary. Vui lòng:\n' +
+        '1. Kiểm tra kết nối internet\n' +
+        '2. Thử lại sau vài giây\n' +
+        '3. Nếu vẫn lỗi, vui lòng liên hệ hỗ trợ'
+      )
+    }
+    
+    throw new Error(error.message || 'Lỗi khi upload ảnh. Vui lòng thử lại.')
   }
 }
 
