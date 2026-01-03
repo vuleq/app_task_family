@@ -267,7 +267,10 @@ export const checkAndUpdateParentTask = async (
 }
 
 /**
- * Xóa task (chỉ root user hoặc user tạo task mới có quyền)
+ * Xóa task - cho phép xóa bất kỳ trạng thái nào
+ * Quyền xóa:
+ * - Root user: có thể xóa bất kỳ task nào
+ * - User thường: có thể xóa task được assign cho mình HOẶC task mình tạo
  */
 export const deleteTask = async (taskId: string, userId: string, isRoot: boolean = false): Promise<void> => {
   if (!db) throw new Error('Firestore not initialized')
@@ -281,8 +284,10 @@ export const deleteTask = async (taskId: string, userId: string, isRoot: boolean
   
   const task = taskSnap.data() as Task
   
-  // Kiểm tra quyền: chỉ root hoặc user tạo task mới có quyền xóa
-  if (!isRoot && task.createdBy !== userId) {
+  // Kiểm tra quyền:
+  // - Root user: có thể xóa bất kỳ task nào
+  // - User thường: có thể xóa task được assign cho mình HOẶC task mình tạo
+  if (!isRoot && task.createdBy !== userId && task.assignedTo !== userId) {
     throw new Error('Bạn không có quyền xóa task này')
   }
   

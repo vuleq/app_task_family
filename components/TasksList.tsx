@@ -568,13 +568,13 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         onClose={() => setToast({ ...toast, show: false })}
       />
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-800">{t('tasks.title')}</h3>
+        <h3 className="text-lg font-semibold text-gray-100">{t('tasks.title')}</h3>
         <div className="flex items-center space-x-2">
           {/* Language Selector */}
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value as 'vi' | 'en')}
-            className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+            className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm hover:bg-slate-700 text-gray-100"
             title="Chọn ngôn ngữ / Select Language"
           >
             <option value="vi">🇻🇳 Tiếng Việt</option>
@@ -602,7 +602,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
               {showAddForm ? t('common.cancel') : `+ ${t('tasks.addTask')}`}
             </button>
           ) : (
-            <div className="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg text-sm">
+            <div className="px-4 py-2 bg-slate-700/50 text-gray-300 rounded-lg text-sm">
               {t('tasks.onlyRootCanCreate')}
             </div>
           )}
@@ -611,21 +611,21 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
 
       {/* Templates Section */}
       {showTemplates && (
-        <div className="bg-purple-50 rounded-lg p-4 space-y-3">
+        <div className="bg-purple-500/20 rounded-lg p-4 space-y-3 border border-purple-500/50">
           <div className="flex justify-between items-center flex-wrap gap-2">
-            <h4 className="font-medium text-gray-800">📋 {t('tasks.myTemplates')}</h4>
+            <h4 className="font-medium text-gray-100">📋 {t('tasks.myTemplates')}</h4>
             
             <div className="flex items-center space-x-2 flex-wrap">
               {/* Filter Templates by Category */}
               <div className="flex items-center space-x-2">
-                <label className="text-sm text-gray-600">{language === 'vi' ? 'Lọc:' : 'Filter:'}</label>
+                <label className="text-sm text-gray-300">{language === 'vi' ? 'Lọc:' : 'Filter:'}</label>
                 <select
                   value={templateFilter}
                   onChange={(e) => {
                     setTemplateFilter(e.target.value as 'all' | 'hoc' | 'khac')
                     setSelectedTemplates([]) // Reset selection when filter changes
                   }}
-                  className="px-3 py-1 border border-gray-300 rounded-lg text-sm bg-white"
+                  className="px-3 py-1 border border-slate-600 rounded-lg text-sm bg-slate-700/50 text-gray-100"
                 >
                   <option value="all">{language === 'vi' ? 'Tất cả' : 'All'}</option>
                   <option value="hoc">{t('tasks.categoryStudy')}</option>
@@ -699,17 +699,17 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                     onChange={handleSelectAllTemplates}
                     className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
                   />
-                  <label className="text-sm text-gray-700 cursor-pointer">
+                  <label className="text-sm text-gray-200 cursor-pointer">
                     {language === 'vi' ? 'Chọn tất cả' : 'Select All'}
                   </label>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-400">
                     ({selectedTemplates.filter(id => filteredTemplates.map(t => t.id).includes(id)).length} / {filteredTemplates.length})
                   </span>
                 </div>
                 
                 {filteredTemplates.map(template => (
-                <div key={template.id} className={`bg-white border rounded-lg p-3 flex justify-between items-center ${
-                  selectedTemplates.includes(template.id) ? 'border-purple-500 bg-purple-50' : 'border-purple-200'
+                <div key={template.id} className={`bg-slate-800/80 backdrop-blur-sm border rounded-lg p-3 flex justify-between items-center ${
+                  selectedTemplates.includes(template.id) ? 'border-purple-500 bg-purple-500/20' : 'border-slate-600'
                 }`}>
                   <div className="flex items-center space-x-3 flex-1">
                     {/* Checkbox */}
@@ -717,15 +717,15 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                       type="checkbox"
                       checked={selectedTemplates.includes(template.id)}
                       onChange={() => handleToggleTemplateSelection(template.id)}
-                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 flex-shrink-0"
+                      className="w-4 h-4 text-primary-600 border-slate-600 rounded focus:ring-primary-500 flex-shrink-0 bg-slate-700"
                     />
                     <div className="flex-1">
                     <div className="flex items-center space-x-2 flex-wrap">
-                      <h5 className="font-medium text-gray-800">{getTranslatedTemplateTitle(template.title, language)}</h5>
+                      <h5 className="font-medium text-gray-100">{getTranslatedTemplateTitle(template.title, language)}</h5>
                       <span className={`px-2 py-0.5 rounded text-xs ${
-                        template.type === 'daily' ? 'bg-blue-100 text-blue-800' :
-                        template.type === 'weekly' ? 'bg-purple-100 text-purple-800' :
-                        'bg-orange-100 text-orange-800'
+                        template.type === 'daily' ? 'bg-blue-500/20 text-blue-300' :
+                        template.type === 'weekly' ? 'bg-purple-500/20 text-purple-300' :
+                        'bg-orange-500/20 text-orange-300'
                       }`}>
                         {template.type === 'daily' ? t('tasks.taskTypeDaily') :
                          template.type === 'weekly' ? t('tasks.taskTypeWeeklyFull') :
@@ -733,17 +733,17 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                       </span>
                       {template.category && (
                         <span className={`px-2 py-0.5 rounded text-xs ${
-                          template.category === 'hoc' ? 'bg-green-100 text-green-800' :
-                          'bg-gray-100 text-gray-800'
+                          template.category === 'hoc' ? 'bg-green-500/20 text-green-300' :
+                          'bg-slate-700/50 text-gray-300'
                         }`}>
                           {template.category === 'hoc' ? t('tasks.categoryStudy') : t('tasks.categoryOther')}
                         </span>
                       )}
                     </div>
-                    {template.description && <p className="text-sm text-gray-600 mt-1">{template.description}</p>}
-                    <div className="flex items-center space-x-3 mt-1 text-xs text-gray-500">
-                      <span>XP: {template.xpReward}</span>
-                      <span>Coins: {template.coinReward}</span>
+                    {template.description && <p className="text-sm text-gray-300 mt-1">{template.description}</p>}
+                    <div className="flex items-center space-x-3 mt-1 text-xs">
+                      <span className="text-primary-300 font-medium">XP: {template.xpReward}</span>
+                      <span className="text-yellow-400 font-medium">Coins: {template.coinReward}</span>
                     </div>
                     </div>
                   </div>
@@ -770,28 +770,28 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
       )}
 
       {showAddForm && (
-        <div id="add-task-form" className="bg-gray-50 rounded-lg p-4 space-y-3">
+        <div id="add-task-form" className="bg-slate-700/30 rounded-lg p-4 space-y-3 border border-slate-600">
           <input
             type="text"
             placeholder={t('tasks.taskTitle')}
             value={newTask.title}
             onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100 placeholder-gray-400"
           />
           <textarea
             placeholder={t('tasks.taskDescription')}
             value={newTask.description}
             onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100 placeholder-gray-400"
             rows={2}
           />
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm text-gray-600 block mb-1">{t('tasks.taskType')}</label>
+              <label className="text-sm text-gray-300 block mb-1">{t('tasks.taskType')}</label>
               <select
                 value={newTask.type}
                 onChange={(e) => setNewTask({ ...newTask, type: e.target.value as 'daily' | 'weekly' | 'monthly' })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100"
               >
                 <option value="daily">{t('tasks.taskTypeDaily')}</option>
                 <option value="weekly">{t('tasks.taskTypeWeekly')}</option>
@@ -808,9 +808,9 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
               <label className="text-sm text-gray-600 block mb-1">
                 Giao cho {selectedUsers.length > 0 && `(${selectedUsers.length} người)`}
               </label>
-              <div className="border border-gray-300 rounded-lg p-2 max-h-32 overflow-y-auto">
+              <div className="border border-slate-600 rounded-lg p-2 max-h-32 overflow-y-auto bg-slate-700/30">
                 {users.map(user => (
-                  <label key={user.id} className="flex items-center space-x-2 py-1 cursor-pointer hover:bg-gray-50 rounded px-2">
+                  <label key={user.id} className="flex items-center space-x-2 py-1 cursor-pointer hover:bg-slate-700/50 rounded px-2">
                     <input
                       type="checkbox"
                       checked={selectedUsers.includes(user.id)}
@@ -821,9 +821,9 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                           setSelectedUsers(selectedUsers.filter(id => id !== user.id))
                         }
                       }}
-                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                      className="w-4 h-4 text-primary-600 border-slate-600 rounded focus:ring-primary-500 bg-slate-700"
                     />
-                    <span className="text-sm text-gray-700">
+                    <span className="text-sm text-gray-200">
                       {user.name} {user.id === currentUser.uid ? `(${language === 'vi' ? 'Tôi' : 'Me'})` : ''}
                     </span>
                   </label>
@@ -841,16 +841,16 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                 type="number"
                 value={newTask.xpReward}
                 onChange={(e) => setNewTask({ ...newTask, xpReward: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100"
               />
             </div>
             <div className="flex-1">
-              <label className="text-sm text-gray-600">{t('tasks.coinReward')}</label>
+              <label className="text-sm text-gray-300">{t('tasks.coinReward')}</label>
               <input
                 type="number"
                 value={newTask.coinReward}
                 onChange={(e) => setNewTask({ ...newTask, coinReward: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100"
               />
             </div>
           </div>
@@ -863,17 +863,17 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                 onChange={(e) => setSaveAsTemplate(e.target.checked)}
                 className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
               />
-              <label htmlFor="saveTemplate" className="text-sm text-gray-700">
+                <label htmlFor="saveTemplate" className="text-sm text-gray-200">
                 {t('tasks.saveAsTemplate')}
               </label>
             </div>
             {saveAsTemplate && (
               <div>
-                <label className="text-sm text-gray-600 block mb-1">{t('tasks.templateCategory')}</label>
+                <label className="text-sm text-gray-300 block mb-1">{t('tasks.templateCategory')}</label>
                 <select
                   value={taskCategory}
                   onChange={(e) => setTaskCategory(e.target.value as 'hoc' | 'khac' | '')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100"
                 >
                   <option value="">{t('tasks.noCategory')}</option>
                   <option value="hoc">{t('tasks.categoryStudy')}</option>
@@ -901,7 +901,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
       {/* Nhiệm vụ của tôi */}
       {myTasks.length > 0 && (
         <div>
-          <h4 className="font-medium text-gray-700 mb-2">{t('tasks.myTasks')}</h4>
+          <h4 className="font-medium text-gray-200 mb-2">{t('tasks.myTasks')}</h4>
           <div className="space-y-2">
             {myTasks.map(task => {
               // Tách nhiệm vụ tổng hợp (weekly/monthly) và nhiệm vụ ngày
@@ -909,43 +909,43 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
               const isDailyTask = task.type === 'daily' && task.parentTaskId
               
               return (
-              <div key={task.id} className={`bg-white border border-gray-200 rounded-lg p-4 ${isParentTask ? 'border-2 border-purple-300' : ''}`}>
+              <div key={task.id} className={`bg-slate-800/80 backdrop-blur-sm border border-slate-600 rounded-lg p-4 ${isParentTask ? 'border-2 border-purple-500/50' : ''}`}>
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-1">
-                      <h5 className="font-medium text-gray-800">{getTranslatedTaskTitle(task.title, language)}</h5>
+                      <h5 className="font-medium text-gray-100">{getTranslatedTaskTitle(task.title, language)}</h5>
                       <span className={`px-2 py-0.5 rounded text-xs ${
-                        task.type === 'daily' ? 'bg-blue-100 text-blue-800' :
-                        task.type === 'weekly' ? 'bg-purple-100 text-purple-800' :
-                        'bg-orange-100 text-orange-800'
+                        task.type === 'daily' ? 'bg-blue-500/20 text-blue-300' :
+                        task.type === 'weekly' ? 'bg-purple-500/20 text-purple-300' :
+                        'bg-orange-500/20 text-orange-300'
                       }`}>
                         {task.type === 'daily' ? t('tasks.taskTypeDaily') :
                          task.type === 'weekly' ? t('tasks.taskTypeWeekly') :
                          t('tasks.taskTypeMonthly')}
                       </span>
                       {isParentTask && (
-                        <span className="px-2 py-0.5 rounded text-xs bg-purple-200 text-purple-900 font-semibold">
+                        <span className="px-2 py-0.5 rounded text-xs bg-purple-500/30 text-purple-200 font-semibold">
                           {t('tasks.parentTask')}
                         </span>
                       )}
                     </div>
-                    {task.description && <p className="text-sm text-gray-600 mt-1">{task.description}</p>}
+                    {task.description && <p className="text-sm text-gray-300 mt-1">{task.description}</p>}
                     {/* Hiển thị tiến độ cho nhiệm vụ tổng hợp */}
                     {isParentTask && task.requiredCount !== undefined && (
                       <div className="mt-2">
                         <div className="flex items-center space-x-2 mb-1">
-                          <span className="text-sm font-medium text-gray-700">{t('tasks.progress')}:</span>
-                          <span className="text-sm text-purple-600 font-semibold">
+                          <span className="text-sm font-medium text-gray-200">{t('tasks.progress')}:</span>
+                          <span className="text-sm text-purple-400 font-semibold">
                             {task.completedCount || 0} / {task.requiredCount}
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-slate-700 rounded-full h-2">
                           <div 
                             className="bg-purple-600 h-2 rounded-full transition-all"
                             style={{ width: `${Math.min(100, ((task.completedCount || 0) / task.requiredCount) * 100)}%` }}
                           ></div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-gray-400 mt-1">
                           {t('tasks.progressRemaining')
                             .replace('{remaining}', (task.requiredCount - (task.completedCount || 0)).toString())
                             .replace('{type}', task.type === 'weekly' ? t('tasks.taskTypeWeek') : t('tasks.taskTypeMonth'))}
@@ -954,19 +954,19 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                     )}
                     <div className="flex items-center flex-wrap gap-2 mt-2 text-sm">
                       <span className={`px-2 py-1 rounded ${
-                        task.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        task.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                        task.status === 'completed' ? 'bg-indigo-100 text-indigo-800' :
-                        task.status === 'approved' ? 'bg-green-100 text-green-800' :
-                        'bg-gray-100 text-gray-800'
+                        task.status === 'pending' ? 'bg-yellow-500/20 text-yellow-300' :
+                        task.status === 'in_progress' ? 'bg-blue-500/20 text-blue-300' :
+                        task.status === 'completed' ? 'bg-indigo-500/20 text-indigo-300' :
+                        task.status === 'approved' ? 'bg-green-500/20 text-green-300' :
+                        'bg-slate-700/50 text-gray-300'
                       }`}>
                         {task.status === 'pending' ? t('tasks.statusPending') :
                          task.status === 'in_progress' ? t('tasks.statusInProgress') :
                          task.status === 'completed' ? t('tasks.statusWaitingApproval') :
                          task.status === 'approved' ? t('tasks.statusApproved') : task.status}
                       </span>
-                      <span className="text-primary-600">XP: {task.xpReward}</span>
-                      <span className="text-yellow-600">Coins: {task.coinReward}</span>
+                      <span className="text-primary-300 font-medium">XP: {task.xpReward}</span>
+                      <span className="text-yellow-400">Coins: {task.coinReward}</span>
                     </div>
                     {/* Photo Evidence cho task đang làm hoặc đã hoàn thành */}
                     {(task.status === 'in_progress' || task.status === 'completed' || task.status === 'approved') && (
@@ -997,10 +997,19 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                         {t('tasks.completeTask')}
                       </button>
                     )}
-                    {/* Cho phép root user hoặc user tạo task xóa task */}
-                    {(profile.isRoot || task.createdBy === currentUser.uid) && (
+                    {/* Cho phép xóa task nếu:
+                        - Root user: xóa bất kỳ task nào
+                        - User thường: xóa task được assign cho mình HOẶC task mình tạo
+                    */}
+                    {(profile.isRoot || task.createdBy === currentUser.uid || task.assignedTo === currentUser.uid) && (
                       <button
-                        onClick={() => handleDeleteTask(task.id)}
+                        onClick={() => {
+                          if (confirm(language === 'vi' 
+                            ? `Bạn có chắc muốn xóa nhiệm vụ "${getTranslatedTaskTitle(task.title, language)}"?` 
+                            : `Are you sure you want to delete task "${getTranslatedTaskTitle(task.title, language)}"?`)) {
+                            handleDeleteTask(task.id)
+                          }
+                        }}
                         className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
                       >
                         {t('tasks.deleteTask')}
@@ -1017,14 +1026,14 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
       {/* Nhiệm vụ của người khác */}
       {otherTasks.length > 0 && (
         <div>
-          <h4 className="font-medium text-gray-700 mb-2">{t('tasks.otherTasks')}</h4>
+          <h4 className="font-medium text-gray-200 mb-2">{t('tasks.otherTasks')}</h4>
           <div className="space-y-2">
             {otherTasks.map(task => (
-              <div key={task.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div key={task.id} className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <h5 className="font-medium text-gray-800">{getTranslatedTaskTitle(task.title, language)}</h5>
-                    <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                    <h5 className="font-medium text-gray-100">{getTranslatedTaskTitle(task.title, language)}</h5>
+                    <div className="text-xs text-gray-400 mt-1 space-y-0.5">
                       <p>{t('tasks.assignedTo')}: <span className="font-medium">{task.assignedToName}</span></p>
                       {task.createdByName && (
                         <p>{t('tasks.createdBy')}: <span className="font-medium">{task.createdByName}</span></p>
@@ -1032,19 +1041,36 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                     </div>
                     <div className="flex items-center space-x-4 mt-2 text-sm">
                       <span className={`px-2 py-1 rounded ${
-                        task.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        task.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                        task.status === 'approved' ? 'bg-green-100 text-green-800' :
-                        'bg-gray-100 text-gray-800'
+                        task.status === 'pending' ? 'bg-yellow-500/20 text-yellow-300' :
+                        task.status === 'completed' ? 'bg-blue-500/20 text-blue-300' :
+                        task.status === 'approved' ? 'bg-green-500/20 text-green-300' :
+                        'bg-slate-700/50 text-gray-300'
                       }`}>
                         {task.status === 'pending' ? t('tasks.statusPending') :
                          task.status === 'completed' ? t('tasks.statusWaitingApproval') :
                          task.status === 'approved' ? t('tasks.statusApproved') : task.status}
                       </span>
-                      <span className="text-primary-600">XP: {task.xpReward}</span>
-                      <span className="text-yellow-600">Coins: {task.coinReward}</span>
+                      <span className="text-primary-300 font-medium">XP: {task.xpReward}</span>
+                      <span className="text-yellow-400">Coins: {task.coinReward}</span>
                     </div>
                   </div>
+                  {/* Nút xóa cho otherTasks - root hoặc task được assign cho mình hoặc task mình tạo */}
+                  {(profile.isRoot || task.createdBy === currentUser.uid || task.assignedTo === currentUser.uid) && (
+                    <div className="ml-4">
+                      <button
+                        onClick={() => {
+                          if (confirm(language === 'vi' 
+                            ? `Bạn có chắc muốn xóa nhiệm vụ "${getTranslatedTaskTitle(task.title, language)}"?` 
+                            : `Are you sure you want to delete task "${getTranslatedTaskTitle(task.title, language)}"?`)) {
+                            handleDeleteTask(task.id)
+                          }
+                        }}
+                        className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                      >
+                        {t('tasks.deleteTask')}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

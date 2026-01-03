@@ -148,26 +148,26 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
         type={toast.type}
         onClose={() => setToast({ ...toast, show: false })}
       />
-      <h3 className="text-lg font-semibold text-gray-800">✅ {t('approval.title')}</h3>
+      <h3 className="text-lg font-semibold text-gray-100">✅ {t('approval.title')}</h3>
       <div className="space-y-3">
         {pendingTasks.map(task => (
-          <div key={task.id} className="bg-white border border-gray-200 rounded-lg p-4">
+          <div key={task.id} className="bg-slate-800/80 backdrop-blur-sm border border-slate-600 rounded-lg p-4">
             <div className="flex justify-between items-start">
               <div className="flex-1">
-                <h5 className="font-medium text-gray-800">{getTranslatedTaskTitle(task.title, language)}</h5>
-                <div className="text-sm text-gray-600 mt-1 space-y-1">
+                <h5 className="font-medium text-gray-100">{getTranslatedTaskTitle(task.title, language)}</h5>
+                <div className="text-sm text-gray-300 mt-1 space-y-1">
                   <p>{t('approval.assignedTo')}: <span className="font-medium">{task.assignedToName}</span></p>
                   <p>{t('approval.createdBy')}: <span className="font-medium">{task.createdByName || 'N/A'}</span></p>
                   {task.createdBy === currentUserId && (
-                    <p className="text-xs text-blue-600">✨ Bạn là người tạo nhiệm vụ này</p>
+                    <p className="text-xs text-blue-400">✨ Bạn là người tạo nhiệm vụ này</p>
                   )}
                   {currentUserRole === 'parent' && task.createdBy !== currentUserId && (
-                    <p className="text-xs text-green-600">👨‍👩‍👧‍👦 Bạn có quyền phê duyệt (Parent)</p>
+                    <p className="text-xs text-green-400">👨‍👩‍👧‍👦 Bạn có quyền phê duyệt (Parent)</p>
                   )}
                 </div>
                 <div className="flex items-center space-x-4 mt-2 text-sm">
-                  <span className="text-primary-600">XP: {task.xpReward}</span>
-                  <span className="text-yellow-600">Coins: {task.coinReward}</span>
+                  <span className="text-primary-400">XP: {task.xpReward}</span>
+                  <span className="text-yellow-400">Coins: {task.coinReward}</span>
                 </div>
                 {task.evidence && (
                   <div className="mt-3">

@@ -189,15 +189,15 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
       case 'common':
-        return 'bg-gray-100 text-gray-800 border-gray-300'
+        return 'bg-slate-700/50 text-gray-100 border-slate-600'
       case 'rare':
-        return 'bg-blue-100 text-blue-800 border-blue-300'
+        return 'bg-blue-500/20 text-blue-300 border-blue-500/50'
       case 'epic':
-        return 'bg-purple-100 text-purple-800 border-purple-300'
+        return 'bg-purple-500/20 text-purple-300 border-purple-500/50'
       case 'legendary':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300'
+        return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50'
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-300'
+        return 'bg-slate-700/50 text-gray-100 border-slate-600'
     }
   }
 
@@ -382,34 +382,49 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
   const unopenedChests = userChests.filter(c => !c.opened)
   const openedChests = userChests.filter(c => c.opened)
   
-  // Group các rương đã mở giống nhau theo chestId và receivedItem
+  // Group các rương đã mở giống nhau - chỉ group theo loại rương (chestId), không phân biệt phần thưởng
   interface GroupedOpenedChest {
     chestId: string
     chestName: string
-    receivedItem: ChestItem | undefined
     count: number
     firstChest: UserChest // Giữ lại một chest để lấy thông tin
+    // Lưu danh sách các phần thưởng đã nhận (để hiển thị đa dạng)
+    rewards: Array<{ item: ChestItem; count: number }>
   }
   
   const groupedOpenedChests: GroupedOpenedChest[] = []
   const chestGroups = new Map<string, GroupedOpenedChest>()
   
   openedChests.forEach(userChest => {
-    // Tạo key dựa trên chestId và receivedItem.id (nếu có)
-    const key = userChest.receivedItem 
-      ? `${userChest.chestId}_${userChest.receivedItem.id}`
-      : `${userChest.chestId}_no_item`
+    // Chỉ group theo chestId (loại rương), không phân biệt phần thưởng
+    const key = userChest.chestId
     
     if (chestGroups.has(key)) {
       const group = chestGroups.get(key)!
       group.count++
+      
+      // Thêm phần thưởng vào danh sách (nếu có)
+      if (userChest.receivedItem) {
+        const rewardKey = userChest.receivedItem.id || userChest.receivedItem.name
+        const existingReward = group.rewards.find(r => r.item.id === userChest.receivedItem?.id)
+        if (existingReward) {
+          existingReward.count++
+        } else {
+          group.rewards.push({ item: userChest.receivedItem, count: 1 })
+        }
+      }
     } else {
+      const rewards: Array<{ item: ChestItem; count: number }> = []
+      if (userChest.receivedItem) {
+        rewards.push({ item: userChest.receivedItem, count: 1 })
+      }
+      
       chestGroups.set(key, {
         chestId: userChest.chestId,
         chestName: userChest.chestName,
-        receivedItem: userChest.receivedItem,
         count: 1,
         firstChest: userChest,
+        rewards: rewards,
       })
     }
   })
@@ -425,7 +440,7 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
         onClose={() => setToast({ ...toast, show: false })}
       />
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-800">🎁 {t('chestSystem.title')}</h3>
+        <h3 className="text-lg font-semibold text-gray-100">🎁 {t('chestSystem.title')}</h3>
         {/* Chỉ root mới có thể tạo rương */}
         {profile.isRoot ? (
           <button
@@ -438,7 +453,7 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
             {showAddForm || editingChest ? t('common.cancel') : `+ ${language === 'vi' ? 'Thêm rương' : 'Add Chest'}`}
           </button>
         ) : (
-          <div className="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg text-sm">
+          <div className="px-4 py-2 bg-slate-700/50 text-gray-300 rounded-lg text-sm">
             {language === 'vi' ? '⚠️ Chỉ root mới tạo rương' : '⚠️ Only root can create chests'}
           </div>
         )}
@@ -446,31 +461,31 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
 
       {/* Form thêm rương mới - Chỉ root mới thấy */}
       {showAddForm && profile.isRoot && !editingChest && (
-        <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-          <h4 className="font-medium text-gray-700">{language === 'vi' ? 'Thêm rương mới' : 'Add New Chest'}</h4>
+        <div className="bg-slate-700/30 rounded-lg p-4 space-y-3 border border-slate-600">
+          <h4 className="font-medium text-gray-200">{language === 'vi' ? 'Thêm rương mới' : 'Add New Chest'}</h4>
           <input
             type="text"
             placeholder={language === 'vi' ? 'Tên rương' : 'Chest Name'}
             value={newChest.name}
             onChange={(e) => setNewChest({ ...newChest, name: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100 placeholder-gray-400"
           />
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm text-gray-600 block mb-1">{t('chestSystem.price')}</label>
+              <label className="text-sm text-gray-300 block mb-1">{t('chestSystem.price')}</label>
               <input
                 type="number"
                 value={newChest.cost}
                 onChange={(e) => setNewChest({ ...newChest, cost: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100"
               />
             </div>
             <div>
-              <label className="text-sm text-gray-600 block mb-1">{language === 'vi' ? 'Loại rương' : 'Chest Type'}</label>
+              <label className="text-sm text-gray-300 block mb-1">{language === 'vi' ? 'Loại rương' : 'Chest Type'}</label>
               <select
                 value={newChest.chestType}
                 onChange={(e) => setNewChest({ ...newChest, chestType: e.target.value as 'wood' | 'silver' | 'gold' | 'mystery' | 'legendary' })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100"
               >
                 <option value="wood">{language === 'vi' ? '🪵 Rương Gỗ' : '🪵 Wood Chest'}</option>
                 <option value="silver">{language === 'vi' ? '🥈 Rương Bạc' : '🥈 Silver Chest'}</option>
@@ -491,31 +506,31 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
 
       {/* Form chỉnh sửa rương - Chỉ root mới thấy */}
       {editingChest && profile.isRoot && (
-        <div className="bg-blue-50 rounded-lg p-4 space-y-3 border-2 border-blue-300">
-          <h4 className="font-medium text-gray-700">{language === 'vi' ? 'Chỉnh sửa rương' : 'Edit Chest'}</h4>
+        <div className="bg-blue-500/20 rounded-lg p-4 space-y-3 border-2 border-blue-500/50">
+          <h4 className="font-medium text-gray-200">{language === 'vi' ? 'Chỉnh sửa rương' : 'Edit Chest'}</h4>
           <input
             type="text"
             placeholder={language === 'vi' ? 'Tên rương' : 'Chest Name'}
             value={editingChest.name}
             onChange={(e) => setEditingChest({ ...editingChest, name: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100 placeholder-gray-400"
           />
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm text-gray-600 block mb-1">{t('chestSystem.price')}</label>
+              <label className="text-sm text-gray-300 block mb-1">{t('chestSystem.price')}</label>
               <input
                 type="number"
                 value={editingChest.cost}
                 onChange={(e) => setEditingChest({ ...editingChest, cost: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100"
               />
             </div>
             <div>
-              <label className="text-sm text-gray-600 block mb-1">{language === 'vi' ? 'Loại rương' : 'Chest Type'}</label>
+              <label className="text-sm text-gray-300 block mb-1">{language === 'vi' ? 'Loại rương' : 'Chest Type'}</label>
               <select
                 value={editingChest.chestType || 'wood'}
                 onChange={(e) => setEditingChest({ ...editingChest, chestType: e.target.value as 'wood' | 'silver' | 'gold' | 'mystery' | 'legendary' })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100"
               >
                 <option value="wood">{language === 'vi' ? '🪵 Rương Gỗ' : '🪵 Wood Chest'}</option>
                 <option value="silver">{language === 'vi' ? '🥈 Rương Bạc' : '🥈 Silver Chest'}</option>
@@ -544,17 +559,17 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
 
       {/* Shop - Mua rương */}
       <div>
-        <h4 className="font-medium text-gray-700 mb-3">{t('chestSystem.shop')}</h4>
+        <h4 className="font-medium text-gray-200 mb-3">{t('chestSystem.shop')}</h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {chests.map(chest => {
             const chestImageUrl = getChestImageUrl(chest)
             return (
             <div
               key={chest.id}
-              className="bg-white border-2 border-gray-200 rounded-lg p-4 hover:border-purple-400 transition-all"
+              className="bg-slate-800/80 backdrop-blur-sm border-2 border-slate-600 rounded-lg p-4 hover:border-purple-400 transition-all"
             >
               <div className="flex justify-between items-start mb-2">
-                <h5 className="font-semibold text-gray-800">{chest.name}</h5>
+                <h5 className="font-semibold text-gray-100">{chest.name}</h5>
                 {/* Nút chỉnh sửa - chỉ root mới thấy */}
                 {profile.isRoot && (
                   <button
@@ -598,10 +613,10 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
                 </div>
               )}
               
-              <p className="text-sm text-gray-600 mb-3">
-                {t('chestSystem.price')}: <span className="font-bold text-yellow-600">{chest.cost} Coins</span>
+              <p className="text-sm text-gray-300 mb-3">
+                {t('chestSystem.price')}: <span className="font-bold text-yellow-400">{chest.cost} Coins</span>
               </p>
-              <p className="text-xs text-gray-500 mb-3">
+              <p className="text-xs text-gray-400 mb-3">
                 {t('chestSystem.canReceive')}
               </p>
               <button
@@ -628,7 +643,7 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
       {/* Rương chưa mở */}
       {unopenedChests.length > 0 && (
         <div>
-          <h4 className="font-medium text-gray-700 mb-3">
+          <h4 className="font-medium text-gray-200 mb-3">
             {t('chestSystem.myChests')} ({unopenedChests.length})
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -637,7 +652,7 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
               return (
               <div
                 key={userChest.id}
-                className="bg-gradient-to-br from-yellow-100 to-orange-100 border-2 border-yellow-400 rounded-lg p-4 text-center"
+                className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/50 rounded-lg p-4 text-center"
               >
                 {/* Hình ảnh rương */}
                 {chestImageUrl ? (
@@ -663,7 +678,7 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
                 ) : (
                   <div className="text-6xl mb-2">📦</div>
                 )}
-                <h5 className="font-semibold text-gray-800 mb-2">{userChest.chestName}</h5>
+                <h5 className="font-semibold text-gray-100 mb-2">{userChest.chestName}</h5>
                 <button
                   onClick={() => handleOpen(userChest.id)}
                   disabled={opening === userChest.id}
@@ -681,7 +696,7 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
       {/* Rương đã mở - Grouped */}
       {groupedOpenedChests.length > 0 && (
         <div>
-          <h4 className="font-medium text-gray-700 mb-3">
+          <h4 className="font-medium text-gray-200 mb-3">
             {t('chestSystem.openHistory')} ({openedChests.length} {language === 'vi' ? 'rương' : 'chests'})
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -690,7 +705,7 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
               return (
               <div
                 key={`${group.chestId}_${group.receivedItem?.id || 'no_item'}_${index}`}
-                className="bg-gray-100 border border-gray-300 rounded-lg p-4"
+                className="bg-slate-700/50 border border-slate-600 rounded-lg p-4"
               >
                 {/* Hình ảnh rương */}
                 {chestImageUrl ? (
@@ -716,30 +731,41 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
                 ) : (
                   <div className="text-4xl mb-2 text-center">📦</div>
                 )}
-                <h5 className="font-semibold text-gray-800 mb-1 text-center">
+                <h5 className="font-semibold text-gray-100 mb-1 text-center">
                   {group.chestName}
                 </h5>
-                {/* Hiển thị count nếu > 1 */}
-                {group.count > 1 && (
-                  <div className="text-center mb-2">
-                    <span className="inline-block bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                      x{group.count}
-                    </span>
-                  </div>
-                )}
-                {group.receivedItem && (
-                  <div
-                    className={`border-2 rounded-lg p-3 mt-2 ${getRarityColor(
-                      group.receivedItem.rarity
-                    )}`}
-                  >
-                    <p className="font-semibold">{group.receivedItem.name}</p>
-                    <p className="text-xs mt-1">
-                      {group.receivedItem.description || group.receivedItem.type}
-                    </p>
-                    <p className="text-xs mt-1">
-                      {t('chestSystem.rarity')}: <span className="font-bold">{getRarityName(group.receivedItem.rarity)}</span>
-                    </p>
+                {/* Hiển thị số lượng rương đã mở */}
+                <div className="text-center mb-2">
+                  <span className="inline-block bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                    {language === 'vi' ? `Đã mở: ${group.count}` : `Opened: ${group.count}`}
+                  </span>
+                </div>
+                {/* Hiển thị các phần thưởng đã nhận */}
+                {group.rewards.length > 0 && (
+                  <div className="mt-2 space-y-2">
+                    {group.rewards.map((reward, idx) => (
+                      <div
+                        key={idx}
+                        className={`border-2 rounded-lg p-2 ${getRarityColor(reward.item.rarity)}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="font-semibold text-sm">{reward.item.name}</p>
+                            <p className="text-xs mt-0.5">
+                              {reward.item.description || reward.item.type}
+                            </p>
+                            <p className="text-xs mt-0.5">
+                              {t('chestSystem.rarity')}: <span className="font-bold">{getRarityName(reward.item.rarity)}</span>
+                            </p>
+                          </div>
+                          {reward.count > 1 && (
+                            <span className="ml-2 text-xs font-bold bg-purple-500/30 px-2 py-1 rounded">
+                              x{reward.count}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -783,7 +809,7 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
                   <div className="text-center">
                     <div className="text-4xl mb-2">🎉</div>
                     <h3 className="text-xl font-bold text-white mb-3">{t('chestSystem.congratulations')}</h3>
-                    <div className={`border-2 rounded-lg p-4 mb-3 ${getRarityColor(showResult.rarity)} bg-white/95`}>
+                    <div className={`border-2 rounded-lg p-4 mb-3 ${getRarityColor(showResult.rarity)} bg-slate-800/95`}>
                       {/* Hình ảnh phần thưởng */}
                       {showResult.image && (
                         <div className="mb-3 flex justify-center">
@@ -826,10 +852,10 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
       {/* Modal hiển thị kết quả */}
       {showResult && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+          <div className="bg-slate-800/95 backdrop-blur-sm rounded-lg p-8 max-w-md w-full mx-4 border border-slate-600">
             <div className="text-center">
               <div className="text-6xl mb-4">🎉</div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-4">{t('chestSystem.congratulations')}</h3>
+              <h3 className="text-2xl font-bold text-gray-100 mb-4">{t('chestSystem.congratulations')}</h3>
               <div
                 className={`border-4 rounded-lg p-6 mb-4 ${getRarityColor(showResult.rarity)}`}
               >

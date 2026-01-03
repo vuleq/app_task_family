@@ -11,7 +11,7 @@ interface HeaderProps {
 
 export default function Header({ profile }: HeaderProps) {
   const router = useRouter()
-  const { t } = useI18n()
+  const { t, language, setLanguage } = useI18n()
 
   const handleLogout = async () => {
     try {
@@ -24,7 +24,7 @@ export default function Header({ profile }: HeaderProps) {
   }
 
   return (
-    <header className="bg-white shadow-md sticky top-0 z-50">
+    <header className="bg-slate-800/95 backdrop-blur-sm shadow-lg sticky top-0 z-50 border-b border-slate-700/50">
       <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Thông tin cá nhân bên trái */}
@@ -43,24 +43,35 @@ export default function Header({ profile }: HeaderProps) {
               )}
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-800">{profile.name}</h2>
+              <h2 className="text-lg font-bold text-gray-100">{profile.name}</h2>
               <div className="flex items-center space-x-3 text-sm">
-                <span className="text-primary-600 font-medium">XP: {profile.xp}</span>
-                <span className="text-yellow-600 font-medium">Coins: {profile.coins}</span>
+                <span className="text-primary-300 font-medium">XP: {profile.xp}</span>
+                <span className="text-yellow-400 font-medium">Coins: {profile.coins}</span>
               </div>
             </div>
           </div>
 
           {/* Logo/Title ở giữa */}
           <div className="flex-1 text-center">
-            <h1 className="text-xl font-bold text-gray-800">{t('login.title')}</h1>
+            <h1 className="text-xl font-bold text-gray-100">{t('login.title')}</h1>
           </div>
 
-          {/* Nút đăng xuất bên phải */}
-          <div>
+          {/* Nút chuyển đổi ngôn ngữ và đăng xuất bên phải */}
+          <div className="flex items-center space-x-3">
+            {/* Language Toggle */}
+            <button
+              onClick={() => setLanguage(language === 'vi' ? 'en' : 'vi')}
+              className="px-3 py-1.5 text-sm border border-slate-600 text-gray-200 rounded-lg font-medium hover:bg-slate-700/50 transition-colors flex items-center space-x-1"
+              title={language === 'vi' ? 'Switch to English' : 'Chuyển sang Tiếng Việt'}
+            >
+              <span className="text-lg">{language === 'vi' ? '🇻🇳' : '🇺🇸'}</span>
+              <span>{language === 'vi' ? 'VI' : 'EN'}</span>
+            </button>
+            
+            {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors"
+              className="px-4 py-2 text-sm border border-red-500/50 text-red-400 rounded-lg font-medium hover:bg-red-500/20 transition-colors"
             >
               {t('header.logout')}
             </button>
