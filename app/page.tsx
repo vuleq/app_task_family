@@ -16,6 +16,7 @@ import RewardsShop from '@/components/RewardsShop'
 import ChestSystem from '@/components/ChestSystem'
 import BackgroundMusic from '@/components/BackgroundMusic'
 import Statistics from '@/components/Statistics'
+import TaskMonitoring from '@/components/TaskMonitoring'
 import { useI18n } from '@/lib/i18n/context'
 
 export default function Home() {
@@ -228,6 +229,11 @@ export default function Home() {
           <div className="space-y-6">
             {/* Statistics */}
             <Statistics currentUserId={user.uid} />
+            
+            {/* Task Monitoring - Chỉ hiển thị cho root user */}
+            {profile.isRoot && (
+              <TaskMonitoring currentUserId={user.uid} />
+            )}
             
             {/* Profile Management */}
             <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-xl p-6 border border-slate-700/50">
