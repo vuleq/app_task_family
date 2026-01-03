@@ -702,9 +702,10 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {groupedOpenedChests.map((group, index) => {
               const chestImageUrl = getUserChestImageUrl(group.firstChest)
+              const firstRewardId = group.rewards.length > 0 ? group.rewards[0].item.id : 'no_item'
               return (
               <div
-                key={`${group.chestId}_${group.receivedItem?.id || 'no_item'}_${index}`}
+                key={`${group.chestId}_${firstRewardId}_${index}`}
                 className="bg-slate-700/50 border border-slate-600 rounded-lg p-4"
               >
                 {/* Hình ảnh rương */}
