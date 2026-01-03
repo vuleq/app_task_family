@@ -41,10 +41,12 @@ export interface Task {
   createdByName?: string
   status: 'pending' | 'in_progress' | 'completed' | 'approved'
   type: 'daily' | 'weekly' | 'monthly'
+  category?: 'hoc' | 'khac' // Category: việc học hoặc việc khác
   xpReward: number
   coinReward: number
   createdAt: any
   completedAt?: any
+  startedAt?: any // Thời gian bắt đầu làm (khi chuyển sang in_progress)
   evidence?: string
   // Cho nhiệm vụ tuần/tháng
   parentTaskId?: string // ID của nhiệm vụ tổng hợp (weekly/monthly)
@@ -121,6 +123,7 @@ export const createTaskFromTemplate = async (
     title: taskTitle,
     description: template.description,
     type: template.type,
+    category: template.category || null, // Lưu category vào task
     assignedTo,
     assignedToName,
     createdBy,
@@ -142,6 +145,7 @@ export const createRecurringDailyTasks = async (
     assignedToName: string
     xpReward: number
     coinReward: number
+    category?: 'hoc' | 'khac' // Thêm category
   },
   createdBy: string,
   createdByName: string,
@@ -161,6 +165,7 @@ export const createRecurringDailyTasks = async (
     title: baseTask.title,
     description: baseTask.description,
     type: taskType,
+    category: baseTask.category || null, // Lưu category
     assignedTo: baseTask.assignedTo,
     assignedToName: baseTask.assignedToName,
     createdBy,
@@ -190,6 +195,7 @@ export const createRecurringDailyTasks = async (
       title: taskTitle,
       description: baseTask.description,
       type: 'daily',
+      category: baseTask.category || null, // Lưu category cho nhiệm vụ ngày
       assignedTo: baseTask.assignedTo,
       assignedToName: baseTask.assignedToName,
       createdBy,

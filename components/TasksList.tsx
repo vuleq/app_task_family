@@ -28,13 +28,15 @@ interface Task {
   assignedTo: string
   assignedToName: string
   createdBy: string
-  createdByName?: string // Thêm field này
+  createdByName?: string
   status: 'pending' | 'in_progress' | 'completed' | 'approved'
   type: 'daily' | 'weekly' | 'monthly'
+  category?: 'hoc' | 'khac' // Category: việc học hoặc việc khác
   xpReward: number
   coinReward: number
   createdAt: any
   completedAt?: any
+  startedAt?: any // Thời gian bắt đầu làm
   evidence?: string
   parentTaskId?: string
   groupKey?: string
@@ -171,6 +173,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
             title: newTask.title,
             description: newTask.description,
             type: 'daily',
+            category: taskCategory || null, // Lưu category vào task
             assignedTo: user.id,
             assignedToName: user.name,
             createdBy: currentUser.uid,
@@ -191,6 +194,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
               assignedToName: user.name,
               xpReward: newTask.xpReward,
               coinReward: newTask.coinReward,
+              category: taskCategory || undefined, // Thêm category
             },
             currentUser.uid,
             profile.name,
@@ -208,6 +212,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
               assignedToName: user.name,
               xpReward: newTask.xpReward,
               coinReward: newTask.coinReward,
+              category: taskCategory || undefined, // Thêm category
             },
             currentUser.uid,
             profile.name,
@@ -430,7 +435,8 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         return
       }
       await updateDoc(doc(db, 'tasks', task.id), {
-        status: 'in_progress'
+        status: 'in_progress',
+        startedAt: Timestamp.now() // Lưu thời gian bắt đầu làm
       })
       loadTasks()
       setToast({ show: true, message: t('tasks.taskStarted'), type: 'success' })
@@ -530,8 +536,22 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
     }
   }
 
-  const myTasks = tasks.filter(t => t.assignedTo === currentUser.uid)
-  const otherTasks = tasks.filter(t => t.assignedTo !== currentUser.uid)
+  // Filter tasks theo tab và category
+  const filteredTasks = tasks.filter(task => {
+    // Filter theo tab (type)
+    if (activeTab !== 'all' && task.type !== activeTab) {
+      return false
+    }
+    // Filter theo category
+    if (categoryFilter !== 'all') {
+      if (categoryFilter === 'hoc' && task.category !== 'hoc') return false
+      if (categoryFilter === 'khac' && task.category !== 'khac') return false
+    }
+    return true
+  })
+
+  const myTasks = filteredTasks.filter(t => t.assignedTo === currentUser.uid)
+  const otherTasks = filteredTasks.filter(t => t.assignedTo !== currentUser.uid)
   
   // Summary nhiệm vụ theo loại (chỉ tính nhiệm vụ tổng hợp, không tính nhiệm vụ ngày con)
   const taskSummary = {
@@ -607,6 +627,64 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
             </div>
           )}
         </div>
+      </div>
+
+      {/* Tabs để filter theo type */}
+      <div className="flex space-x-2 mb-4 border-b border-slate-600">
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeTab === 'all'
+              ? 'border-b-2 border-primary-500 text-primary-400'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          {language === 'vi' ? 'Tất cả' : 'All'}
+        </button>
+        <button
+          onClick={() => setActiveTab('daily')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeTab === 'daily'
+              ? 'border-b-2 border-blue-500 text-blue-400'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          📅 {t('tasks.taskTypeDaily')}
+        </button>
+        <button
+          onClick={() => setActiveTab('weekly')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeTab === 'weekly'
+              ? 'border-b-2 border-purple-500 text-purple-400'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          📆 {t('tasks.taskTypeWeekly')}
+        </button>
+        <button
+          onClick={() => setActiveTab('monthly')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeTab === 'monthly'
+              ? 'border-b-2 border-orange-500 text-orange-400'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          🗓️ {t('tasks.taskTypeMonthly')}
+        </button>
+      </div>
+
+      {/* Filter theo category */}
+      <div className="mb-4 flex items-center space-x-2">
+        <label className="text-sm text-gray-300">{language === 'vi' ? 'Lọc theo:' : 'Filter by:'}</label>
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value as 'all' | 'hoc' | 'khac')}
+          className="px-3 py-1 border border-slate-600 rounded-lg text-sm bg-slate-700/50 text-gray-100"
+        >
+          <option value="all">{language === 'vi' ? 'Tất cả' : 'All'}</option>
+          <option value="hoc">{t('tasks.categoryStudy')}</option>
+          <option value="khac">{t('tasks.categoryOther')}</option>
+        </select>
       </div>
 
       {/* Templates Section */}
@@ -923,6 +1001,14 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                          task.type === 'weekly' ? t('tasks.taskTypeWeekly') :
                          t('tasks.taskTypeMonthly')}
                       </span>
+                      {task.category && (
+                        <span className={`px-2 py-0.5 rounded text-xs ${
+                          task.category === 'hoc' ? 'bg-green-500/20 text-green-300' :
+                          'bg-slate-700/50 text-gray-300'
+                        }`}>
+                          {task.category === 'hoc' ? t('tasks.categoryStudy') : t('tasks.categoryOther')}
+                        </span>
+                      )}
                       {isParentTask && (
                         <span className="px-2 py-0.5 rounded text-xs bg-purple-500/30 text-purple-200 font-semibold">
                           {t('tasks.parentTask')}
