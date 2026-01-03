@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { UserProfile, updateProfile, resetXPAndProfession, getAllUsers, resetUserXPAndCoins } from '@/lib/firebase/profile'
 import { logout } from '@/lib/firebase/auth'
 import { useRouter } from 'next/navigation'
@@ -561,22 +561,22 @@ function UserManagementSection({ currentUserId }: { currentUserId: string }) {
   const [resetting, setResetting] = useState<string | null>(null)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
 
-  useEffect(() => {
-    loadUsers()
-  }, [])
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     setLoading(true)
     try {
       const allUsers = await getAllUsers()
-      setUsers(allUsers)
+      setUsers(allUsers.filter(u => u.id !== currentUserId)) // Không hiển thị chính mình
     } catch (error) {
       console.error('Error loading users:', error)
       setToast({ show: true, message: language === 'vi' ? 'Lỗi khi tải danh sách users' : 'Error loading users', type: 'error' })
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentUserId, language])
+
+  useEffect(() => {
+    loadUsers()
+  }, [loadUsers])
 
   const handleResetUser = async (targetUserId: string, userName: string) => {
     if (!confirm(language === 'vi' 
