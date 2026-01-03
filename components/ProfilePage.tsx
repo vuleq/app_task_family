@@ -516,7 +516,7 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
             <p className="text-xs text-gray-500 mt-2">
               Level hiện tại: <span className="font-bold">{currentLevel}</span>
             </p>
-          </div>
+          </div> */}
 
           {/* Root Management - Quản lý users */}
           {profile.isRoot && (
