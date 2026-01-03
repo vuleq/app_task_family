@@ -32,12 +32,28 @@ export const uploadImageToCloudinary = async (
   folder: string = 'family-tasks'
 ): Promise<string> => {
   // Kiểm tra biến môi trường
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME?.trim()
+  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET?.trim()
+
+  // Log để debug (chỉ log trong development)
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    console.log('[Cloudinary Config]', {
+      cloudName: cloudName ? `${cloudName.substring(0, 4)}...` : 'MISSING',
+      uploadPreset: uploadPreset ? `${uploadPreset.substring(0, 4)}...` : 'MISSING',
+      hasCloudName: !!cloudName,
+      hasUploadPreset: !!uploadPreset,
+    })
+  }
 
   if (!cloudName || !uploadPreset) {
+    const missingVars = []
+    if (!cloudName) missingVars.push('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME')
+    if (!uploadPreset) missingVars.push('NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET')
+    
     throw new Error(
-      'Cloudinary chưa được cấu hình. Vui lòng thêm NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME và NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET vào .env.local'
+      `Cloudinary chưa được cấu hình. Thiếu biến: ${missingVars.join(', ')}\n` +
+      `Vui lòng thêm vào Vercel Dashboard → Settings → Environment Variables\n` +
+      `Sau đó redeploy để áp dụng thay đổi.`
     )
   }
 
@@ -85,11 +101,9 @@ export const uploadImageToCloudinary = async (
   formData.append('upload_preset', uploadPreset)
   formData.append('folder', folder)
   
-  // Tự động optimize ảnh: compress, convert WebP, quality tốt
-  // Eager transformation: tạo version đã optimize ngay khi upload
-  formData.append('eager', 'f_auto,q_auto:good')
-  // f_auto: tự động chọn format tốt nhất (WebP nếu browser hỗ trợ)
-  // q_auto:good: tự động điều chỉnh quality để cân bằng chất lượng và dung lượng (thường ~80%)
+  // LƯU Ý: Với unsigned upload preset, KHÔNG được dùng 'eager' parameter
+  // Thay vào đó, chúng ta sẽ thêm transformation vào URL sau khi upload
+  // Eager transformation chỉ dùng được với signed upload preset
 
   try {
     // Upload lên Cloudinary
@@ -158,16 +172,18 @@ export const uploadImageToCloudinary = async (
 
     const data: CloudinaryUploadResponse = await response.json()
     
-    // Nếu có eager transformation (version đã optimize), dùng nó
-    // Nếu không, dùng secure_url và thêm transformation vào URL
-    if (data.eager && data.eager.length > 0) {
-      return data.eager[0].secure_url
-    }
-    
-    // Fallback: thêm transformation vào URL để tự động optimize khi load
+    // Với unsigned upload preset, không có eager transformation
+    // Thêm transformation vào URL để tự động optimize khi load
     // f_auto: tự động chọn format tốt nhất (WebP nếu browser hỗ trợ)
     // q_auto:good: tự động điều chỉnh quality (~80%)
-    return data.secure_url.replace('/upload/', '/upload/f_auto,q_auto:good/')
+    // w_auto: tự động resize theo viewport (tùy chọn)
+    if (data.secure_url) {
+      // Thêm transformation vào URL để optimize
+      return data.secure_url.replace('/upload/', '/upload/f_auto,q_auto:good/')
+    }
+    
+    // Fallback (không nên xảy ra)
+    throw new Error('Không nhận được URL từ Cloudinary')
   } catch (error: any) {
     console.error('[Cloudinary Upload Error - Catch]', {
       error: error,
