@@ -193,7 +193,7 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
         onClose={() => setToast({ ...toast, show: false })}
       />
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-800">🛒 {t('rewardsShop.title')}</h3>
+        <h3 className="text-lg font-semibold text-gray-100">🛒 {t('rewardsShop.title')}</h3>
         {/* Chỉ root mới có thể thêm phần thưởng */}
         {profile.isRoot ? (
         <button
@@ -206,7 +206,7 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
           {showAddForm || editingReward ? t('common.cancel') : `+ ${t('rewardsShop.addReward')}`}
         </button>
         ) : (
-          <div className="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg text-sm">
+          <div className="px-4 py-2 bg-slate-700/50 text-gray-300 rounded-lg text-sm">
             {language === 'vi' ? '⚠️ Chỉ root mới tạo phần thưởng' : '⚠️ Only root can create rewards'}
           </div>
         )}
@@ -214,29 +214,29 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
 
       {/* Form thêm phần thưởng */}
       {showAddForm && profile.isRoot && !editingReward && (
-        <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-          <h4 className="font-medium text-gray-700">{language === 'vi' ? 'Thêm phần thưởng mới' : 'Add New Reward'}</h4>
+        <div className="bg-slate-700/30 rounded-lg p-4 space-y-3 border border-slate-600">
+          <h4 className="font-medium text-gray-200">{language === 'vi' ? 'Thêm phần thưởng mới' : 'Add New Reward'}</h4>
           <input
             type="text"
             placeholder={t('rewardsShop.rewardName')}
             value={newReward.name}
             onChange={(e) => setNewReward({ ...newReward, name: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100 placeholder-gray-400"
           />
           <textarea
             placeholder={t('rewardsShop.description')}
             value={newReward.description}
             onChange={(e) => setNewReward({ ...newReward, description: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100 placeholder-gray-400"
             rows={2}
           />
           <div>
-            <label className="text-sm text-gray-600">{t('rewardsShop.price')}</label>
+            <label className="text-sm text-gray-300">{t('rewardsShop.price')}</label>
             <input
               type="number"
               value={newReward.coinCost}
               onChange={(e) => setNewReward({ ...newReward, coinCost: parseInt(e.target.value) || 0 })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100"
             />
           </div>
           <button
@@ -250,29 +250,29 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
 
       {/* Form chỉnh sửa phần thưởng */}
       {editingReward && profile.isRoot && (
-        <div className="bg-blue-50 rounded-lg p-4 space-y-3 border-2 border-blue-300">
-          <h4 className="font-medium text-gray-700">{language === 'vi' ? 'Chỉnh sửa phần thưởng' : 'Edit Reward'}</h4>
+        <div className="bg-blue-500/20 rounded-lg p-4 space-y-3 border-2 border-blue-500/50">
+          <h4 className="font-medium text-gray-200">{language === 'vi' ? 'Chỉnh sửa phần thưởng' : 'Edit Reward'}</h4>
           <input
             type="text"
             placeholder={t('rewardsShop.rewardName')}
             value={editingReward.name}
             onChange={(e) => setEditingReward({ ...editingReward, name: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100 placeholder-gray-400"
           />
           <textarea
             placeholder={t('rewardsShop.description')}
             value={editingReward.description}
             onChange={(e) => setEditingReward({ ...editingReward, description: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100 placeholder-gray-400"
             rows={2}
           />
           <div>
-            <label className="text-sm text-gray-600">{t('rewardsShop.price')}</label>
+            <label className="text-sm text-gray-300">{t('rewardsShop.price')}</label>
             <input
               type="number"
               value={editingReward.coinCost}
               onChange={(e) => setEditingReward({ ...editingReward, coinCost: parseInt(e.target.value) || 0 })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100"
             />
           </div>
           <div className="flex space-x-2">
@@ -295,11 +295,11 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
       {/* Danh sách phần thưởng */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {rewards.map(reward => (
-          <div key={reward.id} className="bg-white border border-gray-200 rounded-lg p-4">
+          <div key={reward.id} className="bg-slate-800/80 backdrop-blur-sm border border-slate-600 rounded-lg p-4">
             <div className="flex justify-between items-start mb-2">
               <div className="flex-1">
-                <h5 className="font-medium text-gray-800 mb-1">{reward.name}</h5>
-                {reward.description && <p className="text-sm text-gray-600 mb-3">{reward.description}</p>}
+                <h5 className="font-medium text-gray-100 mb-1">{reward.name}</h5>
+                {reward.description && <p className="text-sm text-gray-300 mb-3">{reward.description}</p>}
               </div>
               {/* Nút chỉnh sửa và xóa - chỉ root mới thấy */}
               {profile.isRoot && (
@@ -322,7 +322,7 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
               )}
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-yellow-600 font-medium">{reward.coinCost} Coins</span>
+              <span className="text-yellow-400 font-medium">{reward.coinCost} Coins</span>
               <button
                 onClick={() => handlePurchase(reward)}
                 disabled={profile.coins < reward.coinCost}
@@ -336,7 +336,7 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
       </div>
 
       {rewards.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-gray-400">
           {t('rewardsShop.noRewards')}
         </div>
       )}
@@ -344,12 +344,12 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
       {/* Phần thưởng đã mua */}
       {myRewards.length > 0 && (
         <div className="mt-6">
-          <h4 className="font-medium text-gray-700 mb-3">{t('rewardsShop.myRewards')}</h4>
+          <h4 className="font-medium text-gray-200 mb-3">{t('rewardsShop.myRewards')}</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {myRewards.map(reward => (
-              <div key={reward.id} className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <h5 className="font-medium text-gray-800">{reward.rewardName}</h5>
-                <p className="text-xs text-gray-500 mt-1">
+              <div key={reward.id} className="bg-green-500/20 border border-green-500/50 rounded-lg p-3">
+                <h5 className="font-medium text-gray-100">{reward.rewardName}</h5>
+                <p className="text-xs text-gray-400 mt-1">
                   {t('rewardsShop.purchasedAt')}: {new Date(reward.purchasedAt?.seconds * 1000).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US')}
                 </p>
               </div>

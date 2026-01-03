@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { loginWithEmail, signupWithEmail, loginWithGoogle } from '@/lib/firebase/auth'
 import { useI18n } from '@/lib/i18n/context'
 import Toast from './Toast'
@@ -17,6 +17,23 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [wantRoot, setWantRoot] = useState(false) // Checkbox muốn tạo root
   const [rootCode, setRootCode] = useState('') // Input root code
+  const [backgroundImage, setBackgroundImage] = useState<string | null>(null)
+  
+  // Random background image
+  useEffect(() => {
+    const backgrounds: string[] = []
+    if (process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_1) {
+      backgrounds.push(process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_1)
+    }
+    if (process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_2) {
+      backgrounds.push(process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_2)
+    }
+    
+    if (backgrounds.length > 0) {
+      const randomIndex = Math.floor(Math.random() * backgrounds.length)
+      setBackgroundImage(backgrounds[randomIndex])
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,26 +80,38 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4"
+      style={backgroundImage ? {
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+      } : {
+        background: 'linear-gradient(to bottom right, rgb(15 23 42), rgb(30 41 59), rgb(15 23 42))',
+      }}
+    >
+      <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-xl p-8 w-full max-w-md border border-slate-700/50">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+          <h1 className="text-3xl font-bold text-gray-100 mb-2">
             {t('login.title')}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-300">
             {isLogin ? t('login.loginToAccount') : t('login.createNewAccount')}
           </p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-900/30 border border-red-500/50 text-red-300 px-4 py-3 rounded mb-4">
             {error}
           </div>
+        )}
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
               {t('login.email')}
             </label>
             <input
@@ -91,13 +120,13 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 bg-white"
+              className="w-full px-4 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-100 bg-slate-700/50 placeholder-gray-400"
               placeholder="your@email.com"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
               {t('login.password')}
             </label>
             <input
@@ -107,7 +136,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 bg-white"
+              className="w-full px-4 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-100 bg-slate-700/50 placeholder-gray-400"
               placeholder="••••••••"
             />
           </div>
@@ -128,13 +157,13 @@ export default function LoginPage() {
                   }}
                   className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
                 />
-                <label htmlFor="wantRoot" className="text-sm font-medium text-gray-700 cursor-pointer">
+                <label htmlFor="wantRoot" className="text-sm font-medium text-gray-300 cursor-pointer">
                   {language === 'vi' ? '🔐 Tạo tài khoản quản trị (Root)' : '🔐 Create admin account (Root)'}
                 </label>
               </div>
               {wantRoot && (
                 <div>
-                  <label htmlFor="rootCode" className="block text-xs font-medium text-gray-600 mb-1">
+                  <label htmlFor="rootCode" className="block text-xs font-medium text-gray-300 mb-1">
                     {language === 'vi' ? 'Mã Root:' : 'Root Code:'}
                   </label>
                   <input
@@ -143,9 +172,9 @@ export default function LoginPage() {
                     value={rootCode}
                     onChange={(e) => setRootCode(e.target.value)}
                     placeholder={language === 'vi' ? 'Nhập mã Root' : 'Enter root code'}
-                    className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white text-sm"
+                    className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-100 bg-slate-700/50 placeholder-gray-400 text-sm"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-400 mt-1">
                     {language === 'vi' 
                       ? '💡 Mã Root cho phép bạn tạo và quản lý nhiệm vụ cho gia đình'
                       : '💡 Root code allows you to create and manage tasks for your family'}
@@ -165,19 +194,19 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-600"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-slate-800/90 text-gray-400">{t('login.or')}</span>
+              </div>
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">{t('login.or')}</span>
-            </div>
-          </div>
 
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="mt-4 w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-4 w-full flex items-center justify-center px-4 py-2 border border-slate-600 rounded-lg shadow-sm bg-slate-700/50 text-sm font-medium text-gray-200 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path

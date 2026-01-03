@@ -103,17 +103,17 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
         type={toast.type}
         onClose={() => setToast({ ...toast, show: false })}
       />
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">{t('profile.title')}</h1>
+      <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-6 border border-slate-700/50">
+        <h1 className="text-2xl font-bold text-gray-100 mb-6">{t('profile.title')}</h1>
 
         <div className="space-y-6">
           {/* Avatar */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               {t('profile.avatar')}
             </label>
             <div className="flex items-center space-x-4">
-              <div className="w-24 h-24 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
+              <div className="w-24 h-24 rounded-full bg-slate-700 overflow-hidden flex items-center justify-center">
                 {avatar ? (
                   <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
@@ -143,11 +143,11 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
 
           {/* Image */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               {t('profile.image')}
             </label>
             <div className="flex items-center space-x-4">
-              <div className="w-32 h-32 rounded-lg bg-gray-200 overflow-hidden flex items-center justify-center">
+              <div className="w-32 h-32 rounded-lg bg-slate-700 overflow-hidden flex items-center justify-center">
                 {image ? (
                   <img src={image} alt="Image" className="w-full h-full object-cover" />
                 ) : (
@@ -175,7 +175,7 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
 
           {/* Name */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
               {t('profile.name')}
             </label>
             <input
@@ -183,27 +183,28 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-100 bg-slate-700/50 placeholder-gray-400"
+              placeholder={t('profile.name')}
             />
           </div>
 
           {/* Email (read-only) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               {t('profile.email')}
             </label>
             <input
               type="email"
               value={profile.email}
               disabled
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+              className="w-full px-4 py-2 border border-slate-600 rounded-lg bg-slate-700/30 text-gray-400"
             />
           </div>
 
           {/* Character Base Selection - Ẩn nếu đã chọn nhân vật */}
           {!profile.characterBase && (
-          <div className="border-t border-gray-200 pt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="border-t border-slate-600 pt-6">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               {t('profile.selectCharacter')}
             </label>
             <div className="grid grid-cols-4 gap-2 mb-4">
@@ -239,7 +240,7 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
                     className={`relative w-full aspect-square rounded-lg overflow-hidden border-2 ${
                       profile.characterBase === base
                         ? 'border-purple-600 ring-2 ring-purple-300'
-                        : 'border-gray-300 hover:border-purple-400'
+                        : 'border-slate-600 hover:border-purple-400'
                     }`}
                     title={`${genderLabel} ${numLabel}`}
                   >
@@ -268,15 +269,15 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
           )}
 
           {/* Character Display */}
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">{t('profile.character')}</h3>
+          <div className="border-t border-slate-600 pt-6">
+            <h3 className="text-lg font-semibold text-gray-100 mb-4">{t('profile.character')}</h3>
             <CharacterDisplay profile={profile} size="medium" showLevelInfo={true} />
           </div>
 
           {/* Profession Selection - Chỉ hiển thị khi level >= 5 */}
           {currentLevel >= 5 && (
-            <div className="border-t border-gray-200 pt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="border-t border-slate-600 pt-6">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 {language === 'vi' ? '🎓 Chọn Nghề Nghiệp' : '🎓 Choose Profession'}
                 {!profile.profession && (
                   <span className="ml-2 text-xs text-orange-600">
@@ -329,14 +330,14 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
                       profile.profession === prof.code
                         ? 'border-purple-600 bg-purple-50 ring-2 ring-purple-300'
                         : profile.profession
-                        ? 'border-gray-200 bg-gray-100 opacity-50 cursor-not-allowed'
-                        : 'border-gray-300 hover:border-purple-400 bg-white'
+                        ? 'border-slate-600 bg-slate-700/30 opacity-50 cursor-not-allowed'
+                        : 'border-slate-600 hover:border-purple-400 bg-slate-700/50'
                     }`}
                     title={profile.profession ? (language === 'vi' ? 'Đã chọn nghề, không thể thay đổi' : 'Profession already chosen, cannot change') : prof.name}
                   >
                     <div className="text-center">
                       <div className="text-2xl mb-1">{prof.name.split(' ')[0]}</div>
-                      <div className="text-sm font-medium text-gray-700">{prof.name.split(' ').slice(1).join(' ')}</div>
+                      <div className="text-sm font-medium text-gray-200">{prof.name.split(' ').slice(1).join(' ')}</div>
                     </div>
                     {profile.profession === prof.code && (
                       <div className="absolute top-1 right-1 bg-purple-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
@@ -358,19 +359,19 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
 
           {/* Stats */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-primary-50 rounded-lg p-4">
-              <p className="text-sm text-gray-600">{t('profile.xp')}</p>
-              <p className="text-2xl font-bold text-primary-600">{profile.xp}</p>
+            <div className="bg-primary-500/20 rounded-lg p-4 border border-primary-500/30">
+              <p className="text-sm text-gray-200">{t('profile.xp')}</p>
+              <p className="text-2xl font-bold text-primary-300">{profile.xp}</p>
             </div>
-            <div className="bg-yellow-50 rounded-lg p-4">
-              <p className="text-sm text-gray-600">{t('profile.coins')}</p>
-              <p className="text-2xl font-bold text-yellow-600">{profile.coins}</p>
+            <div className="bg-yellow-500/20 rounded-lg p-4 border border-yellow-500/30">
+              <p className="text-sm text-gray-200">{t('profile.coins')}</p>
+              <p className="text-2xl font-bold text-yellow-400">{profile.coins}</p>
             </div>
           </div>
 
-          {/* Test Level (Development Only) - Ẩn cho public version */}
-          {/* <div className="border-t border-gray-200 pt-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">{t('profile.testLevel')}</h4>
+          {/* Test Level (Development Only) */}
+          <div className="border-t border-slate-600 pt-4">
+            <h4 className="text-sm font-medium text-gray-200 mb-2">{t('profile.testLevel')}</h4>
             <div className="flex space-x-2">
               <button
                 onClick={async () => {
@@ -445,7 +446,7 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
               </button>
             </div>
             <div className="mt-4">
-              <h4 className="text-sm font-semibold text-gray-700 mb-2">💰 Test Coins</h4>
+              <h4 className="text-sm font-semibold text-gray-200 mb-2">💰 Test Coins</h4>
               <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={async () => {
@@ -519,10 +520,10 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
 
           {/* Root Management - Quản lý users */}
           {profile.isRoot && (
-            <div className="border-t border-gray-200 pt-6 mb-6">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">{t('profile.rootManagement')}</h4>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-                <p className="text-sm text-gray-700 mb-2">
+            <div className="border-t border-slate-600 pt-6 mb-6">
+              <h4 className="text-sm font-medium text-gray-200 mb-3">{t('profile.rootManagement')}</h4>
+              <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-3 mb-4">
+                <p className="text-sm text-gray-200 mb-2">
                   <strong>{t('profile.rootStatus')}:</strong> {t('profile.rootStatusYes')}
                 </p>
               </div>
@@ -533,7 +534,7 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
           )}
 
           {/* Actions */}
-          <div className="flex space-x-4 border-t border-gray-200 pt-6">
+          <div className="flex space-x-4 border-t border-slate-600 pt-6">
             <button
               onClick={handleSave}
               disabled={saving}
@@ -543,7 +544,7 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
             </button>
             <button
               onClick={handleLogout}
-              className="px-6 py-2 border border-red-300 text-red-600 rounded-lg font-medium hover:bg-red-50"
+              className="px-6 py-2 border border-red-500/50 text-red-400 rounded-lg font-medium hover:bg-red-500/20 transition-colors"
             >
               {t('profile.logout')}
             </button>
@@ -613,7 +614,7 @@ function UserManagementSection({ currentUserId }: { currentUserId: string }) {
   return (
     <div>
       <div className="flex justify-between items-center mb-3">
-        <h5 className="text-sm font-semibold text-gray-700">
+        <h5 className="text-sm font-semibold text-gray-200">
           {language === 'vi' ? '👥 Quản lý Users' : '👥 User Management'}
         </h5>
         <button
@@ -626,11 +627,11 @@ function UserManagementSection({ currentUserId }: { currentUserId: string }) {
       </div>
       
       {loading && users.length === 0 ? (
-        <div className="text-center py-4 text-gray-500">
+        <div className="text-center py-4 text-gray-400">
           {language === 'vi' ? 'Đang tải...' : 'Loading...'}
         </div>
       ) : users.length === 0 ? (
-        <div className="text-center py-4 text-gray-500">
+        <div className="text-center py-4 text-gray-400">
           {language === 'vi' ? 'Không có users nào' : 'No users found'}
         </div>
       ) : (
@@ -638,16 +639,16 @@ function UserManagementSection({ currentUserId }: { currentUserId: string }) {
           {users.map(user => (
             <div
               key={user.id}
-              className="bg-white border border-gray-200 rounded-lg p-3 flex justify-between items-center"
+              className="bg-slate-800/80 backdrop-blur-sm border border-slate-600 rounded-lg p-3 flex justify-between items-center"
             >
               <div className="flex-1">
-                <p className="font-medium text-gray-800">{user.name}</p>
-                <p className="text-xs text-gray-500">{user.email}</p>
+                <p className="font-medium text-gray-100">{user.name}</p>
+                <p className="text-xs text-gray-400">{user.email}</p>
                 <div className="flex gap-4 mt-1 text-xs">
-                  <span className="text-blue-600">XP: {user.xp}</span>
-                  <span className="text-yellow-600">Coins: {user.coins}</span>
+                  <span className="text-primary-300 font-medium">XP: {user.xp}</span>
+                  <span className="text-yellow-400">Coins: {user.coins}</span>
                   {user.isRoot && (
-                    <span className="text-purple-600 font-bold">🔐 Root</span>
+                    <span className="text-purple-400 font-bold">🔐 Root</span>
                   )}
                 </div>
               </div>
