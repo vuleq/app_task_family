@@ -6,6 +6,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore'
 import { checkDb } from '@/lib/firebase/config'
 import { useI18n } from '@/lib/i18n/context'
 import { UserProfile } from '@/lib/firebase/profile'
+import { Task } from '@/lib/firebase/tasks'
 
 interface StatisticsProps {
   currentUserId: string
@@ -39,7 +40,7 @@ export default function Statistics({ currentUserId }: StatisticsProps) {
       const tasks = tasksSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }))
+      })) as Task[]
       
       // Lấy danh sách unique user IDs đã được assign task
       const activeUserIds = new Set<string>()
