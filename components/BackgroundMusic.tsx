@@ -14,51 +14,110 @@ export default function BackgroundMusic({ isLoggedIn }: BackgroundMusicProps) {
   const [volume, setVolume] = useState(0.35) // 35% volume - vừa đủ nghe
   const [isMuted, setIsMuted] = useState(false)
   const [hasInteracted, setHasInteracted] = useState(false)
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
+  
+  // Load currentTrackIndex từ localStorage để nhớ bài đang nghe
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedIndex = localStorage.getItem('bgMusicCurrentTrackIndex')
+      if (savedIndex !== null) {
+        const index = parseInt(savedIndex, 10)
+        if (!isNaN(index) && index >= 0) {
+          return index
+        }
+      }
+    }
+    return 0 // Mặc định bắt đầu từ bài 1 (index 0)
+  })
   
   // Tạo playlist từ environment variables
   // Hỗ trợ nhiều cách:
-  // 1. NEXT_PUBLIC_BACKGROUND_MUSIC_URL (single URL - backward compatible)
-  // 2. NEXT_PUBLIC_BACKGROUND_MUSIC_PLAYLIST (comma-separated URLs)
-  // 3. NEXT_PUBLIC_BACKGROUND_MUSIC_URL_1, NEXT_PUBLIC_BACKGROUND_MUSIC_URL_2, ... (multiple URLs)
+  // 1. NEXT_PUBLIC_BACKGROUND_MUSIC_PLAYLIST (comma-separated URLs) - Ưu tiên cao nhất
+  // 2. NEXT_PUBLIC_BACKGROUND_MUSIC_URL_1, URL_2, ... (multiple URLs) - Ưu tiên thứ 2
+  // 3. NEXT_PUBLIC_BACKGROUND_MUSIC_URL (single URL - backward compatible) - Ưu tiên thứ 3
   const getPlaylist = (): string[] => {
     const playlist: string[] = []
     
-    // Cách 1: Playlist từ biến comma-separated
+    // Debug: Log tất cả environment variables liên quan đến music
+    if (typeof window !== 'undefined') {
+      console.log('[BackgroundMusic] Debug - Checking environment variables:')
+      console.log('  NEXT_PUBLIC_BACKGROUND_MUSIC_PLAYLIST:', process.env.NEXT_PUBLIC_BACKGROUND_MUSIC_PLAYLIST)
+      console.log('  NEXT_PUBLIC_BACKGROUND_MUSIC_URL:', process.env.NEXT_PUBLIC_BACKGROUND_MUSIC_URL)
+      console.log('  NEXT_PUBLIC_BACKGROUND_MUSIC_URL_1:', process.env.NEXT_PUBLIC_BACKGROUND_MUSIC_URL_1)
+      console.log('  NEXT_PUBLIC_BACKGROUND_MUSIC_URL_2:', process.env.NEXT_PUBLIC_BACKGROUND_MUSIC_URL_2)
+    }
+    
+    // Cách 1: Playlist từ biến comma-separated (Ưu tiên cao nhất)
     const playlistEnv = process.env.NEXT_PUBLIC_BACKGROUND_MUSIC_PLAYLIST
     if (playlistEnv) {
-      const urls = playlistEnv.split(',').map(url => url.trim()).filter(url => url.length > 0)
+      const urls = playlistEnv.split(',').map(url => {
+        let cleanUrl = url.trim()
+        // Loại bỏ dấu ngoặc kép nếu có
+        if (cleanUrl.startsWith('"') && cleanUrl.endsWith('"')) {
+          cleanUrl = cleanUrl.slice(1, -1)
+        }
+        if (cleanUrl.startsWith("'") && cleanUrl.endsWith("'")) {
+          cleanUrl = cleanUrl.slice(1, -1)
+        }
+        return cleanUrl
+      }).filter(url => url.length > 0)
       if (urls.length > 0) {
+        console.log('[BackgroundMusic] Using PLAYLIST:', urls.length, 'tracks')
         return urls
       }
     }
     
-    // Cách 2: Nhiều biến URL_1, URL_2, ...
-    let index = 1
-    while (true) {
-      const url = process.env[`NEXT_PUBLIC_BACKGROUND_MUSIC_URL_${index}`]
-      if (url) {
-        playlist.push(url.trim())
-        index++
-      } else {
-        break
+    // Cách 1.5: Single URL (ưu tiên thứ 2 - nếu có single URL thì dùng luôn, không cần tìm URL_X)
+    const singleUrl = process.env.NEXT_PUBLIC_BACKGROUND_MUSIC_URL
+    if (singleUrl && singleUrl.trim().length > 0) {
+      // Loại bỏ dấu ngoặc kép nếu có
+      let cleanUrl = singleUrl.trim()
+      if (cleanUrl.startsWith('"') && cleanUrl.endsWith('"')) {
+        cleanUrl = cleanUrl.slice(1, -1)
+      }
+      if (cleanUrl.startsWith("'") && cleanUrl.endsWith("'")) {
+        cleanUrl = cleanUrl.slice(1, -1)
+      }
+      if (cleanUrl.length > 0) {
+        console.log('[BackgroundMusic] Using single URL')
+        return [cleanUrl]
       }
     }
     
-    // Cách 3: Single URL (backward compatible)
-    if (playlist.length === 0) {
-      const singleUrl = process.env.NEXT_PUBLIC_BACKGROUND_MUSIC_URL
-      if (singleUrl) {
-        playlist.push(singleUrl.trim())
+    // Cách 2: Nhiều biến URL_1, URL_2, ... (Ưu tiên thứ 3)
+    // Tìm tất cả URL_X có sẵn (không cần bắt đầu từ 1)
+    const urlKeys: number[] = []
+    let index = 1
+    // Tìm tất cả các URL_X có sẵn
+    while (index <= 20) { // Giới hạn tối đa 20 bài để tránh vòng lặp vô hạn
+      const envKey = `NEXT_PUBLIC_BACKGROUND_MUSIC_URL_${index}`
+      const url = process.env[envKey]
+      if (url && url.trim().length > 0) {
+        // Loại bỏ dấu ngoặc kép nếu có (để tương thích với format có dấu ngoặc kép)
+        let cleanUrl = url.trim()
+        if (cleanUrl.startsWith('"') && cleanUrl.endsWith('"')) {
+          cleanUrl = cleanUrl.slice(1, -1)
+        }
+        if (cleanUrl.startsWith("'") && cleanUrl.endsWith("'")) {
+          cleanUrl = cleanUrl.slice(1, -1)
+        }
+        if (cleanUrl.length > 0) {
+          urlKeys.push(index)
+          playlist.push(cleanUrl)
+          console.log(`[BackgroundMusic] Found ${envKey}:`, cleanUrl.substring(0, 50) + '...')
+        }
       }
+      index++
+    }
+    
+    // Nếu tìm thấy ít nhất 1 URL_X, dùng playlist này
+    if (playlist.length > 0) {
+      console.log('[BackgroundMusic] Using URL_X playlist:', playlist.length, 'tracks', urlKeys)
+      return playlist
     }
     
     // Fallback nếu không có gì
-    if (playlist.length === 0) {
-      playlist.push('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3')
-    }
-    
-    return playlist
+    console.warn('[BackgroundMusic] No music URL found, using fallback')
+    return ['https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3']
   }
   
   const playlist = getPlaylist()
@@ -189,16 +248,24 @@ export default function BackgroundMusic({ isLoggedIn }: BackgroundMusicProps) {
   }, [volume, isMuted])
 
   // Handle audio ended - chuyển sang bài tiếp theo hoặc loop lại
+  // Logic: Phát theo thứ tự tuần tự (Bài 1 → Bài 2 → ... → Bài cuối → Bài 1)
   const handleEnded = () => {
     if (!audioRef.current || !isPlaying) return
     
-    // Nếu có nhiều bài trong playlist, chuyển sang bài tiếp theo
+    // Nếu có nhiều bài trong playlist, chuyển sang bài tiếp theo theo thứ tự
     if (playlist.length > 1) {
+      // Tính index bài tiếp theo: (index hiện tại + 1) % số lượng bài
+      // Ví dụ: 3 bài, đang ở bài 2 (index=1) → (1+1) % 3 = 2 (bài 3)
+      //        Đang ở bài 3 (index=2) → (2+1) % 3 = 0 (quay lại bài 1)
       const nextIndex = (currentTrackIndex + 1) % playlist.length
+      console.log(`[BackgroundMusic] Track ${currentTrackIndex + 1} ended, moving to track ${nextIndex + 1}`)
       setCurrentTrackIndex(nextIndex)
+      // Lưu vào localStorage để nhớ bài đang nghe (khi logout/login lại sẽ tiếp tục từ đây)
+      localStorage.setItem('bgMusicCurrentTrackIndex', nextIndex.toString())
       // Audio src sẽ được update tự động qua useEffect
     } else {
-      // Nếu chỉ có 1 bài, loop lại
+      // Nếu chỉ có 1 bài, loop lại (phát lại từ đầu)
+      console.log('[BackgroundMusic] Single track ended, looping...')
       audioRef.current.currentTime = 0
       audioRef.current.play().catch(err => {
         console.error('Error replaying audio:', err)
@@ -210,17 +277,29 @@ export default function BackgroundMusic({ isLoggedIn }: BackgroundMusicProps) {
   useEffect(() => {
     if (audioRef.current && currentTrack) {
       const wasPlaying = isPlaying
+      console.log('[BackgroundMusic] Loading track:', currentTrackIndex + 1, '/', playlist.length, currentTrack)
       audioRef.current.src = currentTrack
       audioRef.current.load()
       
       // Nếu đang play, tiếp tục play bài mới
-      if (wasPlaying) {
-        audioRef.current.play().catch(err => {
-          console.error('Error playing next track:', err)
-        })
+      // Chỉ play nếu user đã tương tác (để tránh autoplay error)
+      if (wasPlaying && hasInteracted) {
+        const playPromise = audioRef.current.play()
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('[BackgroundMusic] Playing track:', currentTrackIndex + 1)
+            })
+            .catch(err => {
+              // Không log error nếu là autoplay error (bình thường)
+              if (err.name !== 'NotAllowedError') {
+                console.error('[BackgroundMusic] Error playing next track:', err)
+              }
+            })
+        }
       }
     }
-  }, [currentTrack])
+  }, [currentTrack, currentTrackIndex, playlist.length, isPlaying, hasInteracted])
 
   if (!isLoggedIn) {
     return null
@@ -231,6 +310,8 @@ export default function BackgroundMusic({ isLoggedIn }: BackgroundMusicProps) {
     if (playlist.length > 1) {
       const nextIndex = (currentTrackIndex + 1) % playlist.length
       setCurrentTrackIndex(nextIndex)
+      // Lưu vào localStorage
+      localStorage.setItem('bgMusicCurrentTrackIndex', nextIndex.toString())
     }
   }
   
@@ -238,8 +319,19 @@ export default function BackgroundMusic({ isLoggedIn }: BackgroundMusicProps) {
     if (playlist.length > 1) {
       const prevIndex = (currentTrackIndex - 1 + playlist.length) % playlist.length
       setCurrentTrackIndex(prevIndex)
+      // Lưu vào localStorage
+      localStorage.setItem('bgMusicCurrentTrackIndex', prevIndex.toString())
     }
   }
+  
+  // Lưu currentTrackIndex vào localStorage mỗi khi nó thay đổi
+  useEffect(() => {
+    if (typeof window !== 'undefined' && playlist.length > 0) {
+      // Đảm bảo index hợp lệ (không vượt quá số lượng bài)
+      const validIndex = Math.min(currentTrackIndex, playlist.length - 1)
+      localStorage.setItem('bgMusicCurrentTrackIndex', validIndex.toString())
+    }
+  }, [currentTrackIndex, playlist.length])
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
@@ -348,4 +440,5 @@ export default function BackgroundMusic({ isLoggedIn }: BackgroundMusicProps) {
     </div>
   )
 }
+
 

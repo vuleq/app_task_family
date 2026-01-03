@@ -9,6 +9,10 @@ export const metadata: Metadata = {
   title: 'Family Tasks - Quản lý nhiệm vụ gia đình',
   description: 'Ứng dụng quản lý nhiệm vụ gia đình với hệ thống XP và Coin',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/icons/icon-192x192.png',
+    apple: '/icons/icon-192x192.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
