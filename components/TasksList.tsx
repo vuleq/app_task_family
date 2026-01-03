@@ -2,14 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, Timestamp } from 'firebase/firestore'
-import { db } from '@/lib/firebase/config'
-
-const checkDb = () => {
-  if (!db) {
-    throw new Error('Firestore is not initialized. Please check your .env.local file.')
-  }
-  return db
-}
+import { db, checkDb } from '@/lib/firebase/config'
 import { UserProfile, getAllUsers } from '@/lib/firebase/profile'
 import PhotoEvidence from './PhotoEvidence'
 import { 
