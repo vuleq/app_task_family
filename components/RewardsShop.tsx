@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs as getDocsQuery } from 'firebase/firestore'
 import { db } from '@/lib/firebase/config'
 import { UserProfile, updateProfile, getProfile } from '@/lib/firebase/profile'
@@ -38,12 +38,7 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
   const [editingReward, setEditingReward] = useState<Reward | null>(null)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
 
-  useEffect(() => {
-    loadRewards()
-    loadMyRewards()
-  }, [])
-
-  const loadRewards = async () => {
+  const loadRewards = useCallback(async () => {
     try {
       const rewardsRef = collection(checkDb(), 'rewards')
       const snapshot = await getDocs(rewardsRef)
@@ -57,9 +52,9 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const loadMyRewards = async () => {
+  const loadMyRewards = useCallback(async () => {
     try {
       const userRewardsRef = collection(checkDb(), 'userRewards')
       const q = query(userRewardsRef, where('userId', '==', currentUserId))
@@ -72,7 +67,12 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
     } catch (error) {
       console.error('Error loading my rewards:', error)
     }
-  }
+  }, [currentUserId])
+
+  useEffect(() => {
+    loadRewards()
+    loadMyRewards()
+  }, [loadRewards, loadMyRewards])
 
   const handlePurchase = async (reward: Reward) => {
     if (profile.coins < reward.coinCost) {

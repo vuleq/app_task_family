@@ -79,7 +79,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
     coinReward: 5 
   })
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       const allUsers = await getAllUsers()
       setUsers(allUsers)
@@ -87,7 +87,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
     } catch (error) {
       console.error('Error loading users:', error)
     }
-  }
+  }, [])
 
   const loadTemplates = useCallback(async () => {
     try {
@@ -132,13 +132,13 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
     } finally {
       setLoading(false)
     }
-  }, [db, profile.isRoot])
+  }, [profile.isRoot])
 
   useEffect(() => {
     loadTasks()
     loadUsers()
     loadTemplates()
-  }, [loadTasks, loadTemplates])
+  }, [loadTasks, loadUsers, loadTemplates])
 
   const handleAddTask = async () => {
     // Chỉ root mới có thể tạo nhiệm vụ

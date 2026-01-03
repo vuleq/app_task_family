@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { collection, query, where, getDocs, updateDoc, doc, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/config'
 import { updateProfile, getProfile } from '@/lib/firebase/profile'
@@ -43,11 +43,7 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
 
-  useEffect(() => {
-    loadPendingTasks()
-  }, [])
-
-  const loadPendingTasks = async () => {
+  const loadPendingTasks = useCallback(async () => {
     try {
       const tasksRef = collection(checkDb(), 'tasks')
       const q = query(tasksRef, where('status', '==', 'completed'))
@@ -85,7 +81,11 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentUserId, currentUserRole])
+
+  useEffect(() => {
+    loadPendingTasks()
+  }, [loadPendingTasks])
 
   const handleApprove = async (task: Task) => {
     try {
