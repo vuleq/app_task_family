@@ -82,10 +82,32 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
 
   const handleApprove = async (task: Task) => {
     try {
+      // Kiểm tra giới hạn nhiệm vụ và coin trước khi approve
+      const { canCompleteTask } = await import('@/lib/firebase/taskLimits')
+      const limitCheck = await canCompleteTask(task.assignedTo, task.type, task.coinReward)
+      
+      if (!limitCheck.allowed) {
+        setToast({ 
+          show: true, 
+          message: limitCheck.reason || 'Đã đạt giới hạn nhiệm vụ/coin', 
+          type: 'error' 
+        })
+        return
+      }
+
+      // Lấy ngày hiện tại (YYYY-MM-DD) nếu chưa có completedDate
+      let completedDate = task.completedDate
+      if (!completedDate) {
+        const now = new Date()
+        const vietnamTime = new Date(now.getTime() + 7 * 60 * 60 * 1000) // UTC+7
+        completedDate = `${vietnamTime.getUTCFullYear()}-${String(vietnamTime.getUTCMonth() + 1).padStart(2, '0')}-${String(vietnamTime.getUTCDate()).padStart(2, '0')}`
+      }
+
       // Cập nhật trạng thái task
       await updateDoc(doc(db, 'tasks', task.id), {
         status: 'approved',
-        approvedAt: Timestamp.now()
+        approvedAt: Timestamp.now(),
+        completedDate: completedDate // Đảm bảo có completedDate
       })
 
       // Cập nhật XP và Coins cho người làm

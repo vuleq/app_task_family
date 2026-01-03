@@ -19,6 +19,7 @@ import {
 import CreateDefaultTemplates from './CreateDefaultTemplates'
 import { useI18n } from '@/lib/i18n/context'
 import { getTranslatedTemplateTitle, getTranslatedTaskTitle } from '@/lib/i18n/templateTranslations'
+import { getTaskStats, TASK_LIMITS } from '@/lib/firebase/taskLimits'
 import Toast from './Toast'
 
 interface Task {
@@ -63,6 +64,11 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
   const [taskCategory, setTaskCategory] = useState<'hoc' | 'khac' | ''>('') // Category cho template
   const [templateFilter, setTemplateFilter] = useState<'all' | 'hoc' | 'khac'>('all') // Filter templates
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]) // Chọn nhiều template để xóa
+  const [taskLimits, setTaskLimits] = useState<{
+    daily: { tasks: number; coins: number }
+    weekly: { tasks: number; coins: number }
+    monthly: { tasks: number; coins: number }
+  } | null>(null)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
   const [newTask, setNewTask] = useState({ 
     title: '', 
@@ -122,12 +128,29 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         ...doc.data()
       })) as Task[]
       setTasks(tasksData)
+
+      // Load task limits stats cho current user
+      try {
+        const [dailyStats, weeklyStats, monthlyStats] = await Promise.all([
+          getTaskStats(currentUser.uid, 'daily'),
+          getTaskStats(currentUser.uid, 'weekly'),
+          getTaskStats(currentUser.uid, 'monthly'),
+        ])
+        
+        setTaskLimits({
+          daily: { tasks: dailyStats.taskCount, coins: dailyStats.totalCoins },
+          weekly: { tasks: weeklyStats.taskCount, coins: weeklyStats.totalCoins },
+          monthly: { tasks: monthlyStats.taskCount, coins: monthlyStats.totalCoins },
+        })
+      } catch (error) {
+        console.error('Error loading task limits:', error)
+      }
     } catch (error) {
       console.error('Error loading tasks:', error)
     } finally {
       setLoading(false)
     }
-  }, [profile.isRoot])
+  }, [currentUser.uid, profile.isRoot])
 
   useEffect(() => {
     loadTasks()
@@ -456,9 +479,15 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         setToast({ show: true, message: 'Firestore chưa được khởi tạo', type: 'error' })
         return
       }
+      // Lấy ngày hiện tại (YYYY-MM-DD) để lưu completedDate
+      const now = new Date()
+      const vietnamTime = new Date(now.getTime() + 7 * 60 * 60 * 1000) // UTC+7
+      const completedDate = `${vietnamTime.getUTCFullYear()}-${String(vietnamTime.getUTCMonth() + 1).padStart(2, '0')}-${String(vietnamTime.getUTCDate()).padStart(2, '0')}`
+      
       await updateDoc(doc(db, 'tasks', task.id), {
         status: 'completed',
-        completedAt: Timestamp.now()
+        completedAt: Timestamp.now(),
+        completedDate: completedDate // Lưu ngày hoàn thành để đếm giới hạn
       })
       
       // Nếu là nhiệm vụ ngày thuộc nhiệm vụ tuần/tháng, kiểm tra tiến độ
@@ -686,6 +715,65 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
           <option value="khac">{t('tasks.categoryOther')}</option>
         </select>
       </div>
+
+      {/* Hiển thị giới hạn nhiệm vụ và coin */}
+      {taskLimits && (
+        <div className="mb-4 grid grid-cols-3 gap-3">
+          {/* Daily Limits */}
+          <div className={`bg-slate-700/50 rounded-lg p-3 border ${
+            taskLimits.daily.tasks >= TASK_LIMITS.daily.maxTasks || taskLimits.daily.coins >= TASK_LIMITS.daily.maxCoins
+              ? 'border-red-500/50'
+              : 'border-slate-600'
+          }`}>
+            <p className="text-xs text-gray-400 mb-1">📅 {language === 'vi' ? 'Ngày' : 'Daily'}</p>
+            <p className="text-sm font-semibold text-gray-200">
+              {taskLimits.daily.tasks}/{TASK_LIMITS.daily.maxTasks} {language === 'vi' ? 'nhiệm vụ' : 'tasks'}
+            </p>
+            <p className="text-sm font-semibold text-yellow-400">
+              {taskLimits.daily.coins}/{TASK_LIMITS.daily.maxCoins} {language === 'vi' ? 'coin' : 'coins'}
+            </p>
+            {(taskLimits.daily.tasks >= TASK_LIMITS.daily.maxTasks || taskLimits.daily.coins >= TASK_LIMITS.daily.maxCoins) && (
+              <p className="text-xs text-red-400 mt-1">⚠️ {language === 'vi' ? 'Đã đạt giới hạn' : 'Limit reached'}</p>
+            )}
+          </div>
+
+          {/* Weekly Limits */}
+          <div className={`bg-slate-700/50 rounded-lg p-3 border ${
+            taskLimits.weekly.tasks >= TASK_LIMITS.weekly.maxTasks || taskLimits.weekly.coins >= TASK_LIMITS.weekly.maxCoins
+              ? 'border-red-500/50'
+              : 'border-slate-600'
+          }`}>
+            <p className="text-xs text-gray-400 mb-1">📆 {language === 'vi' ? 'Tuần' : 'Weekly'}</p>
+            <p className="text-sm font-semibold text-gray-200">
+              {taskLimits.weekly.tasks}/{TASK_LIMITS.weekly.maxTasks} {language === 'vi' ? 'nhiệm vụ' : 'tasks'}
+            </p>
+            <p className="text-sm font-semibold text-yellow-400">
+              {taskLimits.weekly.coins}/{TASK_LIMITS.weekly.maxCoins} {language === 'vi' ? 'coin' : 'coins'}
+            </p>
+            {(taskLimits.weekly.tasks >= TASK_LIMITS.weekly.maxTasks || taskLimits.weekly.coins >= TASK_LIMITS.weekly.maxCoins) && (
+              <p className="text-xs text-red-400 mt-1">⚠️ {language === 'vi' ? 'Đã đạt giới hạn' : 'Limit reached'}</p>
+            )}
+          </div>
+
+          {/* Monthly Limits */}
+          <div className={`bg-slate-700/50 rounded-lg p-3 border ${
+            taskLimits.monthly.tasks >= TASK_LIMITS.monthly.maxTasks || taskLimits.monthly.coins >= TASK_LIMITS.monthly.maxCoins
+              ? 'border-red-500/50'
+              : 'border-slate-600'
+          }`}>
+            <p className="text-xs text-gray-400 mb-1">🗓️ {language === 'vi' ? 'Tháng' : 'Monthly'}</p>
+            <p className="text-sm font-semibold text-gray-200">
+              {taskLimits.monthly.tasks}/{TASK_LIMITS.monthly.maxTasks} {language === 'vi' ? 'nhiệm vụ' : 'tasks'}
+            </p>
+            <p className="text-sm font-semibold text-yellow-400">
+              {taskLimits.monthly.coins}/{TASK_LIMITS.monthly.maxCoins} {language === 'vi' ? 'coin' : 'coins'}
+            </p>
+            {(taskLimits.monthly.tasks >= TASK_LIMITS.monthly.maxTasks || taskLimits.monthly.coins >= TASK_LIMITS.monthly.maxCoins) && (
+              <p className="text-xs text-red-400 mt-1">⚠️ {language === 'vi' ? 'Đã đạt giới hạn' : 'Limit reached'}</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Templates Section */}
       {showTemplates && (
@@ -977,9 +1065,11 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
       )}
 
       {/* Nhiệm vụ của tôi */}
-      {myTasks.length > 0 && (
+      {myTasks.length > 0 ? (
         <div>
-          <h4 className="font-medium text-gray-200 mb-2">{t('tasks.myTasks')}</h4>
+          <h4 className="font-medium text-gray-200 mb-2">
+            {t('tasks.myTasks')} ({myTasks.length})
+          </h4>
           <div className="space-y-2">
             {myTasks.map(task => {
               // Tách nhiệm vụ tổng hợp (weekly/monthly) và nhiệm vụ ngày
@@ -1107,10 +1197,21 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
             )})}
           </div>
         </div>
+      ) : (
+        <div className="text-center py-8 text-gray-400">
+          <p>{language === 'vi' ? 'Chưa có nhiệm vụ nào' : 'No tasks yet'}</p>
+          {activeTab !== 'all' && (
+            <p className="text-sm mt-2">
+              {language === 'vi' 
+                ? `Thử chọn tab "${activeTab === 'daily' ? 'Tất cả' : activeTab === 'weekly' ? 'Tuần' : 'Tháng'}" hoặc "${categoryFilter === 'hoc' ? 'Việc khác' : categoryFilter === 'khac' ? 'Việc học' : 'Tất cả'}"`
+                : `Try selecting "${activeTab === 'daily' ? 'All' : activeTab === 'weekly' ? 'Weekly' : 'Monthly'}" tab or "${categoryFilter === 'hoc' ? 'Other' : categoryFilter === 'khac' ? 'Study' : 'All'}" category`}
+            </p>
+          )}
+        </div>
       )}
 
-      {/* Nhiệm vụ của người khác */}
-      {otherTasks.length > 0 && (
+      {/* Ẩn nhiệm vụ của người khác - chỉ hiển thị nhiệm vụ của mình */}
+      {false && otherTasks.length > 0 && (
         <div>
           <h4 className="font-medium text-gray-200 mb-2">{t('tasks.otherTasks')}</h4>
           <div className="space-y-2">
@@ -1161,6 +1262,17 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
               </div>
             ))}
           </div>
+        </div>
+      ) : (
+        <div className="text-center py-8 text-gray-400">
+          <p className="text-lg mb-2">{language === 'vi' ? '📭 Chưa có nhiệm vụ nào' : '📭 No tasks yet'}</p>
+          {(activeTab !== 'all' || categoryFilter !== 'all') && (
+            <p className="text-sm mt-2">
+              {language === 'vi' 
+                ? `Thử chọn tab "${activeTab === 'all' ? 'Tất cả' : activeTab === 'daily' ? 'Ngày' : activeTab === 'weekly' ? 'Tuần' : 'Tháng'}" hoặc category "${categoryFilter === 'all' ? 'Tất cả' : categoryFilter === 'hoc' ? 'Việc học' : 'Việc khác'}"`
+                : `Try selecting "${activeTab === 'all' ? 'All' : activeTab === 'daily' ? 'Daily' : activeTab === 'weekly' ? 'Weekly' : 'Monthly'}" tab or "${categoryFilter === 'all' ? 'All' : categoryFilter === 'hoc' ? 'Study' : 'Other'}" category`}
+            </p>
+          )}
         </div>
       )}
 
