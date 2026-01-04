@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, Timestamp } from 'firebase/firestore'
-import { db, checkDb } from '@/lib/firebase/config'
+import { db } from '@/lib/firebase/config'
 import { UserProfile, getAllUsers } from '@/lib/firebase/profile'
 import PhotoEvidence from './PhotoEvidence'
 import { 
@@ -19,6 +19,7 @@ import {
 import CreateDefaultTemplates from './CreateDefaultTemplates'
 import { useI18n } from '@/lib/i18n/context'
 import { getTranslatedTemplateTitle, getTranslatedTaskTitle } from '@/lib/i18n/templateTranslations'
+import { getTaskStats, TASK_LIMITS } from '@/lib/firebase/taskLimits'
 import Toast from './Toast'
 
 interface Task {
@@ -28,14 +29,17 @@ interface Task {
   assignedTo: string
   assignedToName: string
   createdBy: string
-  createdByName?: string // Thêm field này
+  createdByName?: string
   status: 'pending' | 'in_progress' | 'completed' | 'approved'
   type: 'daily' | 'weekly' | 'monthly'
+  category?: 'hoc' | 'khac' // Category: việc học hoặc việc khác
   xpReward: number
   coinReward: number
   createdAt: any
   completedAt?: any
+  startedAt?: any // Thời gian bắt đầu làm
   evidence?: string
+  taskDate?: string // Ngày của nhiệm vụ (YYYY-MM-DD) - dùng để hiển thị theo tab ngày
   parentTaskId?: string
   groupKey?: string
   requiredCount?: number
@@ -61,6 +65,20 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
   const [taskCategory, setTaskCategory] = useState<'hoc' | 'khac' | ''>('') // Category cho template
   const [templateFilter, setTemplateFilter] = useState<'all' | 'hoc' | 'khac'>('all') // Filter templates
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]) // Chọn nhiều template để xóa
+  // Thay đổi activeTab thành selectedDay (0-6: Thứ 2 - Chủ nhật)
+  const [selectedDay, setSelectedDay] = useState<number>(() => {
+    // Mặc định chọn ngày hôm nay
+    const today = new Date()
+    const dayOfWeek = today.getDay() // 0 = Chủ nhật, 1 = Thứ 2, ..., 6 = Thứ 7
+    // Chuyển đổi: 0 (CN) -> 6, 1 (T2) -> 0, 2 (T3) -> 1, ..., 6 (T7) -> 5
+    return dayOfWeek === 0 ? 6 : dayOfWeek - 1
+  })
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'hoc' | 'khac'>('all')
+  const [taskLimits, setTaskLimits] = useState<{
+    daily: { tasks: number; coins: number }
+    weekly: { tasks: number; coins: number }
+    monthly: { tasks: number; coins: number }
+  } | null>(null)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
   const [newTask, setNewTask] = useState({ 
     title: '', 
@@ -112,7 +130,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         }
       }
       
-      const tasksRef = collection(checkDb(), 'tasks')
+      const tasksRef = collection(db, 'tasks')
       const q = query(tasksRef)
       const snapshot = await getDocs(q)
       const tasksData = snapshot.docs.map(doc => ({
@@ -120,12 +138,29 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         ...doc.data()
       })) as Task[]
       setTasks(tasksData)
+
+      // Load task limits stats cho current user
+      try {
+        const [dailyStats, weeklyStats, monthlyStats] = await Promise.all([
+          getTaskStats(currentUser.uid, 'daily'),
+          getTaskStats(currentUser.uid, 'weekly'),
+          getTaskStats(currentUser.uid, 'monthly'),
+        ])
+        
+        setTaskLimits({
+          daily: { tasks: dailyStats.taskCount, coins: dailyStats.totalCoins },
+          weekly: { tasks: weeklyStats.taskCount, coins: weeklyStats.totalCoins },
+          monthly: { tasks: monthlyStats.taskCount, coins: monthlyStats.totalCoins },
+        })
+      } catch (error) {
+        console.error('Error loading task limits:', error)
+      }
     } catch (error) {
       console.error('Error loading tasks:', error)
     } finally {
       setLoading(false)
     }
-  }, [profile.isRoot])
+  }, [currentUser.uid, profile.isRoot])
 
   useEffect(() => {
     loadTasks()
@@ -166,11 +201,17 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
             setToast({ show: true, message: 'Firestore chưa được khởi tạo', type: 'error' })
             return
           }
+          // Tính taskDate (ngày hôm nay theo múi giờ Việt Nam UTC+7)
+          const now = new Date()
+          const vietnamTime = new Date(now.getTime() + 7 * 60 * 60 * 1000)
+          const taskDate = `${vietnamTime.getUTCFullYear()}-${String(vietnamTime.getUTCMonth() + 1).padStart(2, '0')}-${String(vietnamTime.getUTCDate()).padStart(2, '0')}`
+          
           // Tạo 1 nhiệm vụ ngày
-          const docRef = await addDoc(collection(checkDb(), 'tasks'), {
+          const docRef = await addDoc(collection(db, 'tasks'), {
             title: newTask.title,
             description: newTask.description,
             type: 'daily',
+            category: taskCategory || null, // Lưu category vào task
             assignedTo: user.id,
             assignedToName: user.name,
             createdBy: currentUser.uid,
@@ -178,7 +219,8 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
             status: 'pending',
             xpReward: newTask.xpReward,
             coinReward: newTask.coinReward,
-            createdAt: Timestamp.now()
+            createdAt: Timestamp.now(),
+            taskDate: taskDate // Lưu ngày của nhiệm vụ
           })
           taskIds.push(docRef.id)
         } else if (newTask.type === 'weekly') {
@@ -191,6 +233,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
               assignedToName: user.name,
               xpReward: newTask.xpReward,
               coinReward: newTask.coinReward,
+              category: taskCategory || undefined, // Thêm category
             },
             currentUser.uid,
             profile.name,
@@ -208,6 +251,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
               assignedToName: user.name,
               xpReward: newTask.xpReward,
               coinReward: newTask.coinReward,
+              category: taskCategory || undefined, // Thêm category
             },
             currentUser.uid,
             profile.name,
@@ -429,7 +473,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         setToast({ show: true, message: 'Firestore chưa được khởi tạo', type: 'error' })
         return
       }
-      await updateDoc(doc(checkDb(), 'tasks', task.id), {
+      await updateDoc(doc(db, 'tasks', task.id), {
         status: 'in_progress',
         startedAt: Timestamp.now() // Lưu thời gian bắt đầu làm
       })
@@ -451,9 +495,15 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         setToast({ show: true, message: 'Firestore chưa được khởi tạo', type: 'error' })
         return
       }
-      await updateDoc(doc(checkDb(), 'tasks', task.id), {
+      // Lấy ngày hiện tại (YYYY-MM-DD) để lưu completedDate
+      const now = new Date()
+      const vietnamTime = new Date(now.getTime() + 7 * 60 * 60 * 1000) // UTC+7
+      const completedDate = `${vietnamTime.getUTCFullYear()}-${String(vietnamTime.getUTCMonth() + 1).padStart(2, '0')}-${String(vietnamTime.getUTCDate()).padStart(2, '0')}`
+      
+      await updateDoc(doc(db, 'tasks', task.id), {
         status: 'completed',
-        completedAt: Timestamp.now()
+        completedAt: Timestamp.now(),
+        completedDate: completedDate // Lưu ngày hoàn thành để đếm giới hạn
       })
       
       // Nếu là nhiệm vụ ngày thuộc nhiệm vụ tuần/tháng, kiểm tra tiến độ
@@ -531,33 +581,89 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
     }
   }
 
-  const myTasks = tasks.filter(t => t.assignedTo === currentUser.uid)
-  const otherTasks = tasks.filter(t => t.assignedTo !== currentUser.uid)
-  
+  // Tính toán ngày trong tuần hiện tại (Thứ 2 - Chủ nhật)
+  const weekDates = useMemo(() => {
+    const today = new Date()
+    const dayOfWeek = today.getDay() // 0 = Chủ nhật, 1 = Thứ 2, ..., 6 = Thứ 7
+    // Tính ngày Thứ 2 của tuần này
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek // Nếu là CN thì lùi 6 ngày, nếu là T2 thì lùi 0 ngày
+    const monday = new Date(today)
+    monday.setDate(today.getDate() + mondayOffset)
+    
+    const dates: string[] = []
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(monday)
+      date.setDate(monday.getDate() + i)
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+      dates.push(dateStr)
+    }
+    return dates
+  }, [])
+
+  const selectedDate = useMemo(() => {
+    if (weekDates.length === 0 || selectedDay < 0 || selectedDay >= weekDates.length) {
+      return new Date().toISOString().split('T')[0] // Fallback to today
+    }
+    return weekDates[selectedDay]
+  }, [weekDates, selectedDay])
+
+  // Filter tasks: CHỈ hiển thị tasks của user hiện tại, theo ngày được chọn
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => {
+      // CHỈ hiển thị tasks được assign cho user hiện tại
+      if (task.assignedTo !== currentUser.uid) {
+        return false
+      }
+      
+      // Filter theo ngày được chọn (chỉ áp dụng cho daily tasks)
+      if (task.type === 'daily' && task.taskDate) {
+        if (task.taskDate !== selectedDate) {
+          return false
+        }
+      }
+      
+      // Filter theo category
+      if (categoryFilter !== 'all') {
+        if (categoryFilter === 'hoc' && task.category !== 'hoc') return false
+        if (categoryFilter === 'khac' && task.category !== 'khac') return false
+      }
+      
+      return true
+    })
+  }, [tasks, currentUser.uid, selectedDate, categoryFilter])
+
   // Summary nhiệm vụ theo loại (chỉ tính nhiệm vụ tổng hợp, không tính nhiệm vụ ngày con)
-  const taskSummary = {
+  const taskSummary = useMemo(() => ({
     daily: {
-      total: myTasks.filter(t => t.type === 'daily' && !t.parentTaskId).length,
-      pending: myTasks.filter(t => t.type === 'daily' && !t.parentTaskId && t.status === 'pending').length,
-      in_progress: myTasks.filter(t => t.type === 'daily' && !t.parentTaskId && t.status === 'in_progress').length,
-      completed: myTasks.filter(t => t.type === 'daily' && !t.parentTaskId && (t.status === 'completed' || t.status === 'approved')).length,
+      total: filteredTasks.filter(t => t.type === 'daily' && !t.parentTaskId).length,
+      pending: filteredTasks.filter(t => t.type === 'daily' && !t.parentTaskId && t.status === 'pending').length,
+      in_progress: filteredTasks.filter(t => t.type === 'daily' && !t.parentTaskId && t.status === 'in_progress').length,
+      completed: filteredTasks.filter(t => t.type === 'daily' && !t.parentTaskId && (t.status === 'completed' || t.status === 'approved')).length,
     },
     weekly: {
-      total: myTasks.filter(t => t.type === 'weekly' && !t.parentTaskId).length,
-      pending: myTasks.filter(t => t.type === 'weekly' && !t.parentTaskId && t.status === 'pending').length,
-      in_progress: myTasks.filter(t => t.type === 'weekly' && !t.parentTaskId && t.status === 'in_progress').length,
-      completed: myTasks.filter(t => t.type === 'weekly' && !t.parentTaskId && (t.status === 'completed' || t.status === 'approved')).length,
+      total: filteredTasks.filter(t => t.type === 'weekly' && !t.parentTaskId).length,
+      pending: filteredTasks.filter(t => t.type === 'weekly' && !t.parentTaskId && t.status === 'pending').length,
+      in_progress: filteredTasks.filter(t => t.type === 'weekly' && !t.parentTaskId && t.status === 'in_progress').length,
+      completed: filteredTasks.filter(t => t.type === 'weekly' && !t.parentTaskId && (t.status === 'completed' || t.status === 'approved')).length,
     },
     monthly: {
-      total: myTasks.filter(t => t.type === 'monthly' && !t.parentTaskId).length,
-      pending: myTasks.filter(t => t.type === 'monthly' && !t.parentTaskId && t.status === 'pending').length,
-      in_progress: myTasks.filter(t => t.type === 'monthly' && !t.parentTaskId && t.status === 'in_progress').length,
-      completed: myTasks.filter(t => t.type === 'monthly' && !t.parentTaskId && (t.status === 'completed' || t.status === 'approved')).length,
+      total: filteredTasks.filter(t => t.type === 'monthly' && !t.parentTaskId).length,
+      pending: filteredTasks.filter(t => t.type === 'monthly' && !t.parentTaskId && t.status === 'pending').length,
+      in_progress: filteredTasks.filter(t => t.type === 'monthly' && !t.parentTaskId && t.status === 'in_progress').length,
+      completed: filteredTasks.filter(t => t.type === 'monthly' && !t.parentTaskId && (t.status === 'completed' || t.status === 'approved')).length,
     },
-  }
+  }), [filteredTasks])
 
+  const myTasks = filteredTasks // Đã filter theo assignedTo rồi
+  const otherTasks: Task[] = [] // Không hiển thị tasks của người khác
+
+  // Early return for loading state
   if (loading) {
-    return <div className="text-center py-8">{t('common.loading')}</div>
+    return (
+      <div className="text-center py-8">
+        {t('common.loading')}
+      </div>
+    )
   }
 
   return (
@@ -609,6 +715,187 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
           )}
         </div>
       </div>
+
+      {/* Tabs để hiển thị 7 ngày trong tuần (Thứ 2 - Chủ nhật) */}
+      <div className="flex space-x-2 mb-4 border-b border-slate-600 overflow-x-auto">
+        {weekDates.map((dateStr, index) => {
+          const date = new Date(dateStr + 'T00:00:00')
+          const dayNames = language === 'vi' 
+            ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
+            : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+          const dayName = dayNames[index]
+          const dayNumber = date.getDate()
+          const isToday = dateStr === selectedDate
+          
+          // Đếm số tasks đã hoàn thành trong ngày này
+          const dayTasks = tasks.filter(t => 
+            t.assignedTo === currentUser.uid && 
+            t.type === 'daily' && 
+            t.taskDate === dateStr &&
+            (t.status === 'completed' || t.status === 'approved')
+          )
+          const completedCount = dayTasks.length
+          const studyCount = dayTasks.filter(t => t.category === 'hoc').length
+          const otherCount = dayTasks.filter(t => t.category === 'khac').length
+          const isDayComplete = completedCount >= 6 && studyCount >= 2
+          
+          return (
+            <button
+              key={dateStr}
+              onClick={() => setSelectedDay(index)}
+              className={`px-3 py-2 font-medium transition-colors whitespace-nowrap flex flex-col items-center ${
+                selectedDay === index
+                  ? 'border-b-2 border-primary-500 text-primary-400'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <span className="text-xs">{dayName}</span>
+              <span className="text-sm font-bold">{dayNumber}</span>
+              {isDayComplete && (
+                <span className="text-xs text-green-400">✓</span>
+              )}
+              {!isDayComplete && completedCount > 0 && (
+                <span className="text-xs text-yellow-400">{completedCount}/6</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Filter theo category */}
+      <div className="mb-4 flex items-center space-x-2">
+        <label className="text-sm text-gray-300">{language === 'vi' ? 'Lọc theo:' : 'Filter by:'}</label>
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value as 'all' | 'hoc' | 'khac')}
+          className="px-3 py-1 border border-slate-600 rounded-lg text-sm bg-slate-700/50 text-gray-100"
+        >
+          <option value="all">{language === 'vi' ? 'Tất cả' : 'All'}</option>
+          <option value="hoc">{t('tasks.categoryStudy')}</option>
+          <option value="khac">{t('tasks.categoryOther')}</option>
+        </select>
+      </div>
+
+      {/* Hiển thị thống kê hoàn thành ngày */}
+      {(() => {
+        const dayTasks = tasks.filter(t => 
+          t.assignedTo === currentUser.uid && 
+          t.type === 'daily' && 
+          t.taskDate === selectedDate
+        )
+        const completedTasks = dayTasks.filter(t => 
+          t.status === 'completed' || t.status === 'approved'
+        )
+        const studyTasks = completedTasks.filter(t => t.category === 'hoc')
+        const otherTasks = completedTasks.filter(t => t.category === 'khac')
+        const totalCompleted = completedTasks.length
+        const studyCompleted = studyTasks.length
+        const otherCompleted = otherTasks.length
+        const isDayComplete = totalCompleted >= 6 && studyCompleted >= 2
+        
+        return (
+          <div className={`mb-4 p-4 rounded-lg border ${
+            isDayComplete 
+              ? 'bg-green-500/20 border-green-500/50' 
+              : 'bg-slate-700/50 border-slate-600'
+          }`}>
+            <h4 className="font-medium text-gray-200 mb-2">
+              {language === 'vi' ? '📊 Tiến độ ngày hôm nay' : '📊 Today\'s Progress'}
+            </h4>
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <p className="text-gray-400">{language === 'vi' ? 'Tổng cộng' : 'Total'}</p>
+                <p className={`text-lg font-bold ${isDayComplete ? 'text-green-400' : 'text-gray-200'}`}>
+                  {totalCompleted}/6
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-400">{language === 'vi' ? 'Việc học' : 'Study'}</p>
+                <p className={`text-lg font-bold ${studyCompleted >= 2 ? 'text-green-400' : 'text-yellow-400'}`}>
+                  {studyCompleted}/2
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-400">{language === 'vi' ? 'Việc khác' : 'Other'}</p>
+                <p className="text-lg font-bold text-gray-200">
+                  {otherCompleted}
+                </p>
+              </div>
+            </div>
+            {isDayComplete && (
+              <p className="text-green-400 text-sm mt-2">
+                ✅ {language === 'vi' ? 'Đã hoàn thành ngày!' : 'Day completed!'}
+              </p>
+            )}
+            {!isDayComplete && (
+              <p className="text-yellow-400 text-sm mt-2">
+                ⚠️ {language === 'vi' 
+                  ? `Cần hoàn thành ít nhất 6 nhiệm vụ (trong đó ít nhất 2 việc học) để hoàn thành ngày.`
+                  : `Need to complete at least 6 tasks (including at least 2 study tasks) to complete the day.`}
+              </p>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* Hiển thị giới hạn nhiệm vụ và coin */}
+      {taskLimits && (
+        <div className="mb-4 grid grid-cols-3 gap-3">
+          {/* Daily Limits */}
+          <div className={`bg-slate-700/50 rounded-lg p-3 border ${
+            taskLimits.daily.tasks >= TASK_LIMITS.daily.maxTasks || taskLimits.daily.coins >= TASK_LIMITS.daily.maxCoins
+              ? 'border-red-500/50'
+              : 'border-slate-600'
+          }`}>
+            <p className="text-xs text-gray-400 mb-1">📅 {language === 'vi' ? 'Ngày' : 'Daily'}</p>
+            <p className="text-sm font-semibold text-gray-200">
+              {taskLimits.daily.tasks}/{TASK_LIMITS.daily.maxTasks} {language === 'vi' ? 'nhiệm vụ' : 'tasks'}
+            </p>
+            <p className="text-sm font-semibold text-yellow-400">
+              {taskLimits.daily.coins}/{TASK_LIMITS.daily.maxCoins} {language === 'vi' ? 'coin' : 'coins'}
+            </p>
+            {(taskLimits.daily.tasks >= TASK_LIMITS.daily.maxTasks || taskLimits.daily.coins >= TASK_LIMITS.daily.maxCoins) && (
+              <p className="text-xs text-red-400 mt-1">⚠️ {language === 'vi' ? 'Đã đạt giới hạn' : 'Limit reached'}</p>
+            )}
+          </div>
+
+          {/* Weekly Limits */}
+          <div className={`bg-slate-700/50 rounded-lg p-3 border ${
+            taskLimits.weekly.tasks >= TASK_LIMITS.weekly.maxTasks || taskLimits.weekly.coins >= TASK_LIMITS.weekly.maxCoins
+              ? 'border-red-500/50'
+              : 'border-slate-600'
+          }`}>
+            <p className="text-xs text-gray-400 mb-1">📆 {language === 'vi' ? 'Tuần' : 'Weekly'}</p>
+            <p className="text-sm font-semibold text-gray-200">
+              {taskLimits.weekly.tasks}/{TASK_LIMITS.weekly.maxTasks} {language === 'vi' ? 'nhiệm vụ' : 'tasks'}
+            </p>
+            <p className="text-sm font-semibold text-yellow-400">
+              {taskLimits.weekly.coins}/{TASK_LIMITS.weekly.maxCoins} {language === 'vi' ? 'coin' : 'coins'}
+            </p>
+            {(taskLimits.weekly.tasks >= TASK_LIMITS.weekly.maxTasks || taskLimits.weekly.coins >= TASK_LIMITS.weekly.maxCoins) && (
+              <p className="text-xs text-red-400 mt-1">⚠️ {language === 'vi' ? 'Đã đạt giới hạn' : 'Limit reached'}</p>
+            )}
+          </div>
+
+          {/* Monthly Limits */}
+          <div className={`bg-slate-700/50 rounded-lg p-3 border ${
+            taskLimits.monthly.tasks >= TASK_LIMITS.monthly.maxTasks || taskLimits.monthly.coins >= TASK_LIMITS.monthly.maxCoins
+              ? 'border-red-500/50'
+              : 'border-slate-600'
+          }`}>
+            <p className="text-xs text-gray-400 mb-1">🗓️ {language === 'vi' ? 'Tháng' : 'Monthly'}</p>
+            <p className="text-sm font-semibold text-gray-200">
+              {taskLimits.monthly.tasks}/{TASK_LIMITS.monthly.maxTasks} {language === 'vi' ? 'nhiệm vụ' : 'tasks'}
+            </p>
+            <p className="text-sm font-semibold text-yellow-400">
+              {taskLimits.monthly.coins}/{TASK_LIMITS.monthly.maxCoins} {language === 'vi' ? 'coin' : 'coins'}
+            </p>
+            {(taskLimits.monthly.tasks >= TASK_LIMITS.monthly.maxTasks || taskLimits.monthly.coins >= TASK_LIMITS.monthly.maxCoins) && (
+              <p className="text-xs text-red-400 mt-1">⚠️ {language === 'vi' ? 'Đã đạt giới hạn' : 'Limit reached'}</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Templates Section */}
       {showTemplates && (
@@ -900,9 +1187,11 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
       )}
 
       {/* Nhiệm vụ của tôi */}
-      {myTasks.length > 0 && (
+      {myTasks.length > 0 ? (
         <div>
-          <h4 className="font-medium text-gray-200 mb-2">{t('tasks.myTasks')}</h4>
+          <h4 className="font-medium text-gray-200 mb-2">
+            {t('tasks.myTasks')} ({myTasks.length})
+          </h4>
           <div className="space-y-2">
             {myTasks.map(task => {
               // Tách nhiệm vụ tổng hợp (weekly/monthly) và nhiệm vụ ngày
@@ -924,6 +1213,14 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                          task.type === 'weekly' ? t('tasks.taskTypeWeekly') :
                          t('tasks.taskTypeMonthly')}
                       </span>
+                      {task.category && (
+                        <span className={`px-2 py-0.5 rounded text-xs ${
+                          task.category === 'hoc' ? 'bg-green-500/20 text-green-300' :
+                          'bg-slate-700/50 text-gray-300'
+                        }`}>
+                          {task.category === 'hoc' ? t('tasks.categoryStudy') : t('tasks.categoryOther')}
+                        </span>
+                      )}
                       {isParentTask && (
                         <span className="px-2 py-0.5 rounded text-xs bg-purple-500/30 text-purple-200 font-semibold">
                           {t('tasks.parentTask')}
@@ -1022,62 +1319,21 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
             )})}
           </div>
         </div>
-      )}
-
-      {/* Nhiệm vụ của người khác */}
-      {otherTasks.length > 0 && (
-        <div>
-          <h4 className="font-medium text-gray-200 mb-2">{t('tasks.otherTasks')}</h4>
-          <div className="space-y-2">
-            {otherTasks.map(task => (
-              <div key={task.id} className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <h5 className="font-medium text-gray-100">{getTranslatedTaskTitle(task.title, language)}</h5>
-                    <div className="text-xs text-gray-400 mt-1 space-y-0.5">
-                      <p>{t('tasks.assignedTo')}: <span className="font-medium">{task.assignedToName}</span></p>
-                      {task.createdByName && (
-                        <p>{t('tasks.createdBy')}: <span className="font-medium">{task.createdByName}</span></p>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-4 mt-2 text-sm">
-                      <span className={`px-2 py-1 rounded ${
-                        task.status === 'pending' ? 'bg-yellow-500/20 text-yellow-300' :
-                        task.status === 'completed' ? 'bg-blue-500/20 text-blue-300' :
-                        task.status === 'approved' ? 'bg-green-500/20 text-green-300' :
-                        'bg-slate-700/50 text-gray-300'
-                      }`}>
-                        {task.status === 'pending' ? t('tasks.statusPending') :
-                         task.status === 'completed' ? t('tasks.statusWaitingApproval') :
-                         task.status === 'approved' ? t('tasks.statusApproved') : task.status}
-                      </span>
-                      <span className="text-primary-300 font-medium">XP: {task.xpReward}</span>
-                      <span className="text-yellow-400">Coins: {task.coinReward}</span>
-                    </div>
-                  </div>
-                  {/* Nút xóa cho otherTasks - root hoặc task được assign cho mình hoặc task mình tạo */}
-                  {(profile.isRoot || task.createdBy === currentUser.uid || task.assignedTo === currentUser.uid) && (
-                    <div className="ml-4">
-                      <button
-                        onClick={() => {
-                          if (confirm(language === 'vi' 
-                            ? `Bạn có chắc muốn xóa nhiệm vụ "${getTranslatedTaskTitle(task.title, language)}"?` 
-                            : `Are you sure you want to delete task "${getTranslatedTaskTitle(task.title, language)}"?`)) {
-                            handleDeleteTask(task.id)
-                          }
-                        }}
-                        className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                      >
-                        {t('tasks.deleteTask')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+      ) : (
+        <div className="text-center py-8 text-gray-400">
+          <p>{language === 'vi' ? 'Chưa có nhiệm vụ nào cho ngày này' : 'No tasks for this day'}</p>
+          {categoryFilter !== 'all' && (
+            <p className="text-sm mt-2">
+              {language === 'vi' 
+                ? `Thử chọn category "${categoryFilter === 'hoc' ? 'Tất cả' : 'Tất cả'}" để xem tất cả nhiệm vụ`
+                : `Try selecting "All" category to see all tasks`}
+            </p>
+          )}
         </div>
       )}
+
+      {/* Ẩn nhiệm vụ của người khác - chỉ hiển thị nhiệm vụ của mình */}
+      {/* Commented out: otherTasks section is hidden */}
 
       {tasks.length === 0 && (
         <div className="text-center py-8 text-gray-500">
@@ -1087,4 +1343,5 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
     </div>
   )
 }
+
 
