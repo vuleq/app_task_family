@@ -49,6 +49,7 @@ export interface Task {
   completedDate?: string // Ngày hoàn thành (YYYY-MM-DD) để đếm giới hạn
   startedAt?: any // Thời gian bắt đầu làm (khi chuyển sang in_progress)
   evidence?: string
+  taskDate?: string // Ngày của nhiệm vụ (YYYY-MM-DD) - dùng để hiển thị theo tab ngày
   // Cho nhiệm vụ tuần/tháng
   parentTaskId?: string // ID của nhiệm vụ tổng hợp (weekly/monthly)
   groupKey?: string // Key để nhóm các nhiệm vụ ngày lại
@@ -120,6 +121,11 @@ export const createTaskFromTemplate = async (
     taskTitle = `${typeLabel} - ${categoryLabel} - ${template.title}`
   }
   
+  // Tính taskDate (ngày hôm nay theo múi giờ Việt Nam UTC+7)
+  const now = new Date()
+  const vietnamTime = new Date(now.getTime() + 7 * 60 * 60 * 1000)
+  const taskDate = `${vietnamTime.getUTCFullYear()}-${String(vietnamTime.getUTCMonth() + 1).padStart(2, '0')}-${String(vietnamTime.getUTCDate()).padStart(2, '0')}`
+  
   const docRef = await addDoc(tasksRef, {
     title: taskTitle,
     description: template.description,
@@ -133,6 +139,7 @@ export const createTaskFromTemplate = async (
     xpReward: template.xpReward,
     coinReward: template.coinReward,
     createdAt: Timestamp.now(),
+    taskDate: taskDate, // Lưu ngày của nhiệm vụ
   })
   return docRef.id
 }
@@ -183,10 +190,13 @@ export const createRecurringDailyTasks = async (
 
   // Tạo các nhiệm vụ ngày và liên kết với nhiệm vụ tổng hợp
   for (let i = 0; i < numberOfDays; i++) {
-    const taskDate = new Date(today)
-    taskDate.setDate(today.getDate() + i)
+    const taskDateObj = new Date(today)
+    taskDateObj.setDate(today.getDate() + i)
     
-    const taskTitle = `${baseTask.title} - ${taskDate.toLocaleDateString('vi-VN', { 
+    // Format taskDate thành YYYY-MM-DD
+    const taskDateStr = `${taskDateObj.getFullYear()}-${String(taskDateObj.getMonth() + 1).padStart(2, '0')}-${String(taskDateObj.getDate()).padStart(2, '0')}`
+    
+    const taskTitle = `${baseTask.title} - ${taskDateObj.toLocaleDateString('vi-VN', { 
       weekday: 'short', 
       day: 'numeric', 
       month: 'numeric' 
@@ -205,7 +215,8 @@ export const createRecurringDailyTasks = async (
       xpReward: baseTask.xpReward,
       coinReward: baseTask.coinReward,
       createdAt: Timestamp.now(),
-      scheduledDate: Timestamp.fromDate(taskDate),
+      scheduledDate: Timestamp.fromDate(taskDateObj),
+      taskDate: taskDateStr, // Lưu ngày của nhiệm vụ (YYYY-MM-DD)
       parentTaskId,
       groupKey,
     })
