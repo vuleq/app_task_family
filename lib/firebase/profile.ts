@@ -7,6 +7,10 @@ import {
   collection,
   getDocs,
   deleteField,
+  deleteDoc,
+  query,
+  where,
+  writeBatch,
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from './config'
@@ -177,5 +181,143 @@ export const deleteProfileImage = async (
   } catch (error) {
     console.error('Error deleting image:', error)
   }
+}
+
+/**
+ * Root user xóa user khác và tất cả dữ liệu liên quan
+ * Xóa: profile, tasks, task templates, avatar/image từ Storage
+ */
+export const deleteUser = async (targetUserId: string, deleterUserId: string): Promise<void> => {
+  // Kiểm tra quyền root
+  const deleterProfile = await getProfile(deleterUserId)
+  if (!deleterProfile || !deleterProfile.isRoot) {
+    throw new Error('Chỉ root user mới có quyền xóa user')
+  }
+  
+  // Không cho phép xóa chính mình
+  if (targetUserId === deleterUserId) {
+    throw new Error('Không thể xóa chính mình')
+  }
+  
+  // Kiểm tra user có tồn tại không
+  const targetProfile = await getProfile(targetUserId)
+  if (!targetProfile) {
+    throw new Error('User không tồn tại')
+  }
+  
+  // Không cho phép xóa root user khác
+  if (targetProfile.isRoot) {
+    throw new Error('Không thể xóa root user khác')
+  }
+  
+  // Helper function để xóa nhiều documents bằng batch (tối đa 500 per batch)
+  const deleteDocumentsInBatches = async (docs: any[]) => {
+    if (docs.length === 0) return
+    
+    const BATCH_SIZE = 500 // Firestore limit
+    const batches: Promise<void>[] = []
+    
+    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+      const batch = writeBatch(checkDb())
+      const batchDocs = docs.slice(i, i + BATCH_SIZE)
+      
+      batchDocs.forEach(docSnap => {
+        batch.delete(docSnap.ref)
+      })
+      
+      batches.push(batch.commit())
+    }
+    
+    await Promise.all(batches)
+  }
+  
+  // Chạy song song tất cả các operations không phụ thuộc nhau
+  const [
+    assignedTasksSnapshot,
+    createdTasksSnapshot,
+    templatesSnapshot
+  ] = await Promise.all([
+    // 1. Lấy tất cả tasks được assign cho user
+    getDocs(query(
+      collection(checkDb(), 'tasks'),
+      where('assignedTo', '==', targetUserId)
+    )),
+    // 2. Lấy tất cả tasks được tạo bởi user
+    getDocs(query(
+      collection(checkDb(), 'tasks'),
+      where('createdBy', '==', targetUserId)
+    )),
+    // 3. Lấy tất cả task templates của user
+    getDocs(query(
+      collection(checkDb(), 'taskTemplates'),
+      where('createdBy', '==', targetUserId)
+    ))
+  ])
+  
+  // Tổng hợp tất cả tasks cần xóa (loại bỏ duplicate nếu có)
+  const allTaskDocs = [
+    ...assignedTasksSnapshot.docs,
+    ...createdTasksSnapshot.docs.filter(
+      doc => !assignedTasksSnapshot.docs.some(d => d.id === doc.id)
+    )
+  ]
+  
+  // Xóa user khỏi Firebase Authentication (gọi API)
+  try {
+    const response = await fetch('/api/delete-user', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        targetUserId,
+        deleterUserId,
+      }),
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      console.error('Error deleting user from Auth:', errorData.error || 'Unknown error')
+      // Tiếp tục xóa dữ liệu trong Firestore dù có lỗi với Auth
+    }
+  } catch (error) {
+    console.error('Error calling delete-user API:', error)
+    // Tiếp tục xóa dữ liệu trong Firestore dù có lỗi với API
+  }
+  
+  // Xóa tất cả documents song song
+  await Promise.all([
+    // Xóa tasks
+    deleteDocumentsInBatches(allTaskDocs),
+    // Xóa templates
+    deleteDocumentsInBatches(templatesSnapshot.docs),
+    // Xóa avatar/image từ Storage (chạy song song, không block)
+    (async () => {
+      try {
+        if (targetProfile.avatar && storage) {
+          try {
+            const avatarRef = ref(checkStorage(), targetProfile.avatar)
+            await deleteObject(avatarRef)
+          } catch (error) {
+            console.error('Error deleting avatar:', error)
+          }
+        }
+        if (targetProfile.image && storage) {
+          try {
+            const imageRef = ref(checkStorage(), targetProfile.image)
+            await deleteObject(imageRef)
+          } catch (error) {
+            console.error('Error deleting image:', error)
+          }
+        }
+      } catch (error) {
+        console.error('Error deleting user images:', error)
+      }
+    })()
+  ])
+  
+  // Cuối cùng xóa user profile
+  const profileRef = doc(checkDb(), 'users', targetUserId)
+  await deleteDoc(profileRef)
 }
 
