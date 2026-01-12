@@ -263,6 +263,7 @@ export const deleteUser = async (targetUserId: string, deleterUserId: string): P
   ]
   
   // Xóa user khỏi Firebase Authentication (gọi API)
+  let authDeleteError: string | null = null
   try {
     const response = await fetch('/api/delete-user', {
       method: 'POST',
@@ -277,10 +278,14 @@ export const deleteUser = async (targetUserId: string, deleterUserId: string): P
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      console.error('Error deleting user from Auth:', errorData.error || 'Unknown error')
+      const errorMessage = errorData.error || errorData.details || 'Unknown error'
+      authDeleteError = errorMessage
+      console.error('Error deleting user from Auth:', errorMessage)
       // Tiếp tục xóa dữ liệu trong Firestore dù có lỗi với Auth
+      // Nhưng sẽ throw error sau để user biết
     }
-  } catch (error) {
+  } catch (error: any) {
+    authDeleteError = error.message || 'Error calling delete-user API'
     console.error('Error calling delete-user API:', error)
     // Tiếp tục xóa dữ liệu trong Firestore dù có lỗi với API
   }
@@ -319,5 +324,10 @@ export const deleteUser = async (targetUserId: string, deleterUserId: string): P
   // Cuối cùng xóa user profile
   const profileRef = doc(checkDb(), 'users', targetUserId)
   await deleteDoc(profileRef)
+  
+  // Nếu có lỗi khi xóa Auth, throw error để user biết
+  if (authDeleteError) {
+    throw new Error(`Đã xóa dữ liệu trong Firestore, nhưng không thể xóa khỏi Firebase Authentication: ${authDeleteError}. Vui lòng xóa thủ công trong Firebase Console hoặc cấu hình Firebase Admin SDK.`)
+  }
 }
 

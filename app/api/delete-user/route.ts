@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import admin from 'firebase-admin'
 
 // Initialize Firebase Admin SDK
+let adminInitialized = false
 if (!admin.apps.length) {
   try {
     // Option 1: Sử dụng service account từ environment variable (JSON string)
@@ -10,6 +11,7 @@ if (!admin.apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
       })
+      adminInitialized = true
     } 
     // Option 2: Sử dụng các biến môi trường riêng lẻ
     else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
@@ -20,20 +22,41 @@ if (!admin.apps.length) {
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
         }),
       })
+      adminInitialized = true
     }
     // Option 3: Sử dụng default credentials (nếu chạy trên GCP hoặc có GOOGLE_APPLICATION_CREDENTIALS)
     else {
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-      })
+      try {
+        admin.initializeApp({
+          credential: admin.credential.applicationDefault(),
+        })
+        adminInitialized = true
+      } catch (defaultError) {
+        // applicationDefault() sẽ fail nếu không có credentials
+        adminInitialized = false
+      }
     }
   } catch (error) {
     console.error('Error initializing Firebase Admin:', error)
+    adminInitialized = false
   }
+} else {
+  adminInitialized = true
 }
 
 export async function POST(request: NextRequest) {
   try {
+    // Kiểm tra Firebase Admin SDK đã được khởi tạo chưa
+    if (!adminInitialized) {
+      return NextResponse.json(
+        { 
+          error: 'Firebase Admin SDK chưa được cấu hình. Vui lòng cấu hình FIREBASE_SERVICE_ACCOUNT hoặc các biến môi trường khác trong Vercel.',
+          details: 'Please configure Firebase Admin SDK in Vercel environment variables. See scripts/DELETE_AUTH_USER_README.md for instructions.'
+        },
+        { status: 500 }
+      )
+    }
+
     const { targetUserId, deleterUserId } = await request.json()
 
     if (!targetUserId || !deleterUserId) {

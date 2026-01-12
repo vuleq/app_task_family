@@ -46,3 +46,7 @@ firestore-debug.log
 **/public/workbox-*.js
 **/public/workbox-*.js.map
 
+# Capacitor / Mobile
+ios/
+android/
+.capacitor/

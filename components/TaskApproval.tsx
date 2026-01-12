@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { collection, query, where, getDocs, updateDoc, doc, Timestamp } from 'firebase/firestore'
-import { db } from '@/lib/firebase/config'
+import { checkDb } from '@/lib/firebase/config'
 import { updateProfile, getProfile } from '@/lib/firebase/profile'
 import { checkAndUpdateParentTask } from '@/lib/firebase/tasks'
 import { useI18n } from '@/lib/i18n/context'
@@ -40,7 +40,7 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
 
   const loadPendingTasks = useCallback(async () => {
     try {
-      const tasksRef = collection(db, 'tasks')
+      const tasksRef = collection(checkDb(), 'tasks')
       const q = query(tasksRef, where('status', '==', 'completed'))
       const snapshot = await getDocs(q)
       let tasksData = snapshot.docs.map(doc => ({
@@ -106,7 +106,7 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
       }
 
       // Cập nhật trạng thái task
-      await updateDoc(doc(db, 'tasks', task.id), {
+      await updateDoc(doc(checkDb(), 'tasks', task.id), {
         status: 'approved',
         approvedAt: Timestamp.now(),
         completedDate: completedDate // Đảm bảo có completedDate
@@ -141,7 +141,7 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
 
   const handleReject = async (task: Task) => {
     try {
-      await updateDoc(doc(db, 'tasks', task.id), {
+      await updateDoc(doc(checkDb(), 'tasks', task.id), {
         status: 'pending'
       })
       setToast({ show: true, message: 'Đã từ chối nhiệm vụ', type: 'success' })

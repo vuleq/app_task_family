@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, Timestamp } from 'firebase/firestore'
-import { db } from '@/lib/firebase/config'
+import { checkDb } from '@/lib/firebase/config'
 import { UserProfile, getAllUsers } from '@/lib/firebase/profile'
 import PhotoEvidence from './PhotoEvidence'
 import { 
@@ -111,11 +111,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
 
   const loadTasks = useCallback(async () => {
     try {
-      if (!db) {
-        console.error('Firestore not initialized')
-        setLoading(false)
-        return
-      }
+      // checkDb() will throw error if db is not initialized
       
       // Auto-delete old completed tasks (chỉ root, chạy ngầm)
       if (profile.isRoot) {
@@ -130,7 +126,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         }
       }
       
-      const tasksRef = collection(db, 'tasks')
+      const tasksRef = collection(checkDb(), 'tasks')
       const q = query(tasksRef)
       const snapshot = await getDocs(q)
       const tasksData = snapshot.docs.map(doc => ({
@@ -197,17 +193,14 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
 
         // Nếu là nhiệm vụ ngày và chọn tạo cho tuần/tháng
         if (newTask.type === 'daily') {
-          if (!db) {
-            setToast({ show: true, message: 'Firestore chưa được khởi tạo', type: 'error' })
-            return
-          }
+          // checkDb() will throw error if db is not initialized
           // Tính taskDate (ngày hôm nay theo múi giờ Việt Nam UTC+7)
           const now = new Date()
           const vietnamTime = new Date(now.getTime() + 7 * 60 * 60 * 1000)
           const taskDate = `${vietnamTime.getUTCFullYear()}-${String(vietnamTime.getUTCMonth() + 1).padStart(2, '0')}-${String(vietnamTime.getUTCDate()).padStart(2, '0')}`
           
           // Tạo 1 nhiệm vụ ngày
-          const docRef = await addDoc(collection(db, 'tasks'), {
+          const docRef = await addDoc(collection(checkDb(), 'tasks'), {
             title: newTask.title,
             description: newTask.description,
             type: 'daily',
@@ -469,11 +462,8 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
     }
 
     try {
-      if (!db) {
-        setToast({ show: true, message: 'Firestore chưa được khởi tạo', type: 'error' })
-        return
-      }
-      await updateDoc(doc(db, 'tasks', task.id), {
+      // checkDb() will throw error if db is not initialized
+      await updateDoc(doc(checkDb(), 'tasks', task.id), {
         status: 'in_progress',
         startedAt: Timestamp.now() // Lưu thời gian bắt đầu làm
       })
@@ -491,16 +481,13 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
     }
 
     try {
-      if (!db) {
-        setToast({ show: true, message: 'Firestore chưa được khởi tạo', type: 'error' })
-        return
-      }
+      // checkDb() will throw error if db is not initialized
       // Lấy ngày hiện tại (YYYY-MM-DD) để lưu completedDate
       const now = new Date()
       const vietnamTime = new Date(now.getTime() + 7 * 60 * 60 * 1000) // UTC+7
       const completedDate = `${vietnamTime.getUTCFullYear()}-${String(vietnamTime.getUTCMonth() + 1).padStart(2, '0')}-${String(vietnamTime.getUTCDate()).padStart(2, '0')}`
       
-      await updateDoc(doc(db, 'tasks', task.id), {
+      await updateDoc(doc(checkDb(), 'tasks', task.id), {
         status: 'completed',
         completedAt: Timestamp.now(),
         completedDate: completedDate // Lưu ngày hoàn thành để đếm giới hạn
@@ -525,11 +512,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
 
   const handleDeleteTask = async (taskId: string) => {
     try {
-      if (!db) {
-        setToast({ show: true, message: 'Firestore chưa được khởi tạo', type: 'error' })
-        return
-      }
-      
+      // checkDb() will throw error if db is not initialized
       // Sử dụng hàm deleteTask từ tasks.ts với kiểm tra quyền
       await deleteTask(taskId, currentUser.uid, profile.isRoot || false)
       loadTasks()

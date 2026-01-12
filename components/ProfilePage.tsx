@@ -678,9 +678,18 @@ function UserManagementSection({ currentUserId }: { currentUserId: string }) {
       await loadUsers()
     } catch (error: any) {
       console.error('Error deleting user:', error)
+      const errorMessage = error.message || (language === 'vi' ? 'Lỗi khi xóa user' : 'Error deleting user')
+      
+      // Kiểm tra xem có phải lỗi về Firebase Admin SDK không
+      const isAdminSDKError = errorMessage.includes('Firebase Admin SDK') || errorMessage.includes('FIREBASE_SERVICE_ACCOUNT')
+      
       setToast({ 
         show: true, 
-        message: error.message || (language === 'vi' ? 'Lỗi khi xóa user' : 'Error deleting user'), 
+        message: isAdminSDKError && language === 'vi'
+          ? `${errorMessage}\n\n💡 Giải pháp: Xóa user thủ công trong Firebase Console (Authentication → Users) hoặc cấu hình Firebase Admin SDK trong Vercel.`
+          : isAdminSDKError
+          ? `${errorMessage}\n\n💡 Solution: Delete user manually in Firebase Console (Authentication → Users) or configure Firebase Admin SDK in Vercel.`
+          : errorMessage,
         type: 'error' 
       })
     } finally {
@@ -862,6 +871,7 @@ function UserManagementSection({ currentUserId }: { currentUserId: string }) {
       
       {toast.show && (
         <Toast
+          show={toast.show}
           message={toast.message}
           type={toast.type}
           onClose={() => setToast({ ...toast, show: false })}

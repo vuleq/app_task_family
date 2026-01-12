@@ -8,7 +8,11 @@ const withPWA = require('next-pwa')({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Static export cho Capacitor (mobile app)
+  // Nếu muốn build cho web thông thường, comment dòng output: 'export'
+  ...(process.env.BUILD_FOR_MOBILE === 'true' ? { output: 'export' } : {}),
   images: {
+    unoptimized: process.env.BUILD_FOR_MOBILE === 'true', // Cần unoptimized cho static export
     domains: ['firebasestorage.googleapis.com', 'res.cloudinary.com'],
     remotePatterns: [
       {
