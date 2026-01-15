@@ -27,6 +27,9 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.env.local.backup
+# Allow .env.local.example to be committed (template file)
+!.env.local.example
 
 # vercel
 .vercel
