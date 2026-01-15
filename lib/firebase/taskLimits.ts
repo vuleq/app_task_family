@@ -62,7 +62,8 @@ export const getMonthStartDate = (): string => {
  */
 export const getTaskStats = async (
   userId: string,
-  taskType: 'daily' | 'weekly' | 'monthly'
+  taskType: 'daily' | 'weekly' | 'monthly',
+  familyId: string
 ): Promise<{ taskCount: number; totalCoins: number; tasks: Task[] }> => {
   const tasksRef = collection(checkDb(), 'tasks')
   
@@ -75,11 +76,12 @@ export const getTaskStats = async (
     startDate = getMonthStartDate()
   }
 
-  // Lấy tất cả tasks đã được approve của user
+  // Lấy tất cả tasks đã được approve của user trong cùng family
   const q = query(
     tasksRef,
     where('assignedTo', '==', userId),
-    where('status', '==', 'approved')
+    where('status', '==', 'approved'),
+    where('familyId', '==', familyId)
   )
   
   const snapshot = await getDocs(q)
@@ -108,9 +110,10 @@ export const getTaskStats = async (
 export const canCompleteTask = async (
   userId: string,
   taskType: 'daily' | 'weekly' | 'monthly',
-  taskCoinReward: number
+  taskCoinReward: number,
+  familyId: string
 ): Promise<{ allowed: boolean; reason?: string; currentTasks: number; currentCoins: number; maxTasks: number; maxCoins: number }> => {
-  const stats = await getTaskStats(userId, taskType)
+  const stats = await getTaskStats(userId, taskType, familyId)
   const limits = TASK_LIMITS[taskType]
 
   // Kiểm tra giới hạn số nhiệm vụ

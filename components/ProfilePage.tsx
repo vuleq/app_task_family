@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { UserProfile, updateProfile, resetXPAndProfession, getAllUsers, resetUserXPAndCoins } from '@/lib/firebase/profile'
+import { UserProfile, updateProfile, resetXPAndProfession, getAllUsers, resetUserXPAndCoins, deleteUser } from '@/lib/firebase/profile'
 import { logout } from '@/lib/firebase/auth'
 import { useRouter } from 'next/navigation'
 import { uploadImageToCloudinary } from '@/lib/cloudinary'
@@ -9,6 +9,7 @@ import CharacterDisplay from './CharacterDisplay'
 import { calculateLevel, getCharacterAssets } from '@/lib/utils/level'
 import { useI18n } from '@/lib/i18n/context'
 import Toast from './Toast'
+import { getFamilyById, Family } from '@/lib/firebase/family'
 
 interface ProfilePageProps {
   profile: UserProfile
@@ -27,8 +28,37 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
   const imageInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
+  const [familyInfo, setFamilyInfo] = useState<Family | null>(null)
+  const [loadingFamily, setLoadingFamily] = useState(false)
   
   const currentLevel = calculateLevel(profile.xp)
+  
+  // Load family info for root users
+  const loadFamilyInfo = useCallback(async () => {
+    if (!profile.familyId) return
+    setLoadingFamily(true)
+    try {
+      console.log('[ProfilePage] Loading family info for familyId:', profile.familyId)
+      const family = await getFamilyById(profile.familyId)
+      console.log('[ProfilePage] Family loaded:', {
+        id: family?.id,
+        code: family?.code,
+        rootCode: family?.rootCode,
+      })
+      setFamilyInfo(family)
+    } catch (error) {
+      console.error('Error loading family info:', error)
+    } finally {
+      setLoadingFamily(false)
+    }
+  }, [profile.familyId])
+  
+  useEffect(() => {
+    // Load family info cho tất cả users (không chỉ root) để hiển thị family name
+    if (profile.familyId) {
+      loadFamilyInfo()
+    }
+  }, [profile.familyId, loadFamilyInfo])
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -570,8 +600,85 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
                 </p>
               </div>
               
+              {/* Family Code and Root Code Section */}
+              {loadingFamily ? (
+                <div className="bg-slate-800/80 border border-slate-600 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-gray-400">{t('common.loading')}</p>
+                </div>
+              ) : familyInfo ? (
+                <div className="bg-gradient-to-br from-slate-800/90 to-slate-700/90 border-2 border-slate-600 rounded-lg p-4 mb-4 space-y-4 shadow-lg">
+                  {/* Family Name */}
+                  <div className="bg-gradient-to-r from-primary-500/20 to-primary-600/20 p-4 rounded-lg border-2 border-primary-500/50">
+                    <label className="block text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2">
+                      <span className="text-lg">👨‍👩‍👧‍👦</span>
+                      {t('profile.familyName') || 'Family Name'}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={familyInfo.name || ''}
+                        readOnly
+                        className="w-full min-w-0 bg-slate-950/80 border-2 border-primary-500/50 rounded-lg px-4 py-3 text-white font-bold text-lg overflow-hidden text-ellipsis"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Family Code */}
+                  <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-600">
+                    <label className="block text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2">
+                      <span className="text-lg">📋</span>
+                      {t('profile.familyCode')}
+                    </label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        type="text"
+                        value={familyInfo.code}
+                        readOnly
+                        className="flex-1 min-w-0 bg-slate-950 border-2 border-slate-500 rounded-lg px-3 py-2.5 text-gray-100 font-mono text-base font-bold tracking-wider"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(familyInfo.code)
+                          setToast({ show: true, message: t('profile.codeCopied'), type: 'success' })
+                        }}
+                        className="px-4 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors shadow-md whitespace-nowrap flex-shrink-0"
+                      >
+                        {t('profile.copyCode')}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">{t('profile.familyCodeDesc')}</p>
+                  </div>
+                  
+                  {/* Root Code */}
+                  <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-600">
+                    <label className="block text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2">
+                      <span className="text-lg">🔐</span>
+                      {t('profile.rootCode')}
+                    </label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        type="text"
+                        value={familyInfo.rootCode}
+                        readOnly
+                        className="flex-1 min-w-0 bg-slate-950 border-2 border-slate-500 rounded-lg px-3 py-2.5 text-gray-100 font-mono text-base font-bold tracking-wider"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(familyInfo.rootCode)
+                          setToast({ show: true, message: t('profile.codeCopied'), type: 'success' })
+                        }}
+                        className="px-4 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors shadow-md whitespace-nowrap flex-shrink-0"
+                      >
+                        {t('profile.copyCode')}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">{t('profile.rootCodeDesc')}</p>
+                  </div>
+                </div>
+              ) : null}
+              
               {/* User Management Section */}
-              <UserManagementSection currentUserId={profile.id} />
+              <UserManagementSection currentUserId={profile.id} familyId={profile.familyId} />
             </div>
           )}
 
@@ -598,17 +705,26 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
 }
 
 // Component quản lý users cho root
-function UserManagementSection({ currentUserId }: { currentUserId: string }) {
+function UserManagementSection({ currentUserId, familyId }: { currentUserId: string; familyId: string }) {
   const { t, language } = useI18n()
   const [users, setUsers] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(false)
   const [resetting, setResetting] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [deletingAuth, setDeletingAuth] = useState(false)
+  const [deleteEmail, setDeleteEmail] = useState('')
+  const [showDeleteAuthForm, setShowDeleteAuthForm] = useState(false)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
     try {
-      const allUsers = await getAllUsers()
+      if (!familyId) {
+        console.error('FamilyId is not provided')
+        setLoading(false)
+        return
+      }
+      const allUsers = await getAllUsers(familyId)
       setUsers(allUsers.filter(u => u.id !== currentUserId)) // Không hiển thị chính mình
     } catch (error) {
       console.error('Error loading users:', error)
@@ -616,7 +732,7 @@ function UserManagementSection({ currentUserId }: { currentUserId: string }) {
     } finally {
       setLoading(false)
     }
-  }, [currentUserId, language])
+  }, [currentUserId, language, familyId])
 
   useEffect(() => {
     loadUsers()
@@ -653,20 +769,153 @@ function UserManagementSection({ currentUserId }: { currentUserId: string }) {
     }
   }
 
+  const handleDeleteUser = async (targetUserId: string, userName: string) => {
+    if (!confirm(language === 'vi' 
+      ? `⚠️ CẢNH BÁO: Bạn có chắc muốn XÓA VĨNH VIỄN user "${userName}"?\n\nTất cả dữ liệu sẽ bị xóa:\n- Profile\n- Tất cả tasks\n- Tất cả task templates\n- Firebase Authentication\n\nHành động này KHÔNG THỂ hoàn tác!`
+      : `⚠️ WARNING: Are you sure you want to PERMANENTLY DELETE user "${userName}"?\n\nAll data will be deleted:\n- Profile\n- All tasks\n- All task templates\n- Firebase Authentication\n\nThis action CANNOT be undone!`)) {
+      return
+    }
+
+    setDeleting(targetUserId)
+    try {
+      await deleteUser(targetUserId, currentUserId)
+      setToast({ 
+        show: true, 
+        message: language === 'vi' 
+          ? `✅ Đã xóa user "${userName}" và tất cả dữ liệu liên quan (bao gồm Firebase Authentication)!` 
+          : `✅ Deleted user "${userName}" and all related data (including Firebase Authentication)!`, 
+        type: 'success' 
+      })
+      // Reload users để cập nhật
+      await loadUsers()
+    } catch (error: any) {
+      console.error('Error deleting user:', error)
+      setToast({ 
+        show: true, 
+        message: error.message || (language === 'vi' ? 'Lỗi khi xóa user' : 'Error deleting user'), 
+        type: 'error' 
+      })
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  const handleDeleteAuthUser = async () => {
+    if (!deleteEmail.trim()) {
+      setToast({ 
+        show: true, 
+        message: language === 'vi' ? 'Vui lòng nhập email' : 'Please enter email', 
+        type: 'error' 
+      })
+      return
+    }
+
+    if (!confirm(language === 'vi' 
+      ? `⚠️ Bạn có chắc muốn xóa user với email "${deleteEmail}" khỏi Firebase Authentication?\n\nUser này sẽ không thể đăng nhập nữa và có thể đăng ký lại với email này.`
+      : `⚠️ Are you sure you want to delete user with email "${deleteEmail}" from Firebase Authentication?\n\nThis user will not be able to login and can register again with this email.`)) {
+      return
+    }
+
+    setDeletingAuth(true)
+    try {
+      const response = await fetch('/api/delete-auth-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: deleteEmail.trim(),
+          deleterUserId: currentUserId,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete user from Auth')
+      }
+
+      setToast({ 
+        show: true, 
+        message: language === 'vi' 
+          ? `✅ Đã xóa user "${deleteEmail}" khỏi Firebase Authentication! Bây giờ có thể đăng ký lại với email này.` 
+          : `✅ Deleted user "${deleteEmail}" from Firebase Authentication! Can now register again with this email.`, 
+        type: 'success' 
+      })
+      setDeleteEmail('')
+      setShowDeleteAuthForm(false)
+    } catch (error: any) {
+      console.error('Error deleting auth user:', error)
+      setToast({ 
+        show: true, 
+        message: error.message || (language === 'vi' ? 'Lỗi khi xóa user khỏi Authentication' : 'Error deleting user from Authentication'), 
+        type: 'error' 
+      })
+    } finally {
+      setDeletingAuth(false)
+    }
+  }
+
   return (
     <div>
       <div className="flex justify-between items-center mb-3">
         <h5 className="text-sm font-semibold text-gray-200">
           {language === 'vi' ? '👥 Quản lý Users' : '👥 User Management'}
         </h5>
-        <button
-          onClick={loadUsers}
-          disabled={loading}
-          className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? (language === 'vi' ? 'Đang tải...' : 'Loading...') : '🔄 Refresh'}
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowDeleteAuthForm(!showDeleteAuthForm)}
+            className="px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700"
+          >
+            {showDeleteAuthForm ? (language === 'vi' ? '✖️ Hủy' : '✖️ Cancel') : (language === 'vi' ? '🗑️ Xóa Auth User' : '🗑️ Delete Auth User')}
+          </button>
+          <button
+            onClick={loadUsers}
+            disabled={loading}
+            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? (language === 'vi' ? 'Đang tải...' : 'Loading...') : '🔄 Refresh'}
+          </button>
+        </div>
       </div>
+
+      {/* Form xóa user khỏi Firebase Authentication bằng email */}
+      {showDeleteAuthForm && (
+        <div className="mb-4 p-3 bg-purple-500/20 border border-purple-500/50 rounded-lg">
+          <h6 className="text-sm font-medium text-gray-200 mb-2">
+            {language === 'vi' ? '🗑️ Xóa User khỏi Firebase Authentication' : '🗑️ Delete User from Firebase Authentication'}
+          </h6>
+          <p className="text-xs text-gray-400 mb-2">
+            {language === 'vi' 
+              ? 'Nhập email của user cần xóa. User sẽ không thể đăng nhập nữa và có thể đăng ký lại với email này.'
+              : 'Enter the email of the user to delete. User will not be able to login and can register again with this email.'}
+          </p>
+          <div className="flex space-x-2">
+            <input
+              type="email"
+              value={deleteEmail}
+              onChange={(e) => setDeleteEmail(e.target.value)}
+              placeholder={language === 'vi' ? 'Nhập email...' : 'Enter email...'}
+              className="flex-1 px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100 placeholder-gray-400 text-sm"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleDeleteAuthUser()
+                }
+              }}
+            />
+            <button
+              onClick={handleDeleteAuthUser}
+              disabled={deletingAuth || !deleteEmail.trim()}
+              className="px-4 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50"
+            >
+              {deletingAuth 
+                ? (language === 'vi' ? 'Đang xóa...' : 'Deleting...')
+                : (language === 'vi' ? 'Xóa' : 'Delete')
+              }
+            </button>
+          </div>
+        </div>
+      )}
       
       {loading && users.length === 0 ? (
         <div className="text-center py-4 text-gray-400">
@@ -695,28 +944,42 @@ function UserManagementSection({ currentUserId }: { currentUserId: string }) {
                 </div>
               </div>
               {user.id !== currentUserId && (
-                <button
-                  onClick={() => handleResetUser(user.id, user.name)}
-                  disabled={resetting === user.id}
-                  className="ml-3 px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
-                >
-                  {resetting === user.id 
-                    ? (language === 'vi' ? 'Đang reset...' : 'Resetting...')
-                    : (language === 'vi' ? '🔄 Reset XP/Coin' : '🔄 Reset XP/Coin')
-                  }
-                </button>
+                <div className="flex space-x-2 ml-3">
+                  <button
+                    onClick={() => handleResetUser(user.id, user.name)}
+                    disabled={resetting === user.id || deleting === user.id}
+                    className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 disabled:opacity-50"
+                  >
+                    {resetting === user.id 
+                      ? (language === 'vi' ? 'Đang reset...' : 'Resetting...')
+                      : (language === 'vi' ? '🔄 Reset XP/Coin' : '🔄 Reset XP/Coin')
+                    }
+                  </button>
+                  <button
+                    onClick={() => handleDeleteUser(user.id, user.name)}
+                    disabled={resetting === user.id || deleting === user.id}
+                    className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {deleting === user.id 
+                      ? (language === 'vi' ? 'Đang xóa...' : 'Deleting...')
+                      : (language === 'vi' ? '🗑️ Xóa User' : '🗑️ Delete User')
+                    }
+                  </button>
+                </div>
               )}
             </div>
           ))}
         </div>
       )}
       
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        show={toast.show}
-        onClose={() => setToast({ ...toast, show: false })}
-      />
+      {toast.show && (
+        <Toast
+          show={toast.show}
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
+        />
+      )}
     </div>
   )
 }

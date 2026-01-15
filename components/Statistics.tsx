@@ -10,9 +10,10 @@ import { Task } from '@/lib/firebase/tasks'
 
 interface StatisticsProps {
   currentUserId: string
+  profile: UserProfile
 }
 
-export default function Statistics({ currentUserId }: StatisticsProps) {
+export default function Statistics({ currentUserId, profile }: StatisticsProps) {
   const { t, language } = useI18n()
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -23,37 +24,53 @@ export default function Statistics({ currentUserId }: StatisticsProps) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadStatistics()
-  }, [])
+    if (profile.familyId) {
+      loadStatistics()
+    }
+  }, [profile.familyId])
 
   const loadStatistics = async () => {
     try {
       setLoading(true)
       
-      // Lấy tất cả users
-      const allUsers = await getAllUsers()
+      // Lấy tất cả users trong cùng family
+      if (!profile.familyId) {
+        console.error('Profile does not have familyId')
+        return
+      }
+      const allUsers = await getAllUsers(profile.familyId)
       const totalUsers = allUsers.length
       
-      // Đếm users đã tham gia nhiệm vụ (có ít nhất 1 task được assign)
+      // Đếm users đã tham gia nhiệm vụ (có ít nhất 1 task được assign) - chỉ trong cùng family
       const tasksRef = collection(checkDb(), 'tasks')
-      const tasksSnapshot = await getDocs(tasksRef)
+      const q = query(tasksRef, where('familyId', '==', profile.familyId))
+      const tasksSnapshot = await getDocs(q)
       const tasks = tasksSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Task[]
       
-      // Lấy danh sách unique user IDs đã được assign task
+      // Filter tasks chỉ trong cùng family (nếu task có familyId)
+      const familyTasks = tasks.filter(task => {
+        // Nếu task chưa có familyId, kiểm tra assignedTo có trong family không
+        if (!task.familyId) {
+          return allUsers.some(u => u.id === task.assignedTo)
+        }
+        return task.familyId === profile.familyId
+      })
+      
+      // Lấy danh sách unique user IDs đã được assign task (chỉ trong family)
       const activeUserIds = new Set<string>()
-      tasks.forEach(task => {
+      familyTasks.forEach(task => {
         if (task.assignedTo) {
           activeUserIds.add(task.assignedTo)
         }
       })
       const activeUsers = activeUserIds.size
       
-      // Đếm tổng số tasks và completed tasks
-      const totalTasks = tasks.length
-      const completedTasks = tasks.filter(t => 
+      // Đếm tổng số tasks và completed tasks (chỉ trong family)
+      const totalTasks = familyTasks.length
+      const completedTasks = familyTasks.filter(t => 
         t.status === 'completed' || t.status === 'approved'
       ).length
       

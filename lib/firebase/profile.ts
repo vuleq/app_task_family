@@ -7,6 +7,10 @@ import {
   collection,
   getDocs,
   deleteField,
+  deleteDoc,
+  query,
+  where,
+  writeBatch,
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from './config'
@@ -26,6 +30,8 @@ export interface UserProfile {
   coins: number
   role: 'parent' | 'child'
   isRoot?: boolean // Chỉ account root mới có thể tạo nhiệm vụ
+  isSuperRoot?: boolean // Super root user - quản lý tất cả families và root users
+  familyId: string // ID của gia đình (family) mà user thuộc về (có thể null nếu là super root)
   createdAt: any
   updatedAt: any
 }
@@ -34,7 +40,15 @@ const DEFAULT_AVATAR = '/icons/icon-192x192.png'
 
 const checkDb = () => {
   if (!db) {
-    throw new Error('Firestore is not initialized. Please check your .env.local file.')
+    // Log debug info
+    if (typeof window !== 'undefined') {
+      console.error('❌ Firestore is not initialized!')
+      console.error('Please check:')
+      console.error('1. File .env.local exists in project root')
+      console.error('2. All NEXT_PUBLIC_FIREBASE_* variables are set')
+      console.error('3. Dev server was restarted after adding .env.local')
+    }
+    throw new Error('Firestore is not initialized. Please check your .env.local file and restart the dev server.')
   }
   return db
 }
@@ -46,7 +60,7 @@ const checkStorage = () => {
   return storage
 }
 
-export const createDefaultProfile = async (user: User, isRoot: boolean = false): Promise<UserProfile> => {
+export const createDefaultProfile = async (user: User, isRoot: boolean = false, familyId?: string, isSuperRoot: boolean = false): Promise<UserProfile> => {
   const profileRef = doc(checkDb(), 'users', user.uid)
   const profileSnap = await getDoc(profileRef)
 
@@ -56,6 +70,97 @@ export const createDefaultProfile = async (user: User, isRoot: boolean = false):
 
   // Chọn avatar ngẫu nhiên dựa trên user ID (để mỗi user có avatar cố định)
   const avatarNumber = (user.uid.charCodeAt(0) % 7) + 1 // 1-7
+  
+  // Super root không cần familyId
+  if (isSuperRoot) {
+    const defaultProfile: Omit<UserProfile, 'id'> = {
+      name: user.displayName || user.email?.split('@')[0] || 'Super Admin',
+      email: user.email || '',
+      avatar: user.photoURL || DEFAULT_AVATAR,
+      image: user.photoURL || DEFAULT_AVATAR,
+      characterAvatar: avatarNumber,
+      xp: 0,
+      coins: 0,
+      role: 'parent',
+      isRoot: false, // Super root không phải root thông thường
+      isSuperRoot: true,
+      familyId: '', // Super root không thuộc family nào
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }
+    await setDoc(profileRef, defaultProfile)
+    return {
+      id: user.uid,
+      ...defaultProfile,
+    }
+  }
+  
+  // Nếu không có familyId, tạo family mới (nếu là root) hoặc để null (sẽ join sau)
+  let finalFamilyId = familyId
+  console.log('[createDefaultProfile] Creating profile with:', {
+    userId: user.uid,
+    isRoot,
+    familyId,
+    isSuperRoot,
+    hasFamilyId: !!familyId,
+  })
+  
+  if (!finalFamilyId && isRoot) {
+    // ⚠️ CẢNH BÁO: familyId là undefined, sẽ tạo family mới
+    console.error('[createDefaultProfile] ⚠️ CRITICAL ERROR: familyId is undefined! This will create a NEW family with auto-generated codes.')
+    console.error('[createDefaultProfile] This should NOT happen if familyId was saved to localStorage correctly.')
+    console.error('[createDefaultProfile] User info:', {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+    })
+    
+    // ⚠️ TRƯỚC KHI TẠO FAMILY MỚI: Thử tìm familyId từ localStorage một lần nữa
+    if (typeof window !== 'undefined') {
+      // Thử đọc trực tiếp với user.uid
+      const directFamilyId = localStorage.getItem(`signup_familyId_${user.uid}`)
+      if (directFamilyId) {
+        console.log(`[createDefaultProfile] ✅ Found familyId directly: ${directFamilyId}`)
+        finalFamilyId = directFamilyId
+      } else {
+        // Nếu không tìm thấy, tìm trong tất cả keys
+        const allFamilyIdKeys = Object.keys(localStorage).filter(key => key.startsWith('signup_familyId'))
+        console.warn('[createDefaultProfile] Direct lookup failed, searching all keys:', allFamilyIdKeys)
+        for (const key of allFamilyIdKeys) {
+          const value = localStorage.getItem(key)
+          // Nếu key chứa user.uid, dùng nó
+          if (key.includes(user.uid)) {
+            console.log(`[createDefaultProfile] ✅ Found familyId from key ${key}: ${value}`)
+            finalFamilyId = value || undefined
+            break
+          }
+        }
+      }
+    }
+    
+    // Nếu vẫn không có, mới tạo family mới
+    if (!finalFamilyId) {
+      console.error('[createDefaultProfile] ⚠️ Still no familyId found, creating NEW family (THIS IS WRONG!)')
+      // Tạo family mới cho root user
+      const { createFamily } = await import('./family')
+      const familyName = user.displayName || user.email?.split('@')[0] || 'Family'
+      const result = await createFamily(familyName, user.uid)
+      finalFamilyId = result.familyId
+      console.error('[createDefaultProfile] Created new family because familyId was undefined:', {
+        familyId: finalFamilyId,
+        familyCode: result.familyCode,
+        rootCode: result.rootCode,
+      })
+    } else {
+      console.log('[createDefaultProfile] ✅ Found familyId after retry:', finalFamilyId)
+    }
+  } else if (finalFamilyId) {
+    console.log('[createDefaultProfile] ✅ Using existing familyId:', finalFamilyId)
+  }
+  
+  if (!finalFamilyId) {
+    throw new Error('familyId is required. Please join a family or create one.')
+  }
   
   const defaultProfile: Omit<UserProfile, 'id'> = {
     name: user.displayName || user.email?.split('@')[0] || 'User',
@@ -67,6 +172,8 @@ export const createDefaultProfile = async (user: User, isRoot: boolean = false):
     coins: 0,
     role: 'child', // Default role, can be updated later
     isRoot: isRoot, // Có thể set khi tạo profile
+    isSuperRoot: false, // Chỉ set khi tạo super root
+    familyId: finalFamilyId, // ID của gia đình
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }
@@ -93,10 +200,11 @@ export const getProfile = async (userId: string): Promise<UserProfile | null> =>
   } as UserProfile
 }
 
-// Lấy danh sách tất cả users (để assign task)
-export const getAllUsers = async (): Promise<UserProfile[]> => {
+// Lấy danh sách tất cả users trong cùng family (để assign task)
+export const getAllUsers = async (familyId: string): Promise<UserProfile[]> => {
   const usersRef = collection(checkDb(), 'users')
-  const snapshot = await getDocs(usersRef)
+  const q = query(usersRef, where('familyId', '==', familyId))
+  const snapshot = await getDocs(q)
   return snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
@@ -177,5 +285,143 @@ export const deleteProfileImage = async (
   } catch (error) {
     console.error('Error deleting image:', error)
   }
+}
+
+/**
+ * Root user xóa user khác và tất cả dữ liệu liên quan
+ * Xóa: profile, tasks, task templates, avatar/image từ Storage
+ */
+export const deleteUser = async (targetUserId: string, deleterUserId: string): Promise<void> => {
+  // Kiểm tra quyền root
+  const deleterProfile = await getProfile(deleterUserId)
+  if (!deleterProfile || !deleterProfile.isRoot) {
+    throw new Error('Chỉ root user mới có quyền xóa user')
+  }
+  
+  // Không cho phép xóa chính mình
+  if (targetUserId === deleterUserId) {
+    throw new Error('Không thể xóa chính mình')
+  }
+  
+  // Kiểm tra user có tồn tại không
+  const targetProfile = await getProfile(targetUserId)
+  if (!targetProfile) {
+    throw new Error('User không tồn tại')
+  }
+  
+  // Không cho phép xóa root user khác
+  if (targetProfile.isRoot) {
+    throw new Error('Không thể xóa root user khác')
+  }
+  
+  // Helper function để xóa nhiều documents bằng batch (tối đa 500 per batch)
+  const deleteDocumentsInBatches = async (docs: any[]) => {
+    if (docs.length === 0) return
+    
+    const BATCH_SIZE = 500 // Firestore limit
+    const batches: Promise<void>[] = []
+    
+    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+      const batch = writeBatch(checkDb())
+      const batchDocs = docs.slice(i, i + BATCH_SIZE)
+      
+      batchDocs.forEach(docSnap => {
+        batch.delete(docSnap.ref)
+      })
+      
+      batches.push(batch.commit())
+    }
+    
+    await Promise.all(batches)
+  }
+  
+  // Chạy song song tất cả các operations không phụ thuộc nhau
+  const [
+    assignedTasksSnapshot,
+    createdTasksSnapshot,
+    templatesSnapshot
+  ] = await Promise.all([
+    // 1. Lấy tất cả tasks được assign cho user
+    getDocs(query(
+      collection(checkDb(), 'tasks'),
+      where('assignedTo', '==', targetUserId)
+    )),
+    // 2. Lấy tất cả tasks được tạo bởi user
+    getDocs(query(
+      collection(checkDb(), 'tasks'),
+      where('createdBy', '==', targetUserId)
+    )),
+    // 3. Lấy tất cả task templates của user
+    getDocs(query(
+      collection(checkDb(), 'taskTemplates'),
+      where('createdBy', '==', targetUserId)
+    ))
+  ])
+  
+  // Tổng hợp tất cả tasks cần xóa (loại bỏ duplicate nếu có)
+  const allTaskDocs = [
+    ...assignedTasksSnapshot.docs,
+    ...createdTasksSnapshot.docs.filter(
+      doc => !assignedTasksSnapshot.docs.some(d => d.id === doc.id)
+    )
+  ]
+  
+  // Xóa user khỏi Firebase Authentication (gọi API)
+  try {
+    const response = await fetch('/api/delete-user', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        targetUserId,
+        deleterUserId,
+      }),
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      console.error('Error deleting user from Auth:', errorData.error || 'Unknown error')
+      // Tiếp tục xóa dữ liệu trong Firestore dù có lỗi với Auth
+    }
+  } catch (error) {
+    console.error('Error calling delete-user API:', error)
+    // Tiếp tục xóa dữ liệu trong Firestore dù có lỗi với API
+  }
+  
+  // Xóa tất cả documents song song
+  await Promise.all([
+    // Xóa tasks
+    deleteDocumentsInBatches(allTaskDocs),
+    // Xóa templates
+    deleteDocumentsInBatches(templatesSnapshot.docs),
+    // Xóa avatar/image từ Storage (chạy song song, không block)
+    (async () => {
+      try {
+        if (targetProfile.avatar && storage) {
+          try {
+            const avatarRef = ref(checkStorage(), targetProfile.avatar)
+            await deleteObject(avatarRef)
+          } catch (error) {
+            console.error('Error deleting avatar:', error)
+          }
+        }
+        if (targetProfile.image && storage) {
+          try {
+            const imageRef = ref(checkStorage(), targetProfile.image)
+            await deleteObject(imageRef)
+          } catch (error) {
+            console.error('Error deleting image:', error)
+          }
+        }
+      } catch (error) {
+        console.error('Error deleting user images:', error)
+      }
+    })()
+  ])
+  
+  // Cuối cùng xóa user profile
+  const profileRef = doc(checkDb(), 'users', targetUserId)
+  await deleteDoc(profileRef)
 }
 

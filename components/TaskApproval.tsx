@@ -5,6 +5,7 @@ import { collection, query, where, getDocs, updateDoc, doc, Timestamp } from 'fi
 import { db } from '@/lib/firebase/config'
 import { updateProfile, getProfile } from '@/lib/firebase/profile'
 import { checkAndUpdateParentTask } from '@/lib/firebase/tasks'
+import { checkDailyCompletion, checkWeeklyCompletion, checkMonthlyCompletion } from '@/lib/firebase/completionRewards'
 import { useI18n } from '@/lib/i18n/context'
 import { getTranslatedTaskTitle } from '@/lib/i18n/templateTranslations'
 import Toast from './Toast'
@@ -36,10 +37,11 @@ interface Task {
 interface TaskApprovalProps {
   currentUserId: string
   currentUserRole: 'parent' | 'child'
+  familyId: string
   onApprovalComplete?: () => void
 }
 
-export default function TaskApproval({ currentUserId, currentUserRole, onApprovalComplete }: TaskApprovalProps) {
+export default function TaskApproval({ currentUserId, currentUserRole, familyId, onApprovalComplete }: TaskApprovalProps) {
   const { t, language } = useI18n()
   const [pendingTasks, setPendingTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,8 +49,13 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
 
   const loadPendingTasks = useCallback(async () => {
     try {
-      const tasksRef = collection(checkDb(), 'tasks')
-      const q = query(tasksRef, where('status', '==', 'completed'))
+      if (!db) return
+      const tasksRef = collection(db, 'tasks')
+      const q = query(
+        tasksRef, 
+        where('status', '==', 'completed'),
+        where('familyId', '==', familyId)
+      )
       const snapshot = await getDocs(q)
       let tasksData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -83,7 +90,7 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
     } finally {
       setLoading(false)
     }
-  }, [currentUserId, currentUserRole])
+  }, [currentUserId, currentUserRole, familyId])
 
   useEffect(() => {
     loadPendingTasks()
@@ -93,7 +100,7 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
     try {
       // Kiểm tra giới hạn nhiệm vụ và coin trước khi approve
       const { canCompleteTask } = await import('@/lib/firebase/taskLimits')
-      const limitCheck = await canCompleteTask(task.assignedTo, task.type, task.coinReward)
+      const limitCheck = await canCompleteTask(task.assignedTo, task.type, task.coinReward, familyId)
       
       if (!limitCheck.allowed) {
         setToast({ 
@@ -113,7 +120,11 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
       }
 
       // Cập nhật trạng thái task
-      await updateDoc(doc(checkDb(), 'tasks', task.id), {
+      if (!db) {
+        setToast({ show: true, message: t('errors.firestoreNotInitialized'), type: 'error' })
+        return
+      }
+      await updateDoc(doc(db, 'tasks', task.id), {
         status: 'approved',
         approvedAt: Timestamp.now(),
         completedDate: completedDate // Đảm bảo có completedDate
@@ -136,6 +147,25 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
           message = `🎉 Chúc mừng! ${task.assignedToName} đã hoàn thành nhiệm vụ tuần/tháng!\n\n${message}`
         }
       }
+
+      // Kiểm tra completion rewards nếu là daily task
+      if (task.type === 'daily') {
+        const dailyResult = await checkDailyCompletion(task.assignedTo, familyId, completedDate)
+        if (dailyResult.rewarded && dailyResult.message) {
+          message = `${dailyResult.message}\n\n${message}`
+        }
+
+        // Sau khi check daily, check weekly và monthly
+        const weeklyResult = await checkWeeklyCompletion(task.assignedTo, familyId)
+        if (weeklyResult.rewarded && weeklyResult.message) {
+          message = `${weeklyResult.message}\n\n${message}`
+        }
+
+        const monthlyResult = await checkMonthlyCompletion(task.assignedTo, familyId)
+        if (monthlyResult.rewarded && monthlyResult.message) {
+          message = `${monthlyResult.message}\n\n${message}`
+        }
+      }
       
       setToast({ show: true, message, type: 'success' })
       loadPendingTasks()
@@ -148,7 +178,11 @@ export default function TaskApproval({ currentUserId, currentUserRole, onApprova
 
   const handleReject = async (task: Task) => {
     try {
-      await updateDoc(doc(checkDb(), 'tasks', task.id), {
+      if (!db) {
+        setToast({ show: true, message: t('errors.firestoreNotInitialized'), type: 'error' })
+        return
+      }
+      await updateDoc(doc(db, 'tasks', task.id), {
         status: 'pending'
       })
       setToast({ show: true, message: 'Đã từ chối nhiệm vụ', type: 'success' })

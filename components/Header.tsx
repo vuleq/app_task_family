@@ -1,9 +1,11 @@
 'use client'
 
+import { useState, useEffect, useCallback } from 'react'
 import { UserProfile } from '@/lib/firebase/profile'
 import { logout } from '@/lib/firebase/auth'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n/context'
+import { getFamilyById, Family } from '@/lib/firebase/family'
 
 interface HeaderProps {
   profile: UserProfile
@@ -12,6 +14,24 @@ interface HeaderProps {
 export default function Header({ profile }: HeaderProps) {
   const router = useRouter()
   const { t, language, setLanguage } = useI18n()
+  const [familyInfo, setFamilyInfo] = useState<Family | null>(null)
+  
+  // Load family info để hiển thị family name
+  const loadFamilyInfo = useCallback(async () => {
+    if (!profile.familyId) return
+    try {
+      const family = await getFamilyById(profile.familyId)
+      setFamilyInfo(family)
+    } catch (error) {
+      console.error('Error loading family info in Header:', error)
+    }
+  }, [profile.familyId])
+  
+  useEffect(() => {
+    if (profile.familyId) {
+      loadFamilyInfo()
+    }
+  }, [profile.familyId, loadFamilyInfo])
 
   const handleLogout = async () => {
     try {
@@ -54,6 +74,9 @@ export default function Header({ profile }: HeaderProps) {
           {/* Logo/Title ở giữa */}
           <div className="flex-1 text-center">
             <h1 className="text-xl font-bold text-gray-100">{t('login.title')}</h1>
+            {familyInfo && (
+              <p className="text-sm text-primary-300 mt-1">👨‍👩‍👧‍👦 {familyInfo.name}</p>
+            )}
           </div>
 
           {/* Nút chuyển đổi ngôn ngữ và đăng xuất bên phải */}

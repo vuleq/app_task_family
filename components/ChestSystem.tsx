@@ -70,9 +70,13 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
 
   const loadData = async () => {
     try {
+      if (!profile.familyId) {
+        console.error('Profile does not have familyId')
+        return
+      }
       const [chestsData, userChestsData] = await Promise.all([
-        getAllChests(),
-        getUserChests(currentUserId),
+        getAllChests(profile.familyId),
+        getUserChests(currentUserId, profile.familyId),
       ])
       // Sắp xếp chests theo thứ tự mong muốn
       const sortedChests = sortChestsByType(chestsData)
@@ -363,8 +367,12 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     }
 
     try {
+      if (!profile.familyId) {
+        setToast({ show: true, message: language === 'vi' ? 'Lỗi: Không có familyId' : 'Error: No familyId', type: 'error' })
+        return
+      }
       const itemPool = getItemPoolByChestType(newChest.chestType)
-      await createChest(newChest.name, newChest.cost, itemPool)
+      await createChest(newChest.name, newChest.cost, itemPool, profile.familyId)
       setNewChest({ name: '', cost: 50, chestType: 'wood' })
       setShowAddForm(false)
       loadData()

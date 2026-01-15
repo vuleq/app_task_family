@@ -20,6 +20,7 @@ interface Reward {
   description: string
   coinCost: number
   image?: string
+  familyId: string // ID của gia đình
 }
 
 interface RewardsShopProps {
@@ -40,8 +41,14 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
 
   const loadRewards = useCallback(async () => {
     try {
-      const rewardsRef = collection(checkDb(), 'rewards')
-      const snapshot = await getDocs(rewardsRef)
+      if (!db) return
+      if (!profile.familyId) {
+        console.error('Profile does not have familyId')
+        return
+      }
+      const rewardsRef = collection(db, 'rewards')
+      const q = query(rewardsRef, where('familyId', '==', profile.familyId))
+      const snapshot = await getDocs(q)
       const rewardsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -52,12 +59,21 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [profile.familyId])
 
   const loadMyRewards = useCallback(async () => {
     try {
-      const userRewardsRef = collection(checkDb(), 'userRewards')
-      const q = query(userRewardsRef, where('userId', '==', currentUserId))
+      if (!db) return
+      if (!profile.familyId) {
+        console.error('Profile does not have familyId')
+        return
+      }
+      const userRewardsRef = collection(db, 'userRewards')
+      const q = query(
+        userRewardsRef, 
+        where('userId', '==', currentUserId),
+        where('familyId', '==', profile.familyId)
+      )
       const snapshot = await getDocsQuery(q)
       const myRewardsData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -67,7 +83,7 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
     } catch (error) {
       console.error('Error loading my rewards:', error)
     }
-  }, [currentUserId])
+  }, [currentUserId, profile.familyId])
 
   useEffect(() => {
     loadRewards()
@@ -87,10 +103,15 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
       })
 
       // Thêm vào userRewards
-      await addDoc(collection(checkDb(), 'userRewards'), {
+      if (!db) {
+        setToast({ show: true, message: t('errors.firestoreNotInitialized'), type: 'error' })
+        return
+      }
+      await addDoc(collection(db, 'userRewards'), {
         userId: currentUserId,
         rewardId: reward.id,
         rewardName: reward.name,
+        familyId: profile.familyId,
         purchasedAt: new Date()
       })
 
@@ -111,10 +132,15 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
     }
 
     try {
-      await addDoc(collection(checkDb(), 'rewards'), {
+      if (!db) {
+        setToast({ show: true, message: t('errors.firestoreNotInitialized'), type: 'error' })
+        return
+      }
+      await addDoc(collection(db, 'rewards'), {
         name: newReward.name,
         description: newReward.description,
-        coinCost: newReward.coinCost
+        coinCost: newReward.coinCost,
+        familyId: profile.familyId
       })
       setNewReward({ name: '', description: '', coinCost: 10 })
       setShowAddForm(false)
@@ -146,7 +172,11 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
     }
 
     try {
-      const rewardRef = doc(checkDb(), 'rewards', editingReward.id)
+      if (!db) {
+        setToast({ show: true, message: t('errors.firestoreNotInitialized'), type: 'error' })
+        return
+      }
+      const rewardRef = doc(db, 'rewards', editingReward.id)
       await updateDoc(rewardRef, {
         name: editingReward.name,
         description: editingReward.description,
@@ -170,7 +200,11 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
     }
 
     try {
-      const rewardRef = doc(checkDb(), 'rewards', rewardId)
+      if (!db) {
+        setToast({ show: true, message: t('errors.firestoreNotInitialized'), type: 'error' })
+        return
+      }
+      const rewardRef = doc(db, 'rewards', rewardId)
       await deleteDoc(rewardRef)
       loadRewards()
       setToast({ show: true, message: language === 'vi' ? 'Đã xóa phần thưởng thành công!' : 'Reward deleted successfully!', type: 'success' })

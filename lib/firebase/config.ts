@@ -26,7 +26,7 @@ const firebaseConfig = {
 
 // Check if Firebase config is valid
 const isFirebaseConfigValid = () => {
-  return !!(
+  const isValid = !!(
     firebaseConfig.apiKey &&
     firebaseConfig.authDomain &&
     firebaseConfig.projectId &&
@@ -34,6 +34,19 @@ const isFirebaseConfigValid = () => {
     firebaseConfig.messagingSenderId &&
     firebaseConfig.appId
   )
+  
+  // Debug: Log missing config values
+  if (!isValid && typeof window !== 'undefined') {
+    console.error('❌ Firebase config missing values:')
+    if (!firebaseConfig.apiKey) console.error('  - NEXT_PUBLIC_FIREBASE_API_KEY')
+    if (!firebaseConfig.authDomain) console.error('  - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN')
+    if (!firebaseConfig.projectId) console.error('  - NEXT_PUBLIC_FIREBASE_PROJECT_ID')
+    if (!firebaseConfig.storageBucket) console.error('  - NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET')
+    if (!firebaseConfig.messagingSenderId) console.error('  - NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID')
+    if (!firebaseConfig.appId) console.error('  - NEXT_PUBLIC_FIREBASE_APP_ID')
+  }
+  
+  return isValid
 }
 
 let app: FirebaseApp | undefined
@@ -41,26 +54,39 @@ let auth: Auth | undefined
 let db: Firestore | undefined
 let storage: FirebaseStorage | undefined
 
+// Khởi tạo Firebase ngay khi module được load (chỉ ở client-side)
 if (typeof window !== 'undefined') {
-  if (!isFirebaseConfigValid()) {
-    console.error('⚠️ Firebase configuration is missing!')
-    console.error('Please create a .env.local file with your Firebase credentials.')
-    console.error('See SETUP_LOCAL.md for instructions.')
-  } else {
-    try {
-      if (!getApps().length) {
-        app = initializeApp(firebaseConfig)
-      } else {
-        app = getApps()[0]
+  // Sử dụng IIFE để đảm bảo khởi tạo ngay lập tức
+  (() => {
+    if (!isFirebaseConfigValid()) {
+      console.error('⚠️ Firebase configuration is missing!')
+      console.error('Please create a .env.local file with your Firebase credentials.')
+      console.error('See SETUP_LOCAL.md for instructions.')
+    } else {
+      try {
+        if (!getApps().length) {
+          app = initializeApp(firebaseConfig)
+        } else {
+          app = getApps()[0]
+        }
+        
+        auth = getAuth(app)
+        db = getFirestore(app)
+        storage = getStorage(app)
+        
+        // Log để debug (chỉ log một lần)
+        if (!(window as any).__FIREBASE_INITIALIZED__) {
+          console.log('✅ Firebase initialized successfully')
+          ;(window as any).__FIREBASE_INITIALIZED__ = true
+        }
+      } catch (error) {
+        console.error('❌ Error initializing Firebase:', error)
       }
-      
-      auth = getAuth(app)
-      db = getFirestore(app)
-      storage = getStorage(app)
-    } catch (error) {
-      console.error('❌ Error initializing Firebase:', error)
     }
-  }
+  })()
+} else {
+  // Server-side: chỉ khởi tạo nếu cần (không khởi tạo ở đây để tránh lỗi SSR)
+  // Firebase sẽ được khởi tạo khi cần thiết ở client-side
 }
 
 // Helper function to ensure db is initialized
