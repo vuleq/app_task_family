@@ -44,6 +44,7 @@ export interface Task {
   category?: 'hoc' | 'khac' // Category: việc học hoặc việc khác
   xpReward: number
   coinReward: number
+  familyId: string // ID của gia đình (family) mà task thuộc về
   createdAt: any
   completedAt?: any
   completedDate?: string // Ngày hoàn thành (YYYY-MM-DD) để đếm giới hạn
@@ -158,7 +159,8 @@ export const createRecurringDailyTasks = async (
   createdBy: string,
   createdByName: string,
   numberOfDays: number,
-  taskType: 'weekly' | 'monthly'
+  taskType: 'weekly' | 'monthly',
+  familyId: string
 ): Promise<{ parentTaskId: string; dailyTaskIds: string[] }> => {
   if (!db) throw new Error('Firestore not initialized')
   const tasksRef = collection(checkDb(), 'tasks')
@@ -181,6 +183,7 @@ export const createRecurringDailyTasks = async (
     status: 'pending',
     xpReward: baseTask.xpReward * numberOfDays, // Tổng XP cho tất cả nhiệm vụ
     coinReward: baseTask.coinReward * numberOfDays, // Tổng Coins cho tất cả nhiệm vụ
+    familyId: familyId, // Lưu familyId vào task
     createdAt: Timestamp.now(),
     groupKey,
     requiredCount: numberOfDays,
@@ -214,6 +217,7 @@ export const createRecurringDailyTasks = async (
       status: 'pending',
       xpReward: baseTask.xpReward,
       coinReward: baseTask.coinReward,
+      familyId: familyId, // Lưu familyId vào task
       createdAt: Timestamp.now(),
       scheduledDate: Timestamp.fromDate(taskDateObj),
       taskDate: taskDateStr, // Lưu ngày của nhiệm vụ (YYYY-MM-DD)

@@ -9,6 +9,7 @@ import CharacterDisplay from './CharacterDisplay'
 import { calculateLevel, getCharacterAssets } from '@/lib/utils/level'
 import { useI18n } from '@/lib/i18n/context'
 import Toast from './Toast'
+import { getFamilyById, Family } from '@/lib/firebase/family'
 
 interface ProfilePageProps {
   profile: UserProfile
@@ -27,8 +28,37 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
   const imageInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
+  const [familyInfo, setFamilyInfo] = useState<Family | null>(null)
+  const [loadingFamily, setLoadingFamily] = useState(false)
   
   const currentLevel = calculateLevel(profile.xp)
+  
+  // Load family info for root users
+  const loadFamilyInfo = useCallback(async () => {
+    if (!profile.familyId) return
+    setLoadingFamily(true)
+    try {
+      console.log('[ProfilePage] Loading family info for familyId:', profile.familyId)
+      const family = await getFamilyById(profile.familyId)
+      console.log('[ProfilePage] Family loaded:', {
+        id: family?.id,
+        code: family?.code,
+        rootCode: family?.rootCode,
+      })
+      setFamilyInfo(family)
+    } catch (error) {
+      console.error('Error loading family info:', error)
+    } finally {
+      setLoadingFamily(false)
+    }
+  }, [profile.familyId])
+  
+  useEffect(() => {
+    // Load family info cho tất cả users (không chỉ root) để hiển thị family name
+    if (profile.familyId) {
+      loadFamilyInfo()
+    }
+  }, [profile.familyId, loadFamilyInfo])
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -570,8 +600,85 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
                 </p>
               </div>
               
+              {/* Family Code and Root Code Section */}
+              {loadingFamily ? (
+                <div className="bg-slate-800/80 border border-slate-600 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-gray-400">{t('common.loading')}</p>
+                </div>
+              ) : familyInfo ? (
+                <div className="bg-gradient-to-br from-slate-800/90 to-slate-700/90 border-2 border-slate-600 rounded-lg p-4 mb-4 space-y-4 shadow-lg">
+                  {/* Family Name */}
+                  <div className="bg-gradient-to-r from-primary-500/20 to-primary-600/20 p-4 rounded-lg border-2 border-primary-500/50">
+                    <label className="block text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2">
+                      <span className="text-lg">👨‍👩‍👧‍👦</span>
+                      {t('profile.familyName') || 'Family Name'}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={familyInfo.name || ''}
+                        readOnly
+                        className="w-full min-w-0 bg-slate-950/80 border-2 border-primary-500/50 rounded-lg px-4 py-3 text-white font-bold text-lg overflow-hidden text-ellipsis"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Family Code */}
+                  <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-600">
+                    <label className="block text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2">
+                      <span className="text-lg">📋</span>
+                      {t('profile.familyCode')}
+                    </label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        type="text"
+                        value={familyInfo.code}
+                        readOnly
+                        className="flex-1 min-w-0 bg-slate-950 border-2 border-slate-500 rounded-lg px-3 py-2.5 text-gray-100 font-mono text-base font-bold tracking-wider"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(familyInfo.code)
+                          setToast({ show: true, message: t('profile.codeCopied'), type: 'success' })
+                        }}
+                        className="px-4 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors shadow-md whitespace-nowrap flex-shrink-0"
+                      >
+                        {t('profile.copyCode')}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">{t('profile.familyCodeDesc')}</p>
+                  </div>
+                  
+                  {/* Root Code */}
+                  <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-600">
+                    <label className="block text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2">
+                      <span className="text-lg">🔐</span>
+                      {t('profile.rootCode')}
+                    </label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        type="text"
+                        value={familyInfo.rootCode}
+                        readOnly
+                        className="flex-1 min-w-0 bg-slate-950 border-2 border-slate-500 rounded-lg px-3 py-2.5 text-gray-100 font-mono text-base font-bold tracking-wider"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(familyInfo.rootCode)
+                          setToast({ show: true, message: t('profile.codeCopied'), type: 'success' })
+                        }}
+                        className="px-4 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors shadow-md whitespace-nowrap flex-shrink-0"
+                      >
+                        {t('profile.copyCode')}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">{t('profile.rootCodeDesc')}</p>
+                  </div>
+                </div>
+              ) : null}
+              
               {/* User Management Section */}
-              <UserManagementSection currentUserId={profile.id} />
+              <UserManagementSection currentUserId={profile.id} familyId={profile.familyId} />
             </div>
           )}
 
@@ -598,7 +705,7 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
 }
 
 // Component quản lý users cho root
-function UserManagementSection({ currentUserId }: { currentUserId: string }) {
+function UserManagementSection({ currentUserId, familyId }: { currentUserId: string; familyId: string }) {
   const { t, language } = useI18n()
   const [users, setUsers] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(false)
@@ -612,7 +719,12 @@ function UserManagementSection({ currentUserId }: { currentUserId: string }) {
   const loadUsers = useCallback(async () => {
     setLoading(true)
     try {
-      const allUsers = await getAllUsers()
+      if (!familyId) {
+        console.error('FamilyId is not provided')
+        setLoading(false)
+        return
+      }
+      const allUsers = await getAllUsers(familyId)
       setUsers(allUsers.filter(u => u.id !== currentUserId)) // Không hiển thị chính mình
     } catch (error) {
       console.error('Error loading users:', error)
@@ -620,7 +732,7 @@ function UserManagementSection({ currentUserId }: { currentUserId: string }) {
     } finally {
       setLoading(false)
     }
-  }, [currentUserId, language])
+  }, [currentUserId, language, familyId])
 
   useEffect(() => {
     loadUsers()
@@ -862,6 +974,7 @@ function UserManagementSection({ currentUserId }: { currentUserId: string }) {
       
       {toast.show && (
         <Toast
+          show={toast.show}
           message={toast.message}
           type={toast.type}
           onClose={() => setToast({ ...toast, show: false })}

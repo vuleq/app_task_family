@@ -10,6 +10,7 @@ import { UserProfile } from '@/lib/firebase/profile'
 
 interface TaskMonitoringProps {
   currentUserId: string
+  profile: UserProfile
 }
 
 interface UserTaskStats {
@@ -40,7 +41,7 @@ interface UserTaskStats {
   tasksWithoutEvidence: number // Số nhiệm vụ không có ảnh evidence
 }
 
-export default function TaskMonitoring({ currentUserId }: TaskMonitoringProps) {
+export default function TaskMonitoring({ currentUserId, profile }: TaskMonitoringProps) {
   const { t, language } = useI18n()
   const [userStats, setUserStats] = useState<UserTaskStats[]>([])
   const [loading, setLoading] = useState(true)
@@ -50,13 +51,18 @@ export default function TaskMonitoring({ currentUserId }: TaskMonitoringProps) {
     try {
       setLoading(true)
       
-      // Lấy tất cả users (trừ root)
-      const allUsers = await getAllUsers()
+      // Lấy tất cả users trong cùng family (trừ root)
+      if (!profile.familyId) {
+        console.error('Profile does not have familyId')
+        return
+      }
+      const allUsers = await getAllUsers(profile.familyId)
       const childUsers = allUsers.filter(u => !u.isRoot && u.id !== currentUserId)
       
-      // Lấy tất cả tasks
+      // Lấy tất cả tasks trong cùng family
       const tasksRef = collection(checkDb(), 'tasks')
-      const tasksSnapshot = await getDocs(tasksRef)
+      const tasksQuery = query(tasksRef, where('familyId', '==', profile.familyId))
+      const tasksSnapshot = await getDocs(tasksQuery)
       const allTasks = tasksSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()

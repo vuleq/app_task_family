@@ -20,6 +20,7 @@ import CreateDefaultTemplates from './CreateDefaultTemplates'
 import { useI18n } from '@/lib/i18n/context'
 import { getTranslatedTemplateTitle, getTranslatedTaskTitle } from '@/lib/i18n/templateTranslations'
 import { getTaskStats, TASK_LIMITS } from '@/lib/firebase/taskLimits'
+import { getCompletionProgress, COMPLETION_REWARDS } from '@/lib/firebase/completionRewards'
 import Toast from './Toast'
 
 interface Task {
@@ -79,6 +80,11 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
     weekly: { tasks: number; coins: number }
     monthly: { tasks: number; coins: number }
   } | null>(null)
+  const [completionProgress, setCompletionProgress] = useState<{
+    daily: { current: number; required: number; completed: boolean }
+    weekly: { current: number; required: number; completed: boolean }
+    monthly: { current: number; required: number; completed: boolean }
+  } | null>(null)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
   const [newTask, setNewTask] = useState({ 
     title: '', 
@@ -92,7 +98,11 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
 
   const loadUsers = useCallback(async () => {
     try {
-      const allUsers = await getAllUsers()
+      if (!profile.familyId) {
+        console.error('Profile does not have familyId')
+        return
+      }
+      const allUsers = await getAllUsers(profile.familyId)
       setUsers(allUsers)
       // Mặc định không chọn ai, user phải tự chọn
     } catch (error) {
@@ -130,8 +140,13 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         }
       }
       
+      // Filter tasks theo familyId
+      if (!profile.familyId) {
+        console.error('Profile does not have familyId')
+        return
+      }
       const tasksRef = collection(db, 'tasks')
-      const q = query(tasksRef)
+      const q = query(tasksRef, where('familyId', '==', profile.familyId))
       const snapshot = await getDocs(q)
       const tasksData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -141,10 +156,15 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
 
       // Load task limits stats cho current user
       try {
-        const [dailyStats, weeklyStats, monthlyStats] = await Promise.all([
-          getTaskStats(currentUser.uid, 'daily'),
-          getTaskStats(currentUser.uid, 'weekly'),
-          getTaskStats(currentUser.uid, 'monthly'),
+        if (!profile.familyId) {
+          console.error('Profile does not have familyId')
+          return
+        }
+        const [dailyStats, weeklyStats, monthlyStats, completion] = await Promise.all([
+          getTaskStats(currentUser.uid, 'daily', profile.familyId),
+          getTaskStats(currentUser.uid, 'weekly', profile.familyId),
+          getTaskStats(currentUser.uid, 'monthly', profile.familyId),
+          getCompletionProgress(currentUser.uid, profile.familyId),
         ])
         
         setTaskLimits({
@@ -152,6 +172,8 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
           weekly: { tasks: weeklyStats.taskCount, coins: weeklyStats.totalCoins },
           monthly: { tasks: monthlyStats.taskCount, coins: monthlyStats.totalCoins },
         })
+
+        setCompletionProgress(completion)
       } catch (error) {
         console.error('Error loading task limits:', error)
       }
@@ -219,6 +241,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
             status: 'pending',
             xpReward: newTask.xpReward,
             coinReward: newTask.coinReward,
+            familyId: profile.familyId, // Lưu familyId vào task
             createdAt: Timestamp.now(),
             taskDate: taskDate // Lưu ngày của nhiệm vụ
           })
@@ -238,7 +261,8 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
             currentUser.uid,
             profile.name,
             6, // 6 ngày
-            'weekly'
+            'weekly',
+            profile.familyId
           )
           taskIds = result.dailyTaskIds
         } else if (newTask.type === 'monthly') {
@@ -256,7 +280,8 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
             currentUser.uid,
             profile.name,
             26, // 26 ngày
-            'monthly'
+            'monthly',
+            profile.familyId
           )
           taskIds = result.dailyTaskIds
         }
@@ -515,6 +540,17 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
       }
 
       loadTasks()
+      // Reload completion progress
+      try {
+        if (!profile.familyId) {
+          console.error('Profile does not have familyId')
+          return
+        }
+        const completion = await getCompletionProgress(currentUser.uid, profile.familyId)
+        setCompletionProgress(completion)
+      } catch (error) {
+        console.error('Error loading completion progress:', error)
+      }
       if (onTaskComplete) onTaskComplete()
       setToast({ show: true, message: t('tasks.taskCompleted'), type: 'success' })
     } catch (error) {
@@ -893,6 +929,76 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
             {(taskLimits.monthly.tasks >= TASK_LIMITS.monthly.maxTasks || taskLimits.monthly.coins >= TASK_LIMITS.monthly.maxCoins) && (
               <p className="text-xs text-red-400 mt-1">⚠️ {language === 'vi' ? 'Đã đạt giới hạn' : 'Limit reached'}</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Completion Rewards Progress */}
+      {completionProgress && (
+        <div className="mb-4 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg p-4 border border-purple-500/50">
+          <h4 className="text-sm font-semibold text-gray-100 mb-3">
+            🎯 {t('tasks.completionRewards')}
+          </h4>
+          <div className="grid grid-cols-3 gap-3">
+            {/* Daily Completion */}
+            <div className={`bg-slate-700/50 rounded-lg p-3 border ${
+              completionProgress.daily.completed
+                ? 'border-green-500/50 bg-green-500/10'
+                : completionProgress.daily.current >= completionProgress.daily.required
+                ? 'border-yellow-500/50'
+                : 'border-slate-600'
+            }`}>
+              <p className="text-xs text-gray-400 mb-1">📅 {t('tasks.completionDaily')}</p>
+              <p className="text-sm font-semibold text-gray-200 mb-1">
+                {completionProgress.daily.current}/{completionProgress.daily.required} {t('tasks.completionTasks')}
+              </p>
+              <p className="text-xs text-yellow-400">
+                💰 {COMPLETION_REWARDS.daily.coins} {t('profile.coins')} + {COMPLETION_REWARDS.daily.xp} {t('profile.xp')}
+              </p>
+              {completionProgress.daily.completed && (
+                <p className="text-xs text-green-400 mt-1">✅ {t('tasks.completionRewardReceived')}</p>
+              )}
+            </div>
+
+            {/* Weekly Completion */}
+            <div className={`bg-slate-700/50 rounded-lg p-3 border ${
+              completionProgress.weekly.completed
+                ? 'border-green-500/50 bg-green-500/10'
+                : completionProgress.weekly.current >= completionProgress.weekly.required
+                ? 'border-yellow-500/50'
+                : 'border-slate-600'
+            }`}>
+              <p className="text-xs text-gray-400 mb-1">📆 {t('tasks.completionWeekly')}</p>
+              <p className="text-sm font-semibold text-gray-200 mb-1">
+                {completionProgress.weekly.current}/{completionProgress.weekly.required} {t('tasks.completionDays')}
+              </p>
+              <p className="text-xs text-yellow-400">
+                💰 {COMPLETION_REWARDS.weekly.coins} {t('profile.coins')} + {COMPLETION_REWARDS.weekly.xp} {t('profile.xp')}
+              </p>
+              {completionProgress.weekly.completed && (
+                <p className="text-xs text-green-400 mt-1">✅ {t('tasks.completionRewardReceived')}</p>
+              )}
+            </div>
+
+            {/* Monthly Completion */}
+            <div className={`bg-slate-700/50 rounded-lg p-3 border ${
+              completionProgress.monthly.completed
+                ? 'border-green-500/50 bg-green-500/10'
+                : completionProgress.monthly.current >= completionProgress.monthly.required
+                ? 'border-yellow-500/50'
+                : 'border-slate-600'
+            }`}>
+              <p className="text-xs text-gray-400 mb-1">🗓️ {t('tasks.completionMonthly')}</p>
+              <p className="text-sm font-semibold text-gray-200 mb-1">
+                {completionProgress.monthly.current}/{completionProgress.monthly.required} {t('tasks.completionWeeks')}
+              </p>
+              <p className="text-xs text-yellow-400">
+                💰 {COMPLETION_REWARDS.monthly.coins} {t('profile.coins')} + {COMPLETION_REWARDS.monthly.xp} {t('profile.xp')}
+              </p>
+              {completionProgress.monthly.completed && (
+                <p className="text-xs text-green-400 mt-1">✅ {t('tasks.completionRewardReceived')}</p>
+              )}
+            </div>
           </div>
         </div>
       )}

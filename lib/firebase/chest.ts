@@ -37,6 +37,7 @@ export interface Chest {
   itemPool: ChestItem[] // Danh sách item có thể nhận được
   closedImageUrl?: string // URL ảnh rương đóng
   openingMediaUrl?: string // URL animation/video khi mở rương (có thể là .gif hoặc .mp4)
+  familyId: string // ID của gia đình
   createdAt: any
 }
 
@@ -45,6 +46,7 @@ export interface UserChest {
   userId: string
   chestId: string
   chestName: string
+  familyId: string // ID của gia đình
   opened: boolean
   receivedItem?: ChestItem
   openedAt?: any
@@ -116,7 +118,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       value: 50, 
       rarity: 'common', 
       description: 'Nhận 50 XP',
-      image: getRewardImageUrl('xp', 'common', 50)
+      image: getRewardImageUrl('common', 'xp')
     },
     { 
       id: 'xp_100', 
@@ -125,7 +127,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       value: 100, 
       rarity: 'common', 
       description: 'Nhận 100 XP',
-      image: getRewardImageUrl('xp', 'common', 100)
+      image: getRewardImageUrl('common', 'xp')
     },
     { 
       id: 'coins_10', 
@@ -134,7 +136,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       value: 10, 
       rarity: 'common', 
       description: 'Nhận 10 Coins',
-      image: getRewardImageUrl('coins', 'common', 10)
+      image: getRewardImageUrl('common', 'coins')
     },
     { 
       id: 'coins_20', 
@@ -143,7 +145,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       value: 20, 
       rarity: 'common', 
       description: 'Nhận 20 Coins',
-      image: getRewardImageUrl('coins', 'common', 20)
+      image: getRewardImageUrl('common', 'coins')
     },
   ],
   rare: [
@@ -154,7 +156,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       value: 200, 
       rarity: 'rare', 
       description: 'Nhận 200 XP',
-      image: getRewardImageUrl('xp', 'rare', 200)
+      image: getRewardImageUrl('rare', 'xp')
     },
     { 
       id: 'xp_300', 
@@ -163,7 +165,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       value: 300, 
       rarity: 'rare', 
       description: 'Nhận 300 XP',
-      image: getRewardImageUrl('xp', 'rare', 300)
+      image: getRewardImageUrl('rare', 'xp')
     },
     { 
       id: 'coins_50', 
@@ -172,7 +174,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       value: 50, 
       rarity: 'rare', 
       description: 'Nhận 50 Coins',
-      image: getRewardImageUrl('coins', 'rare', 50)
+      image: getRewardImageUrl('rare', 'coins')
     },
     { 
       id: 'coins_100', 
@@ -181,7 +183,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       value: 100, 
       rarity: 'rare', 
       description: 'Nhận 100 Coins',
-      image: getRewardImageUrl('coins', 'rare', 100)
+      image: getRewardImageUrl('rare', 'coins')
     },
   ],
   epic: [
@@ -192,7 +194,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       value: 500, 
       rarity: 'epic', 
       description: 'Nhận 500 XP',
-      image: getRewardImageUrl('xp', 'epic', 500)
+      image: getRewardImageUrl('epic', 'xp')
     },
     { 
       id: 'coins_200', 
@@ -201,7 +203,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       value: 200, 
       rarity: 'epic', 
       description: 'Nhận 200 Coins',
-      image: getRewardImageUrl('coins', 'epic', 200)
+      image: getRewardImageUrl('epic', 'coins')
     },
     { 
       id: 'special_boost', 
@@ -210,7 +212,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       value: 1, 
       rarity: 'epic', 
       description: 'XP x2 trong 1 ngày',
-      image: getRewardImageUrl('special', 'epic')
+      image: getRewardImageUrl('epic', 'special')
     },
   ],
   legendary: [
@@ -221,7 +223,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       value: 1000, 
       rarity: 'legendary', 
       description: 'Nhận 1000 XP',
-      image: getRewardImageUrl('xp', 'legendary', 1000)
+      image: getRewardImageUrl('legendary', 'xp')
     },
     { 
       id: 'coins_500', 
@@ -230,7 +232,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       value: 500, 
       rarity: 'legendary', 
       description: 'Nhận 500 Coins',
-      image: getRewardImageUrl('coins', 'legendary', 500)
+      image: getRewardImageUrl('legendary', 'coins')
     },
     { 
       id: 'special_levelup', 
@@ -239,7 +241,7 @@ export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
       value: 1, 
       rarity: 'legendary', 
       description: 'Tự động lên 1 level',
-      image: getRewardImageUrl('special', 'legendary')
+      image: getRewardImageUrl('legendary', 'special')
     },
   ],
 }
@@ -291,9 +293,10 @@ export const createDefaultChests = async (): Promise<void> => {
 /**
  * Lấy tất cả rương có sẵn
  */
-export const getAllChests = async (): Promise<Chest[]> => {
+export const getAllChests = async (familyId: string): Promise<Chest[]> => {
   const chestsRef = collection(checkDb(), 'chests')
-  const snapshot = await getDocs(chestsRef)
+  const q = query(chestsRef, where('familyId', '==', familyId))
+  const snapshot = await getDocs(q)
   
   return snapshot.docs.map(doc => ({
     id: doc.id,
@@ -336,6 +339,7 @@ export const purchaseChest = async (userId: string, chestId: string): Promise<st
     userId,
     chestId,
     chestName: chest.name,
+    familyId: chest.familyId, // Lưu familyId vào userChest
     opened: false,
     createdAt: Timestamp.now(),
   })
@@ -475,9 +479,13 @@ export const openChest = async (userChestId: string, userId: string): Promise<Ch
 /**
  * Lấy tất cả rương của user (tự động xóa rương đã mở quá 7 ngày)
  */
-export const getUserChests = async (userId: string): Promise<UserChest[]> => {
+export const getUserChests = async (userId: string, familyId: string): Promise<UserChest[]> => {
   const userChestsRef = collection(checkDb(), 'userChests')
-  const q = query(userChestsRef, where('userId', '==', userId))
+  const q = query(
+    userChestsRef, 
+    where('userId', '==', userId),
+    where('familyId', '==', familyId)
+  )
   const snapshot = await getDocs(q)
   
   const now = Timestamp.now()
@@ -487,8 +495,8 @@ export const getUserChests = async (userId: string): Promise<UserChest[]> => {
   const chestsToDelete: string[] = []
   
   snapshot.docs.forEach(docSnap => {
-    const data = docSnap.data() as UserChest
-    const userChest = {
+    const data = docSnap.data()
+    const userChest: UserChest = {
       id: docSnap.id,
       ...data,
     } as UserChest
@@ -528,13 +536,15 @@ export const getUserChests = async (userId: string): Promise<UserChest[]> => {
 export const createChest = async (
   name: string,
   cost: number,
-  itemPool: ChestItem[]
+  itemPool: ChestItem[],
+  familyId: string
 ): Promise<string> => {
   const chestsRef = collection(checkDb(), 'chests')
   const docRef = await addDoc(chestsRef, {
     name,
     cost,
     itemPool,
+    familyId,
     createdAt: Timestamp.now(),
   })
   return docRef.id
