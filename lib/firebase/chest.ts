@@ -497,7 +497,6 @@ export const getUserChests = async (userId: string, familyId: string): Promise<U
   snapshot.docs.forEach(docSnap => {
     const data = docSnap.data()
     const userChest: UserChest = {
-      id: docSnap.id,
       ...data,
       id: docSnap.id,
     } as UserChest
