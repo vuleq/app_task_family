@@ -66,6 +66,9 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
   const [taskCategory, setTaskCategory] = useState<'hoc' | 'khac' | ''>('') // Category cho template
   const [templateFilter, setTemplateFilter] = useState<'all' | 'hoc' | 'khac'>('all') // Filter templates
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]) // Chọn nhiều template để xóa
+  const [showBulkCreate, setShowBulkCreate] = useState(false) // Hiển thị form bulk create
+  const [bulkXP, setBulkXP] = useState<number | ''>('') // XP cho bulk create (empty = dùng giá trị từ template)
+  const [bulkCoin, setBulkCoin] = useState<number | ''>('') // Coin cho bulk create (empty = dùng giá trị từ template)
   // Thay đổi activeTab thành selectedDay (0-6: Thứ 2 - Chủ nhật)
   const [selectedDay, setSelectedDay] = useState<number>(() => {
     // Mặc định chọn ngày hôm nay
@@ -194,8 +197,8 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
     // Chỉ root mới có thể tạo nhiệm vụ
     if (!profile.isRoot) {
       setToast({ show: true, message: language === 'vi' 
-        ? '⚠️ Chỉ tài khoản root mới có thể tạo nhiệm vụ!'
-        : '⚠️ Only root accounts can create tasks!', type: 'error' })
+        ? '⚠️ Chỉ bố mẹ (ông bà) mới có thể tạo nhiệm vụ!'
+        : '⚠️ Only parents (grandparents) can create tasks!', type: 'error' })
       return
     }
 
@@ -379,6 +382,161 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
         formElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
       }
     }, 100)
+  }
+
+  // Bulk create & assign nhiều templates cho nhiều users
+  const handleBulkCreateAndAssign = async () => {
+    if (!profile.isRoot) {
+      setToast({ 
+        show: true, 
+        message: language === 'vi' 
+          ? '⚠️ Chỉ bố mẹ (ông bà) mới có thể tạo nhiệm vụ!'
+          : '⚠️ Only parents (grandparents) can create tasks!', 
+        type: 'error' 
+      })
+      return
+    }
+
+    if (selectedTemplates.length === 0) {
+      setToast({ 
+        show: true, 
+        message: language === 'vi' 
+          ? 'Vui lòng chọn ít nhất 1 template'
+          : 'Please select at least 1 template', 
+        type: 'error' 
+      })
+      return
+    }
+
+    if (selectedUsers.length === 0) {
+      setToast({ 
+        show: true, 
+        message: t('tasks.selectAtLeastOnePerson'), 
+        type: 'error' 
+      })
+      return
+    }
+
+    try {
+      const selectedTemplateObjects = templates.filter(t => selectedTemplates.includes(t.id))
+      const assignedUsers = users.filter(u => selectedUsers.includes(u.id))
+      
+      let totalCreated = 0
+      const errors: string[] = []
+
+      // Tạo tasks từ mỗi template cho mỗi user
+      for (const template of selectedTemplateObjects) {
+        // Sử dụng bulk XP/Coin nếu có, nếu không thì dùng giá trị từ template
+        const finalXP = bulkXP !== '' ? Number(bulkXP) : template.xpReward
+        const finalCoin = bulkCoin !== '' ? Number(bulkCoin) : template.coinReward
+
+        for (const user of assignedUsers) {
+          try {
+            let taskIds: string[] = []
+
+            if (template.type === 'daily') {
+              if (!db) {
+                throw new Error('Firestore chưa được khởi tạo')
+              }
+              const now = new Date()
+              const vietnamTime = new Date(now.getTime() + 7 * 60 * 60 * 1000)
+              const taskDate = `${vietnamTime.getUTCFullYear()}-${String(vietnamTime.getUTCMonth() + 1).padStart(2, '0')}-${String(vietnamTime.getUTCDate()).padStart(2, '0')}`
+              
+              const docRef = await addDoc(collection(db, 'tasks'), {
+                title: template.title,
+                description: template.description,
+                type: 'daily',
+                category: template.category || null,
+                assignedTo: user.id,
+                assignedToName: user.name,
+                createdBy: currentUser.uid,
+                createdByName: profile.name,
+                status: 'pending',
+                xpReward: finalXP,
+                coinReward: finalCoin,
+                familyId: profile.familyId,
+                createdAt: Timestamp.now(),
+                taskDate: taskDate
+              })
+              taskIds.push(docRef.id)
+            } else if (template.type === 'weekly') {
+              const result = await createRecurringDailyTasks(
+                {
+                  title: template.title,
+                  description: template.description,
+                  assignedTo: user.id,
+                  assignedToName: user.name,
+                  xpReward: finalXP,
+                  coinReward: finalCoin,
+                  category: template.category || undefined,
+                },
+                currentUser.uid,
+                profile.name,
+                6,
+                'weekly',
+                profile.familyId || ''
+              )
+              taskIds = result.dailyTaskIds
+            } else if (template.type === 'monthly') {
+              const result = await createRecurringDailyTasks(
+                {
+                  title: template.title,
+                  description: template.description,
+                  assignedTo: user.id,
+                  assignedToName: user.name,
+                  xpReward: finalXP,
+                  coinReward: finalCoin,
+                  category: template.category || undefined,
+                },
+                currentUser.uid,
+                profile.name,
+                26,
+                'monthly',
+                profile.familyId || ''
+              )
+              taskIds = result.dailyTaskIds
+            }
+
+            totalCreated += taskIds.length
+          } catch (error: any) {
+            console.error(`Error creating task from template ${template.title} for user ${user.name}:`, error)
+            errors.push(`${template.title} → ${user.name}: ${error.message}`)
+          }
+        }
+      }
+
+      // Reload tasks
+      loadTasks()
+
+      // Reset form
+      setSelectedTemplates([])
+      setSelectedUsers([])
+      setBulkXP('')
+      setBulkCoin('')
+      setShowBulkCreate(false)
+
+      // Show success message
+      let message = language === 'vi'
+        ? `✅ Đã tạo ${totalCreated} nhiệm vụ từ ${selectedTemplateObjects.length} template cho ${assignedUsers.length} người!`
+        : `✅ Created ${totalCreated} tasks from ${selectedTemplateObjects.length} templates for ${assignedUsers.length} users!`
+      
+      if (errors.length > 0) {
+        message += `\n⚠️ ${errors.length} lỗi: ${errors.slice(0, 3).join(', ')}${errors.length > 3 ? '...' : ''}`
+      }
+
+      setToast({ 
+        show: true, 
+        message, 
+        type: errors.length > 0 ? 'error' : 'success' 
+      })
+    } catch (error: any) {
+      console.error('Error in bulk create:', error)
+      setToast({ 
+        show: true, 
+        message: error.message || (language === 'vi' ? 'Lỗi khi tạo nhiều tasks' : 'Error creating multiple tasks'), 
+        type: 'error' 
+      })
+    }
   }
 
   const handleDeleteTemplate = async (templateId: string) => {
@@ -585,7 +743,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
     if (!profile.isRoot) {
       setToast({ 
         show: true, 
-        message: language === 'vi' ? 'Chỉ root user mới có quyền xóa nhiều tasks' : 'Only root user can delete multiple tasks', 
+        message: language === 'vi' ? 'Chỉ bố mẹ (ông bà) mới có quyền xóa nhiều tasks' : 'Only parents (grandparents) can delete multiple tasks', 
         type: 'error' 
       })
       return
@@ -1027,7 +1185,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                 </select>
               </div>
               
-              {/* Delete buttons */}
+              {/* Action buttons */}
               {(() => {
                 const filteredTemplates = templateFilter === 'all' 
                   ? templates 
@@ -1037,6 +1195,27 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                 
                 return (
                   <>
+                    {selectedCount > 0 && profile.isRoot && (
+                      <button
+                        onClick={() => {
+                          console.log('[Bulk Create] Button clicked, showBulkCreate:', !showBulkCreate)
+                          console.log('[Bulk Create] Selected templates:', selectedTemplates)
+                          setShowBulkCreate(!showBulkCreate)
+                          // Scroll to form after a short delay
+                          setTimeout(() => {
+                            const formElement = document.getElementById('bulk-create-form')
+                            if (formElement) {
+                              formElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                            }
+                          }, 100)
+                        }}
+                        className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 font-semibold"
+                      >
+                        {language === 'vi' 
+                          ? `✨ Tạo & Gán (${selectedCount})` 
+                          : `✨ Create & Assign (${selectedCount})`}
+                      </button>
+                    )}
                     {selectedCount > 0 && (
                       <button
                         onClick={handleDeleteSelectedTemplates}
@@ -1160,6 +1339,111 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
               </div>
             )
           })()}
+
+          {/* Bulk Create & Assign Section */}
+          {showBulkCreate && selectedTemplates.length > 0 && profile.isRoot && (
+            <div id="bulk-create-form" className="mt-4 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-lg p-4 border-2 border-green-500/50 space-y-4" style={{ display: 'block', visibility: 'visible' }}>
+              <h5 className="font-bold text-white text-lg flex items-center gap-2">
+                <span>✨</span>
+                {language === 'vi' 
+                  ? `Tạo & Gán ${selectedTemplates.length} Template cho Nhiều Users`
+                  : `Create & Assign ${selectedTemplates.length} Templates to Multiple Users`}
+              </h5>
+              
+              {/* Bulk Edit XP & Coin */}
+              <div className="bg-slate-900/60 p-3 rounded-lg border border-green-500/30">
+                <p className="text-sm font-semibold text-white mb-2">
+                  {language === 'vi' 
+                    ? '📝 Cập nhật XP & Coin (để trống = dùng giá trị từ template):'
+                    : '📝 Update XP & Coin (leave empty = use template values):'}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-300 block mb-1">
+                      {language === 'vi' ? 'XP (tùy chọn):' : 'XP (optional):'}
+                    </label>
+                    <input
+                      type="number"
+                      value={bulkXP}
+                      onChange={(e) => setBulkXP(e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder={language === 'vi' ? 'VD: 20 (để trống = dùng từ template)' : 'E.g: 20 (empty = use template)'}
+                      className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-800 text-white placeholder-gray-400 text-sm"
+                      min="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-300 block mb-1">
+                      {language === 'vi' ? 'Coin (tùy chọn):' : 'Coin (optional):'}
+                    </label>
+                    <input
+                      type="number"
+                      value={bulkCoin}
+                      onChange={(e) => setBulkCoin(e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder={language === 'vi' ? 'VD: 10 (để trống = dùng từ template)' : 'E.g: 10 (empty = use template)'}
+                      className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-800 text-white placeholder-gray-400 text-sm"
+                      min="0"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Select Users */}
+              <div className="bg-slate-900/60 p-3 rounded-lg border border-green-500/30">
+                <p className="text-sm font-semibold text-white mb-2">
+                  {language === 'vi' 
+                    ? `👥 Chọn Users để Assign (${selectedUsers.length} đã chọn):`
+                    : `👥 Select Users to Assign (${selectedUsers.length} selected):`}
+                </p>
+                <div className="border border-slate-600 rounded-lg p-2 max-h-40 overflow-y-auto bg-slate-800/50">
+                  {users.filter(u => !u.isRoot && !u.isSuperRoot).length === 0 ? (
+                    <p className="text-sm text-gray-400">
+                      {language === 'vi' ? 'Chưa có end user nào' : 'No end users available'}
+                    </p>
+                  ) : (
+                    users.filter(u => !u.isRoot && !u.isSuperRoot).map(user => (
+                      <label key={user.id} className="flex items-center space-x-2 p-1 hover:bg-slate-700/50 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedUsers.includes(user.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedUsers([...selectedUsers, user.id])
+                            } else {
+                              setSelectedUsers(selectedUsers.filter(id => id !== user.id))
+                            }
+                          }}
+                          className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                        />
+                        <span className="text-sm text-white">{user.name}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleBulkCreateAndAssign}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+                >
+                  {language === 'vi' 
+                    ? `✅ Tạo & Gán ${selectedTemplates.length} Tasks cho ${selectedUsers.length} Users`
+                    : `✅ Create & Assign ${selectedTemplates.length} Tasks to ${selectedUsers.length} Users`}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowBulkCreate(false)
+                    setBulkXP('')
+                    setBulkCoin('')
+                  }}
+                  className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
+                >
+                  {t('common.cancel')}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1401,11 +1685,8 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                         {t('tasks.completeTask')}
                       </button>
                     )}
-                    {/* Cho phép xóa task nếu:
-                        - Root user: xóa bất kỳ task nào
-                        - User thường: xóa task được assign cho mình HOẶC task mình tạo
-                    */}
-                    {(profile.isRoot || task.createdBy === currentUser.uid || task.assignedTo === currentUser.uid) && (
+                    {/* Quyền xóa: Chỉ bố mẹ (ông bà) mới được xóa nhiệm vụ */}
+                    {profile.isRoot && (
                       <button
                         onClick={() => {
                           if (confirm(language === 'vi' 
