@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { onAuthStateChangedSafe } from '@/lib/firebase/auth'
 import { getProfile, createDefaultProfile, updateProfile, UserProfile } from '@/lib/firebase/profile'
+import { db as firestoreDb, auth as firebaseAuth } from '@/lib/firebase/config'
 import { User } from 'firebase/auth'
 import LoginPage from '@/components/LoginPage'
 import LoadingSpinner from '@/components/LoadingSpinner'
@@ -262,40 +263,42 @@ export default function Home() {
           }
           
           // Migration: Xử lý user cũ chưa có familyId
-          if (!userProfile.familyId) {
+          if (!userProfile.familyId && !userProfile.isSuperRoot) {
             console.log('[Migration] User cũ chưa có familyId, đang xử lý...')
-            if (userProfile.isRoot) {
-              // Nếu là root user cũ, tự động tạo family cho họ
-              const { createFamily } = await import('@/lib/firebase/family')
-              const familyName = userProfile.name || user.email?.split('@')[0] || 'Family'
-              const result = await createFamily(familyName, user.uid)
-              await updateProfile(userProfile.id, { familyId: result.familyId })
-              // Get lại profile sau khi update
-              userProfile = await getProfile(user.uid)
-              if (!userProfile) {
-                throw new Error('Failed to get updated profile')
+            try {
+              if (userProfile.isRoot) {
+                // Nếu là root user cũ, tự động tạo family cho họ
+                const { createFamily } = await import('@/lib/firebase/family')
+                const familyName = userProfile.name || user.email?.split('@')[0] || 'Family'
+                const result = await createFamily(familyName, user.uid)
+                await updateProfile(userProfile.id, { familyId: result.familyId })
+                // Get lại profile sau khi update
+                userProfile = await getProfile(user.uid)
+                if (!userProfile) {
+                  throw new Error('Failed to get updated profile')
+                }
+                // Hiển thị thông báo
+                if (typeof window !== 'undefined') {
+                  alert(language === 'vi' 
+                    ? `🎉 Hệ thống đã tự động tạo gia đình cho bạn! Mã gia đình: ${result.familyCode}\n\nHãy chia sẻ mã này với các thành viên khác để họ có thể tham gia.`
+                    : `🎉 System has automatically created a family for you! Family code: ${result.familyCode}\n\nShare this code with other members so they can join.`)
+                }
+              } else {
+                // Nếu không phải root, vẫn cho user vào app nhưng hiển thị cảnh báo
+                console.warn('[Migration] User không phải root và chưa có familyId')
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem(`needsJoinFamily_${user.uid}`, 'true')
+                }
               }
-              // Hiển thị thông báo
-              if (typeof window !== 'undefined') {
-                alert(language === 'vi' 
-                  ? `🎉 Hệ thống đã tự động tạo gia đình cho bạn! Mã gia đình: ${result.familyCode}\n\nHãy chia sẻ mã này với các thành viên khác để họ có thể tham gia.`
-                  : `🎉 System has automatically created a family for you! Family code: ${result.familyCode}\n\nShare this code with other members so they can join.`)
-              }
-            } else {
-              // Nếu không phải root, yêu cầu join family
-              // Lưu flag để hiển thị UI join family
-              if (typeof window !== 'undefined') {
-                localStorage.setItem(`needsJoinFamily_${user.uid}`, 'true')
-              }
-              // Tạm thời set error để hiển thị thông báo
-              setError(language === 'vi' 
-                ? '⚠️ Bạn cần tham gia một gia đình để tiếp tục sử dụng. Vui lòng liên hệ người quản trị (Root) để lấy mã gia đình.'
-                : '⚠️ You need to join a family to continue. Please contact your admin (Root) to get the family code.')
+            } catch (migrationErr: any) {
+              console.error('[Migration] Lỗi khi tạo family cho user cũ:', migrationErr)
+              // Không crash app - vẫn cho user vào với profile hiện tại
+              console.warn('[Migration] Bỏ qua migration, tiếp tục với profile hiện tại')
             }
           }
           
           // Đảm bảo characterAvatar luôn có giá trị (cho user cũ chưa có)
-          if (!userProfile.characterAvatar) {
+          if (userProfile && !userProfile.characterAvatar) {
             const avatarNumber = (user.uid.charCodeAt(0) % 7) + 1
             userProfile = { ...userProfile, characterAvatar: avatarNumber }
             // Cập nhật vào database
@@ -305,11 +308,15 @@ export default function Home() {
               console.error('Error updating characterAvatar:', err)
             }
         }
-        setProfile(userProfile)
+        if (userProfile) {
+          setProfile(userProfile)
+        }
           setError(null)
         } catch (err: any) {
           console.error('Error loading profile:', err)
-          setError(t('errors.cannotLoadUser'))
+          // Hiển thị lỗi chi tiết để debug trên production
+          const errorDetail = err?.message || err?.code || String(err)
+          setError(`${t('errors.cannotLoadUser')}\n\n🔍 Chi tiết: ${errorDetail}`)
         } finally {
         setLoading(false)
           clearTimeout(timeoutId)
@@ -354,7 +361,17 @@ export default function Home() {
           <div className="text-center">
             <div className="text-4xl mb-4">⚠️</div>
             <h1 className="text-xl font-bold text-gray-100 mb-4">{t('errors.firebaseNotConfigured')}</h1>
-            <p className="text-gray-300 mb-6">{error}</p>
+            <p className="text-gray-300 mb-6 whitespace-pre-line">{error}</p>
+            
+            {/* Debug info */}
+            <div className="bg-slate-900/60 border border-slate-600/50 rounded-lg p-3 text-left mb-4">
+              <p className="text-xs text-gray-400 mb-1 font-bold">🔍 Debug Status:</p>
+              <ul className="text-xs text-gray-500 space-y-0.5 font-mono">
+                <li>Auth: {firebaseAuth ? '✅' : '❌'} | DB: {firestoreDb ? '✅' : '❌'}</li>
+                <li>User: {user ? `✅ ${user.email}` : '❌ not logged in'}</li>
+              </ul>
+            </div>
+
             <div className="bg-yellow-900/30 border border-yellow-500/50 rounded-lg p-4 text-left">
               <p className="text-sm text-gray-200 mb-2"><strong>{t('errors.toFix')}</strong></p>
               <ol className="text-sm text-gray-300 list-decimal list-inside space-y-1">

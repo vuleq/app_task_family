@@ -14,6 +14,18 @@ service cloud.firestore {
       }
     }
     
+    // Families collection
+    match /families/{familyId} {
+      // Cho phép đọc nếu đã đăng nhập
+      allow read: if request.auth != null;
+      // Cho phép tạo family mới nếu đã đăng nhập
+      allow create: if request.auth != null;
+      // Cho phép update nếu đã đăng nhập (join family, update member count, etc.)
+      allow update: if request.auth != null;
+      // Cho phép xóa family nếu đã đăng nhập (root user xóa family)
+      allow delete: if request.auth != null;
+    }
+    
     // Tasks collection
     match /tasks/{taskId} {
       allow read: if request.auth != null;
