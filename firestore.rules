@@ -52,6 +52,14 @@ service cloud.firestore {
     match /userRewards/{userRewardId} {
       allow read, write: if request.auth != null;
     }
+
+    // Login History collection
+    match /loginHistory/{loginId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
   }
 }
 
