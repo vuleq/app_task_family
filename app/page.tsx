@@ -18,6 +18,8 @@ import ChestSystem from '@/components/ChestSystem'
 import BackgroundMusic from '@/components/BackgroundMusic'
 import Statistics from '@/components/Statistics'
 import TaskMonitoring from '@/components/TaskMonitoring'
+import RootMemberDashboard from '@/components/RootMemberDashboard'
+import { recordDailyLogin } from '@/lib/firebase/loginHistory'
 import SuperRootDashboard from '@/components/SuperRootDashboard'
 import { useI18n } from '@/lib/i18n/context'
 
@@ -126,6 +128,9 @@ export default function Home() {
                     }
                   }
                   setProfile(userProfile)
+                  if (userProfile?.familyId) {
+                    recordDailyLogin(userProfile.id, userProfile.familyId).catch(console.error)
+                  }
                   setError(null)
                   setLoading(false)
                 } catch (err) {
@@ -310,6 +315,9 @@ export default function Home() {
         }
         if (userProfile) {
           setProfile(userProfile)
+          if (userProfile.familyId) {
+            recordDailyLogin(userProfile.id, userProfile.familyId).catch(console.error)
+          }
         }
           setError(null)
         } catch (err: any) {
@@ -443,6 +451,15 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Cột trái - Các tính năng chính */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Dashboard theo dõi thành viên - chỉ hiển thị cho root user */}
+            {profile.isRoot && !profile.isSuperRoot && (
+              <RootMemberDashboard
+                currentUserId={user.uid}
+                familyId={profile.familyId}
+                profile={profile}
+              />
+            )}
+
             {/* Danh sách nhiệm vụ */}
             <div className="bg-slate-800/90 rounded-lg shadow-xl p-6 border border-slate-700/50">
               <TasksList 
