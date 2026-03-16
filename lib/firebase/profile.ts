@@ -70,7 +70,7 @@ export const createDefaultProfile = async (user: User, isRoot: boolean = false, 
 
   // Chọn avatar ngẫu nhiên dựa trên user ID (để mỗi user có avatar cố định)
   const avatarNumber = (user.uid.charCodeAt(0) % 7) + 1 // 1-7
-  
+
   // Super root không cần familyId
   if (isSuperRoot) {
     const defaultProfile: Omit<UserProfile, 'id'> = {
@@ -94,7 +94,7 @@ export const createDefaultProfile = async (user: User, isRoot: boolean = false, 
       ...defaultProfile,
     }
   }
-  
+
   // Nếu không có familyId, tạo family mới (nếu là root) hoặc để null (sẽ join sau)
   let finalFamilyId = familyId
   console.log('[createDefaultProfile] Creating profile with:', {
@@ -104,7 +104,7 @@ export const createDefaultProfile = async (user: User, isRoot: boolean = false, 
     isSuperRoot,
     hasFamilyId: !!familyId,
   })
-  
+
   if (!finalFamilyId && isRoot) {
     // ⚠️ CẢNH BÁO: familyId là undefined, sẽ tạo family mới
     console.error('[createDefaultProfile] ⚠️ CRITICAL ERROR: familyId is undefined! This will create a NEW family with auto-generated codes.')
@@ -114,7 +114,7 @@ export const createDefaultProfile = async (user: User, isRoot: boolean = false, 
       email: user.email,
       displayName: user.displayName,
     })
-    
+
     // ⚠️ TRƯỚC KHI TẠO FAMILY MỚI: Thử tìm familyId từ localStorage một lần nữa
     if (typeof window !== 'undefined') {
       // Thử đọc trực tiếp với user.uid
@@ -137,7 +137,7 @@ export const createDefaultProfile = async (user: User, isRoot: boolean = false, 
         }
       }
     }
-    
+
     // Nếu vẫn không có, mới tạo family mới
     if (!finalFamilyId) {
       console.error('[createDefaultProfile] ⚠️ Still no familyId found, creating NEW family (THIS IS WRONG!)')
@@ -157,11 +157,13 @@ export const createDefaultProfile = async (user: User, isRoot: boolean = false, 
   } else if (finalFamilyId) {
     console.log('[createDefaultProfile] ✅ Using existing familyId:', finalFamilyId)
   }
-  
+
+  // Placeholder for familyId if not provided (will be filled later by UI flow)
   if (!finalFamilyId) {
-    throw new Error('familyId is required. Please join a family or create one.')
+    finalFamilyId = ''
+    console.log('[createDefaultProfile] No familyId found, using empty string as placeholder.')
   }
-  
+
   const defaultProfile: Omit<UserProfile, 'id'> = {
     name: user.displayName || user.email?.split('@')[0] || 'User',
     email: user.email || '',
@@ -243,7 +245,7 @@ export const resetUserXPAndCoins = async (targetUserId: string, resetterUserId: 
   if (!resetterProfile || !resetterProfile.isRoot) {
     throw new Error('Chỉ root user mới có quyền reset XP và coin của user khác')
   }
-  
+
   const profileRef = doc(checkDb(), 'users', targetUserId)
   await updateDoc(profileRef, {
     xp: 0,
@@ -268,10 +270,10 @@ export const uploadProfileImage = async (
   const storageRef = ref(checkStorage(), `users/${userId}/profile/${type}-${Date.now()}`)
   await uploadBytes(storageRef, file)
   const downloadURL = await getDownloadURL(storageRef)
-  
+
   // Update profile with new image URL
   await updateProfile(userId, { [type]: downloadURL })
-  
+
   return downloadURL
 }
 
@@ -297,44 +299,44 @@ export const deleteUser = async (targetUserId: string, deleterUserId: string): P
   if (!deleterProfile || !deleterProfile.isRoot) {
     throw new Error('Chỉ root user mới có quyền xóa user')
   }
-  
+
   // Không cho phép xóa chính mình
   if (targetUserId === deleterUserId) {
     throw new Error('Không thể xóa chính mình')
   }
-  
+
   // Kiểm tra user có tồn tại không
   const targetProfile = await getProfile(targetUserId)
   if (!targetProfile) {
     throw new Error('User không tồn tại')
   }
-  
+
   // Không cho phép xóa root user khác
   if (targetProfile.isRoot) {
     throw new Error('Không thể xóa root user khác')
   }
-  
+
   // Helper function để xóa nhiều documents bằng batch (tối đa 500 per batch)
   const deleteDocumentsInBatches = async (docs: any[]) => {
     if (docs.length === 0) return
-    
+
     const BATCH_SIZE = 500 // Firestore limit
     const batches: Promise<void>[] = []
-    
+
     for (let i = 0; i < docs.length; i += BATCH_SIZE) {
       const batch = writeBatch(checkDb())
       const batchDocs = docs.slice(i, i + BATCH_SIZE)
-      
+
       batchDocs.forEach(docSnap => {
         batch.delete(docSnap.ref)
       })
-      
+
       batches.push(batch.commit())
     }
-    
+
     await Promise.all(batches)
   }
-  
+
   // Chạy song song tất cả các operations không phụ thuộc nhau
   const [
     assignedTasksSnapshot,
@@ -357,7 +359,7 @@ export const deleteUser = async (targetUserId: string, deleterUserId: string): P
       where('createdBy', '==', targetUserId)
     ))
   ])
-  
+
   // Tổng hợp tất cả tasks cần xóa (loại bỏ duplicate nếu có)
   const allTaskDocs = [
     ...assignedTasksSnapshot.docs,
@@ -365,7 +367,7 @@ export const deleteUser = async (targetUserId: string, deleterUserId: string): P
       doc => !assignedTasksSnapshot.docs.some(d => d.id === doc.id)
     )
   ]
-  
+
   // Xóa user khỏi Firebase Authentication (gọi API)
   try {
     const response = await fetch('/api/delete-user', {
@@ -378,7 +380,7 @@ export const deleteUser = async (targetUserId: string, deleterUserId: string): P
         deleterUserId,
       }),
     })
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       console.error('Error deleting user from Auth:', errorData.error || 'Unknown error')
@@ -388,7 +390,7 @@ export const deleteUser = async (targetUserId: string, deleterUserId: string): P
     console.error('Error calling delete-user API:', error)
     // Tiếp tục xóa dữ liệu trong Firestore dù có lỗi với API
   }
-  
+
   // Xóa tất cả documents song song
   await Promise.all([
     // Xóa tasks
@@ -419,7 +421,7 @@ export const deleteUser = async (targetUserId: string, deleterUserId: string): P
       }
     })()
   ])
-  
+
   // Cuối cùng xóa user profile
   const profileRef = doc(checkDb(), 'users', targetUserId)
   await deleteDoc(profileRef)

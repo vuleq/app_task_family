@@ -5,10 +5,12 @@ import { getAllUsers, UserProfile } from '@/lib/firebase/profile'
 import { getMemberStats, MemberStats } from '@/lib/firebase/loginHistory'
 import { useI18n } from '@/lib/i18n/context'
 import Toast from './Toast'
-import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-} from 'recharts'
+
+// recharts is currently disabled due to installation issues in this environment
+// import {
+//   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+//   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+// } from 'recharts'
 
 const MEMBER_COLORS = ['#60a5fa', '#34d399', '#f97316', '#a78bfa', '#fbbf24', '#2dd4bf', '#f472b6', '#94a3b8']
 
@@ -21,18 +23,6 @@ interface RootMemberDashboardProps {
 interface MemberWithStats {
   member: UserProfile
   stats: MemberStats
-}
-
-const DarkTooltip = ({ active, payload, label }: { active?: boolean; payload?: { color: string; name: string; value: number }[]; label?: string }) => {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="bg-slate-700 border border-slate-600 rounded p-2 text-xs shadow-lg">
-      {label && <p className="text-gray-300 mb-1">{label}</p>}
-      {payload.map((entry, i) => (
-        <p key={i} style={{ color: entry.color }}>{entry.name}: <span className="font-bold">{entry.value}</span></p>
-      ))}
-    </div>
-  )
 }
 
 export default function RootMemberDashboard({ currentUserId, familyId }: RootMemberDashboardProps) {
@@ -79,40 +69,21 @@ export default function RootMemberDashboard({ currentUserId, familyId }: RootMem
 
   const shortName = (name: string) => name.split(' ').pop() ?? name
 
-  const barData = memberStats.map(({ member, stats }) => ({
-    name: shortName(member.name),
-    [language === 'vi' ? 'Ngày login' : 'Login Days']: stats.loginDays,
-    [language === 'vi' ? 'Task xong' : 'Tasks Done']: stats.tasksApproved,
-  }))
-
-  const pieData = memberStats
-    .filter(({ member }) => (member.xp || 0) > 0)
-    .map(({ member }) => ({
-      name: shortName(member.name),
-      value: member.xp || 0,
-    }))
-
   const summaryCards = [
     {
       label: language === 'vi' ? 'Tổng ngày đăng nhập' : 'Total Login Days',
       value: totalLoginDays,
       color: '#60a5fa',
-      sparkData: memberStats.map(({ member, stats }) => ({ name: shortName(member.name), v: stats.loginDays })),
-      gradId: 'gradLogin',
     },
     {
       label: language === 'vi' ? 'Task hoàn thành' : 'Tasks Completed',
       value: totalTasksDone,
       color: '#34d399',
-      sparkData: memberStats.map(({ member, stats }) => ({ name: shortName(member.name), v: stats.tasksApproved })),
-      gradId: 'gradTasks',
     },
     {
       label: language === 'vi' ? 'Tổng XP' : 'Total XP',
       value: totalXP,
       color: '#a78bfa',
-      sparkData: memberStats.map(({ member }) => ({ name: shortName(member.name), v: member.xp || 0 })),
-      gradId: 'gradXP',
     },
   ]
 
@@ -156,88 +127,41 @@ export default function RootMemberDashboard({ currentUserId, familyId }: RootMem
         </div>
       </div>
 
-      {/* Summary Cards with Sparklines */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
-        {summaryCards.map((card) => (
-          <div key={card.gradId} className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-4 border border-slate-700/50">
+        {summaryCards.map((card, idx) => (
+          <div key={idx} className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-4 border border-slate-700/50">
             <p className="text-2xl font-bold" style={{ color: card.color }}>
               {card.value.toLocaleString()}
             </p>
-            <p className="text-xs text-gray-400 mb-2">{card.label}</p>
-            <ResponsiveContainer width="100%" height={48}>
-              <AreaChart data={card.sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id={card.gradId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={card.color} stopOpacity={0.35} />
-                    <stop offset="95%" stopColor={card.color} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <Area
-                  type="monotone"
-                  dataKey="v"
-                  stroke={card.color}
-                  strokeWidth={2}
-                  fill={`url(#${card.gradId})`}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <p className="text-xs text-gray-400">{card.label}</p>
+            <div className="h-1 mt-3 bg-slate-700/50 rounded-full overflow-hidden">
+              <div
+                className="h-full"
+                style={{ width: '40%', backgroundColor: card.color }}
+              />
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Charts Row */}
+      {/* Charts Row Placeholder */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Grouped Bar Chart */}
-        <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-4 border border-slate-700/50">
-          <h3 className="text-sm font-semibold text-gray-300 mb-3">
+        <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-6 border border-slate-700/50 min-h-[220px] flex flex-col items-center justify-center text-center">
+          <p className="text-gray-300 font-medium mb-1">
             {language === 'vi' ? 'Hoạt động thành viên' : 'Member Activity'}
-          </h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={barData} barSize={14} barGap={4}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip content={<DarkTooltip />} cursor={{ fill: '#ffffff08' }} />
-              <Legend wrapperStyle={{ color: '#94a3b8', fontSize: 11 }} />
-              <Bar dataKey={language === 'vi' ? 'Ngày login' : 'Login Days'} fill="#60a5fa" radius={[4, 4, 0, 0]} />
-              <Bar dataKey={language === 'vi' ? 'Task xong' : 'Tasks Done'} fill="#34d399" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          </p>
+          <p className="text-xs text-gray-500 max-w-[200px]">
+            {language === 'vi' ? 'Biểu đồ đang được tối ưu hóa. Vui lòng quay lại sau.' : 'Charts are being optimized. Please check back later.'}
+          </p>
         </div>
-
-        {/* Donut Chart */}
-        <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-4 border border-slate-700/50">
-          <h3 className="text-sm font-semibold text-gray-300 mb-3">
-            {language === 'vi' ? 'Phân bổ XP theo thành viên' : 'XP Distribution'}
-          </h3>
-          {pieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={58}
-                  outerRadius={88}
-                  paddingAngle={3}
-                  dataKey="value"
-                  isAnimationActive={false}
-                >
-                  {pieData.map((_, idx) => (
-                    <Cell key={idx} fill={MEMBER_COLORS[idx % MEMBER_COLORS.length]} stroke="transparent" />
-                  ))}
-                </Pie>
-                <Tooltip content={<DarkTooltip />} />
-                <Legend wrapperStyle={{ color: '#94a3b8', fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[220px] text-gray-500 text-sm">
-              {language === 'vi' ? 'Chưa có dữ liệu XP' : 'No XP data yet'}
-            </div>
-          )}
+        <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-6 border border-slate-700/50 min-h-[220px] flex flex-col items-center justify-center text-center">
+          <p className="text-gray-300 font-medium mb-1">
+            {language === 'vi' ? 'Phân bổ XP' : 'XP Distribution'}
+          </p>
+          <p className="text-xs text-gray-500 max-w-[200px]">
+            {language === 'vi' ? 'Dữ liệu biểu đồ đang tạm ẩn để tăng tốc độ tải.' : 'XP chart data is hidden to improve loading speed.'}
+          </p>
         </div>
       </div>
 
