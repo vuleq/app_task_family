@@ -272,7 +272,7 @@ export default function Home() {
     return (
       <div className="flex min-h-screen">
         <Sidebar profile={profile} />
-        <div className="flex-1 lg:ml-72 transition-all duration-300">
+        <div className="flex-1 lg:ml-80 transition-all duration-300">
           <BackgroundMusic isLoggedIn={!!user && !!profile} />
           <main className="max-w-7xl mx-auto px-4 py-6">
             <div id="dashboard-section">
