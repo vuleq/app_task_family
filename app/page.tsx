@@ -125,7 +125,7 @@ export default function Home() {
           
           creatingProfileRef.current = true
           try {
-            console.log('[page.tsx] ✨ Creating new profile...')
+            console.log('[page.tsx] ✨ Creating new profile for UID:', firebaseUser.uid, 'on Project:', process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID)
             const isRootFromSignup = typeof window !== 'undefined' && localStorage.getItem(`signup_isRoot_${firebaseUser.uid}`) === 'true'
             const isSuperRootFromSignup = typeof window !== 'undefined' && localStorage.getItem(`signup_isSuperRoot_${firebaseUser.uid}`) === 'true'
             const familyIdFromSignup = typeof window !== 'undefined' ? localStorage.getItem(`signup_familyId_${firebaseUser.uid}`) || undefined : undefined
@@ -167,7 +167,14 @@ export default function Home() {
           setError(null)
         }
       } catch (err: any) {
-        console.error('[page.tsx] ❌ Error in auth flow:', err)
+        console.error('[page.tsx] ❌ ALL AUTH ERROR DETAILS:', {
+          message: err?.message,
+          code: err?.code,
+          name: err?.name,
+          fullError: err,
+          uid: firebaseUser.uid,
+          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+        })
         const errorDetail = err?.message || err?.code || String(err)
         setError(`${t('errors.cannotLoadUser')}\n\n🔍 Chi tiết: ${errorDetail}`)
       } finally {
