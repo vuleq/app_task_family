@@ -147,10 +147,15 @@ export default function Home() {
           // Migration cho user cũ
           if (!userProfile.familyId && !userProfile.isSuperRoot) {
             if (userProfile.isRoot) {
-              const { createFamily } = await import('@/lib/firebase/family')
-              const result = await createFamily(userProfile.name || 'Family', firebaseUser.uid)
-              await updateProfile(userProfile.id, { familyId: result.familyId })
-              userProfile = { ...userProfile, familyId: result.familyId }
+              try {
+                const { createFamily } = await import('@/lib/firebase/family')
+                const result = await createFamily(userProfile.name || 'Family', firebaseUser.uid)
+                await updateProfile(userProfile.id, { familyId: result.familyId })
+                userProfile = { ...userProfile, familyId: result.familyId }
+              } catch (migrationErr: any) {
+                console.error('[Migration] Lỗi khi tạo family cho user cũ:', migrationErr)
+                console.warn('[Migration] Bỏ qua migration, tiếp tục với profile hiện tại')
+              }
             }
           }
 
