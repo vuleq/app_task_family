@@ -5,6 +5,7 @@ import { updateDoc, doc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/config'
 import { uploadImageToCloudinary, uploadVideoToCloudinary } from '@/lib/cloudinary'
 import Toast from './Toast'
+import { useI18n } from '@/lib/i18n/context'
 
 const checkDb = () => {
   if (!db) {
@@ -20,6 +21,7 @@ interface PhotoEvidenceProps {
 }
 
 export default function PhotoEvidence({ taskId, currentEvidence, onEvidenceUploaded }: PhotoEvidenceProps) {
+  const { t, language } = useI18n()
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
