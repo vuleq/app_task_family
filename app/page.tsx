@@ -22,6 +22,7 @@ import TaskMonitoring from '@/components/TaskMonitoring'
 import RootMemberDashboard from '@/components/RootMemberDashboard'
 import { recordDailyLogin } from '@/lib/firebase/loginHistory'
 import SuperRootDashboard from '@/components/SuperRootDashboard'
+import CharacterCreation from '@/components/CharacterCreation'
 import { useI18n } from '@/lib/i18n/context'
 
 export default function Home() {
@@ -288,8 +289,15 @@ export default function Home() {
     <div className="flex min-h-screen" style={backgroundStyle}>
       <Sidebar profile={profile} onUpdate={handleProfileUpdate} />
 
-      <div className="flex-1 lg:ml-72 transition-all duration-300">
+      <div className="flex-1 lg:ml-80 transition-all duration-300">
         <BackgroundMusic isLoggedIn={!!user && !!profile} />
+        
+        {profile && !profile.gender && (
+          <CharacterCreation 
+            profile={profile}
+            onComplete={handleProfileUpdate}
+          />
+        )}
 
         <main className="max-w-7xl mx-auto px-4 py-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

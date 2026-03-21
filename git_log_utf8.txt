@@ -1,0 +1,20 @@
+﻿4a5449f fix: resolve TypeScript errors in Sidebar, TaskCompletionProgress, and TaskItem
+f98c87c fix: import useI18n in PhotoEvidence to resolve build error
+61a5bdf chore: commit pending changes before merge
+12a7a75 them giao dien sidebar
+c204a3f fix conflixt
+3dc0903 feat: Add charts to Root Member Dashboard using recharts (#3)
+19adac4 fix: Add missing Firestore security rules for chests and completion collections
+8f0fe18 feat: Add Root Member Dashboard with login tracking
+0d68e8f chore: Update .firebaserc with correct Firebase project ID
+fc83fa8 feat: Add Root Member Dashboard with login tracking
+010aa9f fix: Add families collection to Firestore rules + fix migration crash for existing users
+de6c765 Merge main into production: Bulk create tasks and restrict delete permission to parents only
+c84dfa8 feat: Ch├í┬╗ΓÇ░ b├í┬╗ΓÇÿ m├í┬║┬╣ (├â┬┤ng b├â┬á) m├í┬╗ΓÇ║i ├äΓÇÿ├å┬░├í┬╗┬úc x├â┬│a nhi├í┬╗ΓÇím v├í┬╗┬Ñ v├â┬á ├äΓÇÿ├í┬╗ΓÇói text root user th├â┬ánh b├í┬╗ΓÇÿ m├í┬║┬╣ (├â┬┤ng b├â┬á) - Th├â┬¬m t├â┬¡nh n├ä╞Æng bulk create & assign tasks - Th├â┬¬m backup .env.local.example
+4a02588 fix: Remove duplicate id property in chest.ts to fix Vercel build error
+e83213d Merge branch 'main' into production
+fae355b feat: Add family name display, improve custom codes UI, fix familyId localStorage sync issues
+f91cbc3 Add user deletion feature: Delete user from Firestore and Firebase Auth, with UI and scripts
+1fd8ad5 Merge main into production: Fix TasksList.tsx syntax error
+edfaba6 Fix TasksList.tsx syntax error and remove unnecessary .md files
+33d836d Merge branch 'main' into production

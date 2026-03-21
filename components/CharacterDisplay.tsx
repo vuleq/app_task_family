@@ -38,9 +38,9 @@ export default function CharacterDisplay({
   })
   
   const sizeClasses = {
-    small: 'w-32 h-32',
-    medium: 'w-64 h-64',
-    large: 'w-96 h-96',
+    small: 'w-24 h-24 sm:w-32 sm:h-32',
+    medium: 'w-48 h-48 sm:w-64 sm:h-64',
+    large: 'w-64 h-64 sm:w-80 sm:h-80 lg:w-96 lg:h-96 max-w-full',
   }
   
   return (
