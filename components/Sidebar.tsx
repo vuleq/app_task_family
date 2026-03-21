@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { UserProfile } from '@/lib/firebase/profile'
 import { logout } from '@/lib/firebase/auth'
 import { useI18n } from '@/lib/i18n/context'
@@ -135,7 +135,7 @@ export default function Sidebar({ profile, onUpdate }: SidebarProps) {
             {/* Mobile Hamburger Button */}
             <button
                 onClick={toggleSidebar}
-                className="lg:hidden fixed top-4 right-4 z-[60] p-2 bg-slate-800 text-white rounded-lg shadow-lg border border-slate-700"
+                className="lg:hidden fixed top-4 right-4 z-[60] p-3 bg-primary-600 text-white rounded-full shadow-lg border-2 border-primary-400 active:scale-95 transition-all"
             >
                 {isOpen ? <XMarkIcon className="w-6 h-6" /> : <Bars3Icon className="w-6 h-6" />}
             </button>
@@ -151,71 +151,92 @@ export default function Sidebar({ profile, onUpdate }: SidebarProps) {
             {/* Sidebar Container */}
             <aside className={`
         fixed top-0 left-0 bottom-0 z-[55]
-        w-72 bg-slate-900/95 backdrop-blur-md border-r border-slate-700/50
-        flex flex-col transform transition-transform duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        w-80 bg-white/95 backdrop-blur-md border-r-4 border-indigo-50
+        flex flex-col transform transition-transform duration-500 cubic-bezier(0.4, 0, 0.2, 1)
+        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0 shadow-soft'}
       `}>
                 {/* User Profile Summary */}
-                <div className="p-6 border-b border-slate-700/50">
-                    <div className="flex items-center space-x-4">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 overflow-hidden flex items-center justify-center flex-shrink-0 border-2 border-primary-400/30">
-                            {profile.avatar ? (
-                                <img
-                                    src={profile.avatar}
-                                    alt={profile.name}
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <span className="text-xl text-white font-bold">
-                                    {profile.name.charAt(0).toUpperCase()}
-                                </span>
-                            )}
+                <div className="p-8 border-b-4 border-indigo-50 bg-gradient-to-b from-indigo-50/30 to-white">
+                    <div className="flex flex-col items-center text-center">
+                        <div className="relative mb-4">
+                            <div className="w-24 h-24 rounded-[2rem] bg-gradient-to-br from-indigo-400 to-indigo-600 rotate-3 overflow-hidden flex items-center justify-center flex-shrink-0 border-4 border-white shadow-kid group">
+                                {profile.avatar ? (
+                                    <img
+                                        src={profile.avatar}
+                                        alt={profile.name}
+                                        className="w-full h-full object-cover -rotate-3 group-hover:scale-110 transition-transform"
+                                    />
+                                ) : (
+                                    <span className="text-3xl text-white font-black -rotate-3">
+                                        {profile.name.charAt(0).toUpperCase()}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="absolute -bottom-2 -right-2 bg-amber-400 text-white w-10 h-10 rounded-full flex items-center justify-center text-sm font-black border-4 border-white shadow-soft">
+                                L{calculateLevel(profile.xp)}
+                            </div>
                         </div>
-                        <div className="overflow-hidden">
-                            <h2 className="text-lg font-bold text-gray-100 truncate">{profile.name}</h2>
-                            {familyInfo && (
-                                <p className="text-xs text-primary-400 truncate">👨‍👩‍👧‍👦 {familyInfo.name}</p>
-                            )}
-                        </div>
+                        <h2 className="text-xl font-black text-indigo-900 truncate w-full uppercase tracking-tight">{profile.name}</h2>
+                        {familyInfo && (
+                            <p className="text-[10px] text-indigo-300 font-black tracking-widest mt-1 uppercase">{familyInfo.name}</p>
+                        )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 mt-6">
-                        <div className="bg-slate-800/50 rounded-lg p-2 text-center border border-slate-700/30">
-                            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">XP</p>
-                            <p className="text-sm font-bold text-primary-400">{profile.xp}</p>
+                    <div className="grid grid-cols-2 gap-4 mt-6">
+                        <div className="bg-indigo-50 rounded-2xl p-3 text-center border-2 border-indigo-100 shadow-soft transition-transform hover:scale-105 group">
+                            <p className="text-[10px] uppercase tracking-widest text-indigo-400 font-black mb-1">XP</p>
+                            <div className="flex items-center justify-center gap-1 font-black text-indigo-600">
+                               <span className="text-xs">✨</span>
+                               <span>{profile.xp}</span>
+                            </div>
                         </div>
-                        <div className="bg-slate-800/50 rounded-lg p-2 text-center border border-slate-700/30">
-                            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Coins</p>
-                            <p className="text-sm font-bold text-yellow-400">{profile.coins}</p>
+                        <div className="bg-amber-50 rounded-2xl p-3 text-center border-2 border-amber-100 shadow-soft transition-transform hover:scale-105 group">
+                            <p className="text-[10px] uppercase tracking-widest text-amber-400 font-black mb-1">COINS</p>
+                            <div className="flex items-center justify-center gap-1 font-black text-amber-600">
+                               <span className="text-xs">🪙</span>
+                               <span>{profile.coins}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Navigation Links */}
-                <nav className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
-                    <p className="px-4 py-2 text-[10px] uppercase tracking-widest text-gray-500 font-bold">Main Menu</p>
+                <nav className="flex-1 overflow-y-auto p-6 space-y-1.5 custom-scrollbar">
+                    <p className="px-4 pb-4 text-[10px] uppercase tracking-[0.2em] text-indigo-200 font-black">Menu</p>
                     {navItems.map((item) => (
                         <button
                             key={item.id}
                             onClick={() => scrollToSection(item.sectionId)}
-                            className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-slate-800/50 rounded-xl transition-all group"
+                            className="w-full flex items-center justify-between px-5 py-4 text-indigo-900 hover:bg-indigo-50/50 rounded-2xl transition-all group active:scale-95 border-2 border-transparent hover:border-indigo-50/50"
                         >
-                            <item.icon className="w-5 h-5 text-gray-400 group-hover:text-primary-400 transition-colors" />
-                            <span className="font-medium">{item.label}</span>
+                            <div className="flex items-center space-x-4">
+                               <div className="p-2 bg-indigo-50 rounded-xl group-hover:bg-white transition-colors">
+                                  <item.icon className="w-5 h-5 text-indigo-300 group-hover:text-indigo-600 transition-colors" />
+                               </div>
+                               <span className="font-black text-sm uppercase tracking-tight">{item.label}</span>
+                            </div>
+                            <span className="text-indigo-200 opacity-0 group-hover:opacity-100 transition-opacity">→</span>
                         </button>
                     ))}
 
                     {adminItems.some(i => i.show) && (
                         <>
-                            <p className="px-4 py-4 text-[10px] uppercase tracking-widest text-gray-500 font-bold">Admin</p>
+                            <div className="pt-8 pb-4">
+                              <p className="px-4 text-[10px] uppercase tracking-[0.2em] text-amber-300 font-black">Admin</p>
+                            </div>
                             {adminItems.filter(i => i.show).map((item) => (
                                 <button
                                     key={item.id}
                                     onClick={() => scrollToSection(item.sectionId)}
-                                    className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-slate-800/50 rounded-xl transition-all group"
+                                    className="w-full flex items-center justify-between px-5 py-4 text-accent-700 hover:bg-accent-50/50 rounded-2xl transition-all group active:scale-95 border-2 border-transparent hover:border-accent-50/50"
                                 >
-                                    <item.icon className="w-5 h-5 text-gray-400 group-hover:text-primary-400 transition-colors" />
-                                    <span className="font-medium">{item.label}</span>
+                                    <div className="flex items-center space-x-4">
+                                       <div className="p-2 bg-accent-50 rounded-xl group-hover:bg-white transition-colors">
+                                          <item.icon className="w-5 h-5 text-accent-300 group-hover:text-accent-600 transition-colors" />
+                                       </div>
+                                       <span className="font-black text-sm uppercase tracking-tight">{item.label}</span>
+                                    </div>
+                                    <span className="text-accent-200 opacity-0 group-hover:opacity-100 transition-opacity">→</span>
                                 </button>
                             ))}
                         </>
@@ -223,24 +244,26 @@ export default function Sidebar({ profile, onUpdate }: SidebarProps) {
                 </nav>
 
                 {/* Bottom Actions */}
-                <div className="p-4 border-t border-slate-700/50 space-y-2">
+                <div className="p-6 border-t-4 border-indigo-50 space-y-3 bg-white">
                     <button
                         onClick={() => setLanguage(language === 'vi' ? 'en' : 'vi')}
-                        className="w-full flex items-center justify-between px-4 py-3 text-gray-300 hover:text-white hover:bg-slate-800/50 rounded-xl transition-all"
+                        className="w-full flex items-center justify-between px-5 py-4 text-indigo-900 bg-indigo-50/30 hover:bg-indigo-50 rounded-2xl transition-all font-black active:scale-95 group border-2 border-indigo-50"
                     >
-                        <div className="flex items-center space-x-3">
-                            <span className="text-xl">{language === 'vi' ? '🇻🇳' : '🇺🇸'}</span>
-                            <span className="font-medium">{language === 'vi' ? 'Tiếng Việt' : 'English'}</span>
+                        <div className="flex items-center space-x-4 text-sm">
+                            <span className="text-xl group-hover:scale-125 transition-transform duration-300">{language === 'vi' ? '🇻🇳' : '🇺🇸'}</span>
+                            <span className="uppercase tracking-tight">{language === 'vi' ? 'Tiếng Việt' : 'English'}</span>
                         </div>
-                        <span className="text-[10px] font-bold text-slate-500">{language === 'vi' ? 'VI' : 'EN'}</span>
+                        <span className="text-[10px] font-black text-indigo-400 bg-white px-2 py-1 rounded-full border border-indigo-100">{language === 'vi' ? 'VI' : 'EN'}</span>
                     </button>
 
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center space-x-3 px-4 py-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all"
+                        className="w-full flex items-center space-x-4 px-5 py-4 text-red-500 bg-red-50/30 hover:bg-red-50 rounded-2xl transition-all font-black group active:scale-95 border-2 border-red-50"
                     >
-                        <ArrowLeftOnRectangleIcon className="w-5 h-5" />
-                        <span className="font-medium">{t('header.logout')}</span>
+                        <div className="p-2 bg-white rounded-xl shadow-soft">
+                          <ArrowLeftOnRectangleIcon className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                        </div>
+                        <span className="uppercase tracking-tight">{t('header.logout')}</span>
                     </button>
                 </div>
             </aside>

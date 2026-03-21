@@ -20,7 +20,7 @@ export default function DaySelector({
     selectedDate
 }: DaySelectorProps) {
     return (
-        <div className="flex space-x-2 mb-4 border-b border-slate-600 overflow-x-auto pb-2">
+        <div className="flex space-x-4 mb-8 overflow-x-auto pb-6 pt-2 px-2 no-scrollbar snap-x">
             {weekDates.map((dateStr, index) => {
                 const date = new Date(dateStr + 'T00:00:00')
                 const dayNames = language === 'vi' ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -36,16 +36,34 @@ export default function DaySelector({
                     <button
                         key={dateStr}
                         onClick={() => setSelectedDay(index)}
-                        className={`px-3 py-2 font-medium transition-all duration-200 whitespace-nowrap flex flex-col items-center flex-shrink-0 rounded-t-lg ${selectedDay === index
-                                ? 'border-b-2 border-primary-500 text-primary-400 bg-primary-500/10'
-                                : 'text-gray-400 hover:text-gray-200 hover:bg-slate-700/50'
+                        className={`group relative p-4 min-w-[85px] transition-all duration-500 flex flex-col items-center flex-shrink-0 rounded-[2rem] snap-center border-4 ${selectedDay === index
+                                ? 'bg-violet-600 border-violet-800 text-white shadow-kid scale-110 -translate-y-2'
+                                : 'bg-white border-violet-50 text-violet-400 hover:border-violet-100 hover:bg-violet-50 hover:shadow-soft'
                             }`}
                     >
-                        <span className="text-xs uppercase tracking-wider">{dayName}</span>
-                        <span className={`text-sm font-bold ${selectedDay === index ? 'text-primary-300' : ''}`}>{dayNumber}</span>
-                        <div className="mt-1 h-4 flex items-center justify-center">
-                            {isDayComplete && <span className="text-xs text-green-400" title="Day Complete">✓</span>}
-                            {!isDayComplete && completedCount > 0 && <span className="text-[10px] bg-slate-700 px-1.5 py-0.5 rounded-full text-yellow-400">{completedCount}/6</span>}
+                        {/* Selected Indicator Glow */}
+                        {selectedDay === index && (
+                            <div className="absolute inset-0 bg-violet-400 rounded-[1.8rem] blur-xl opacity-20 -z-10 animate-pulse" />
+                        )}
+                        
+                        <span className={`text-[10px] font-black uppercase tracking-[0.2em] mb-2 transition-colors ${selectedDay === index ? 'text-violet-200' : 'text-violet-300'}`}>
+                            {dayName}
+                        </span>
+                        
+                        <span className={`text-2xl font-black transition-colors ${selectedDay === index ? 'text-white' : 'text-violet-900 group-hover:text-violet-600'}`}>
+                            {dayNumber}
+                        </span>
+                        
+                        <div className="mt-3 flex items-center justify-center min-h-[24px]">
+                            {isDayComplete ? (
+                                <div className="text-xl animate-bounce-slow drop-shadow-md">🌟</div>
+                            ) : completedCount > 0 ? (
+                                <div className={`px-2.5 py-0.5 rounded-xl text-[10px] font-black border-2 transition-all shadow-soft ${selectedDay === index ? 'bg-violet-500 border-violet-400 text-white' : 'bg-violet-50 border-white text-violet-600'}`}>
+                                    {completedCount}
+                                </div>
+                            ) : (
+                                <div className={`w-2 h-2 rounded-full transition-all ${selectedDay === index ? 'bg-violet-400 shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'bg-violet-50 group-hover:bg-violet-200'}`}></div>
+                            )}
                         </div>
                     </button>
                 )

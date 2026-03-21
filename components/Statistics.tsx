@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { getAllUsers } from '@/lib/firebase/profile'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { checkDb } from '@/lib/firebase/config'
@@ -17,7 +17,7 @@ export default function Statistics({ currentUserId, profile }: StatisticsProps) 
   const { t, language } = useI18n()
   const [stats, setStats] = useState({
     totalUsers: 0,
-    activeUsers: 0, // Users đã tham gia ít nhất 1 nhiệm vụ
+    activeUsers: 0,
     totalTasks: 0,
     completedTasks: 0,
   })
@@ -33,7 +33,6 @@ export default function Statistics({ currentUserId, profile }: StatisticsProps) 
     try {
       setLoading(true)
       
-      // Lấy tất cả users trong cùng family
       if (!profile.familyId) {
         console.error('Profile does not have familyId')
         return
@@ -41,36 +40,24 @@ export default function Statistics({ currentUserId, profile }: StatisticsProps) 
       const allUsers = await getAllUsers(profile.familyId)
       const totalUsers = allUsers.length
       
-      // Đếm users đã tham gia nhiệm vụ (có ít nhất 1 task được assign) - chỉ trong cùng family
       const tasksRef = collection(checkDb(), 'tasks')
       const q = query(tasksRef, where('familyId', '==', profile.familyId))
       const tasksSnapshot = await getDocs(q)
-      const tasks = tasksSnapshot.docs.map(doc => ({
+      const tasksData = tasksSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Task[]
       
-      // Filter tasks chỉ trong cùng family (nếu task có familyId)
-      const familyTasks = tasks.filter(task => {
-        // Nếu task chưa có familyId, kiểm tra assignedTo có trong family không
-        if (!task.familyId) {
-          return allUsers.some(u => u.id === task.assignedTo)
-        }
-        return task.familyId === profile.familyId
-      })
-      
-      // Lấy danh sách unique user IDs đã được assign task (chỉ trong family)
       const activeUserIds = new Set<string>()
-      familyTasks.forEach(task => {
+      tasksData.forEach(task => {
         if (task.assignedTo) {
           activeUserIds.add(task.assignedTo)
         }
       })
       const activeUsers = activeUserIds.size
       
-      // Đếm tổng số tasks và completed tasks (chỉ trong family)
-      const totalTasks = familyTasks.length
-      const completedTasks = familyTasks.filter(t => 
+      const totalTasks = tasksData.length
+      const completedTasks = tasksData.filter(t => 
         t.status === 'completed' || t.status === 'approved'
       ).length
       
@@ -89,76 +76,92 @@ export default function Statistics({ currentUserId, profile }: StatisticsProps) 
 
   if (loading) {
     return (
-      <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-6 border border-slate-700/50">
-        <h3 className="text-lg font-semibold text-gray-100 mb-4">
-          {language === 'vi' ? '📊 Thống Kê' : '📊 Statistics'}
-        </h3>
-        <div className="text-center py-4 text-gray-400">
-          {language === 'vi' ? 'Đang tải...' : 'Loading...'}
+      <div className="kid-card p-6 bg-white/50 border-violet-100 shadow-soft animate-pulse">
+        <div className="h-6 bg-violet-100 w-32 rounded-xl mb-6" />
+        <div className="grid grid-cols-2 gap-4">
+           {[1,2,3,4].map(i => <div key={i} className="h-24 bg-white rounded-2xl border-2 border-violet-50" />)}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-6 border border-slate-700/50">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-100">
-          {language === 'vi' ? '📊 Thống Kê' : '📊 Statistics'}
+    <div className="kid-card p-8 bg-white border-violet-100 shadow-kid relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-violet-50 rounded-full -mr-16 -mt-16 opacity-30 pointer-events-none" />
+      
+      <div className="flex justify-between items-center mb-8 relative z-10">
+        <h3 className="text-xl font-black text-violet-900 flex items-center gap-3 uppercase tracking-tight">
+          <span className="text-2xl">📊</span>
+          {language === 'vi' ? 'Thống Kê' : 'Statistics'}
         </h3>
         <button
           onClick={loadStatistics}
-          className="px-3 py-1 bg-primary-600 text-white text-xs rounded hover:bg-primary-700"
+          className="btn-playful w-10 h-10 bg-violet-50 text-violet-600 rounded-xl flex items-center justify-center shadow-soft hover:bg-violet-100 transition-all border-b-4 border-violet-200"
           title={language === 'vi' ? 'Làm mới' : 'Refresh'}
         >
           🔄
         </button>
       </div>
       
-      <div className="grid grid-cols-2 gap-4">
-        {/* Tổng số users */}
-        <div className="bg-blue-500/20 rounded-lg p-4 border border-blue-500/30">
-          <p className="text-sm text-gray-300 mb-1">
-            {language === 'vi' ? '👥 Tổng Users' : '👥 Total Users'}
-          </p>
-          <p className="text-2xl font-bold text-blue-300">{stats.totalUsers}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 relative z-10">
+        {/* Total Users */}
+        <div className="bg-gradient-to-br from-blue-400 to-indigo-600 rounded-[2rem] p-6 text-white shadow-soft border-4 border-blue-300/30 group hover:scale-[1.02] transition-transform">
+          <div className="flex items-center gap-3 mb-2 opacity-80">
+             <span className="text-xl">👥</span>
+             <p className="text-[10px] font-black uppercase tracking-widest">
+               {language === 'vi' ? 'Tổng Users' : 'Total Users'}
+             </p>
+          </div>
+          <p className="text-4xl font-black">{stats.totalUsers}</p>
         </div>
         
-        {/* Users đã tham gia nhiệm vụ */}
-        <div className="bg-green-500/20 rounded-lg p-4 border border-green-500/30">
-          <p className="text-sm text-gray-300 mb-1">
-            {language === 'vi' ? '✅ Users Hoạt Động' : '✅ Active Users'}
-          </p>
-          <p className="text-2xl font-bold text-green-300">{stats.activeUsers}</p>
-          {stats.totalUsers > 0 && (
-            <p className="text-xs text-gray-400 mt-1">
-              {Math.round((stats.activeUsers / stats.totalUsers) * 100)}%
-            </p>
-          )}
+        {/* Active Users */}
+        <div className="bg-gradient-to-br from-emerald-400 to-teal-600 rounded-[2rem] p-6 text-white shadow-soft border-4 border-emerald-300/30 group hover:scale-[1.02] transition-transform">
+          <div className="flex items-center gap-3 mb-2 opacity-80">
+             <span className="text-xl">✅</span>
+             <p className="text-[10px] font-black uppercase tracking-widest">
+               {language === 'vi' ? 'Users Hoạt Động' : 'Active Users'}
+             </p>
+          </div>
+          <div className="flex items-baseline gap-3">
+             <p className="text-4xl font-black">{stats.activeUsers}</p>
+             {stats.totalUsers > 0 && (
+               <span className="text-sm font-black bg-white/20 px-2 py-0.5 rounded-lg">
+                 {Math.round((stats.activeUsers / stats.totalUsers) * 100)}%
+               </span>
+             )}
+          </div>
         </div>
         
-        {/* Tổng số nhiệm vụ */}
-        <div className="bg-purple-500/20 rounded-lg p-4 border border-purple-500/30">
-          <p className="text-sm text-gray-300 mb-1">
-            {language === 'vi' ? '📋 Tổng Nhiệm Vụ' : '📋 Total Tasks'}
-          </p>
-          <p className="text-2xl font-bold text-purple-300">{stats.totalTasks}</p>
+        {/* Total Tasks */}
+        <div className="bg-gradient-to-br from-violet-400 to-purple-600 rounded-[2rem] p-6 text-white shadow-soft border-4 border-violet-300/30 group hover:scale-[1.02] transition-transform">
+          <div className="flex items-center gap-3 mb-2 opacity-80">
+             <span className="text-xl">📋</span>
+             <p className="text-[10px] font-black uppercase tracking-widest">
+               {language === 'vi' ? 'Tổng Nhiệm Vụ' : 'Total Tasks'}
+             </p>
+          </div>
+          <p className="text-4xl font-black">{stats.totalTasks}</p>
         </div>
         
-        {/* Nhiệm vụ đã hoàn thành */}
-        <div className="bg-yellow-500/20 rounded-lg p-4 border border-yellow-500/30">
-          <p className="text-sm text-gray-300 mb-1">
-            {language === 'vi' ? '🎉 Đã Hoàn Thành' : '🎉 Completed'}
-          </p>
-          <p className="text-2xl font-bold text-yellow-300">{stats.completedTasks}</p>
-          {stats.totalTasks > 0 && (
-            <p className="text-xs text-gray-400 mt-1">
-              {Math.round((stats.completedTasks / stats.totalTasks) * 100)}%
-            </p>
-          )}
+        {/* Completed Tasks */}
+        <div className="bg-gradient-to-br from-amber-400 to-orange-600 rounded-[2rem] p-6 text-white shadow-soft border-4 border-amber-300/30 group hover:scale-[1.02] transition-transform">
+          <div className="flex items-center gap-3 mb-2 opacity-80">
+             <span className="text-xl">🎉</span>
+             <p className="text-[10px] font-black uppercase tracking-widest">
+               {language === 'vi' ? 'Đã Hoàn Thành' : 'Completed'}
+             </p>
+          </div>
+          <div className="flex items-baseline gap-3">
+             <p className="text-4xl font-black">{stats.completedTasks}</p>
+             {stats.totalTasks > 0 && (
+               <span className="text-sm font-black bg-white/20 px-2 py-0.5 rounded-lg">
+                 {Math.round((stats.completedTasks / stats.totalTasks) * 100)}%
+               </span>
+             )}
+          </div>
         </div>
       </div>
     </div>
   )
 }
-

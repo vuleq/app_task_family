@@ -106,43 +106,63 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
 
   if (loadingTasks) {
     return (
-      <div className="text-center py-8">
-        {t('common.loading')}
+      <div className="kid-card text-center py-20 bg-white shadow-kid border-violet-100 animate-pulse">
+        <div className="w-20 h-20 border-8 border-violet-100 border-t-violet-600 rounded-full animate-spin mx-auto mb-6 shadow-soft"></div>
+        <p className="text-violet-600 font-black text-xl uppercase tracking-widest">{t('common.loading')}...</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8 pb-12">
       <Toast
         show={toast.show}
         message={toast.message}
         type={toast.type}
         onClose={() => setToast({ ...toast, show: false })}
       />
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-100">{t('tasks.title')}</h3>
-        <div className="flex items-center space-x-2">
+      
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
+        <div>
+          <h3 className="text-3xl font-black text-violet-900 flex items-center gap-3 uppercase tracking-tight">
+            <span className="text-4xl animate-bounce-slow">📝</span> {t('tasks.title')}
+          </h3>
+          <p className="text-sm text-violet-400 font-bold uppercase tracking-widest ml-12 overflow-hidden overflow-ellipsis whitespace-nowrap max-w-[300px] md:max-w-none">
+            {language === 'vi' ? 'Cùng hoàn thành nhiệm vụ và nhận thưởng nào!' : 'Complete tasks and earn rewards!'}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
           {/* Language Selector */}
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as 'vi' | 'en')}
-            className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm hover:bg-slate-700 text-gray-100"
-            title="Chọn ngôn ngữ / Select Language"
-          >
-            <option value="vi">🇻🇳 Tiếng Việt</option>
-            <option value="en">🇬🇧 English</option>
-          </select>
+          <div className="relative group shrink-0">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as 'vi' | 'en')}
+              className="appearance-none pl-12 pr-6 py-3 bg-white border-4 border-violet-100 rounded-2xl text-xs font-black text-violet-700 hover:border-violet-300 focus:outline-none focus:ring-4 focus:ring-violet-50 transition-all cursor-pointer shadow-soft uppercase tracking-widest"
+              title="Ngôn ngữ / Language"
+            >
+              <option value="vi">Tiếng Việt</option>
+              <option value="en">English</option>
+            </select>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl pointer-events-none group-hover:scale-110 transition-transform">
+              {language === 'vi' ? '🇻🇳' : '🇬🇧'}
+            </span>
+          </div>
 
           <button
             onClick={() => {
               setShowTemplates(!showTemplates)
               setShowAddForm(false)
             }}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+            className={`btn-playful px-6 py-3 rounded-2xl text-xs font-black shadow-kid active:scale-95 transition-all flex items-center gap-2 uppercase tracking-widest border-b-4 ${
+              showTemplates 
+                ? 'bg-white text-red-500 border-red-100 hover:bg-red-50' 
+                : 'bg-amber-500 text-white border-amber-700 hover:bg-amber-600'
+            }`}
           >
-            {showTemplates ? t('common.cancel') : `📋 ${t('tasks.templates')}`}
+            {showTemplates ? `❌ ${t('common.cancel')}` : `📋 ${t('tasks.templates')}`}
           </button>
+
           {profile.isRoot ? (
             <button
               onClick={() => {
@@ -150,123 +170,159 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
                 setShowTemplates(false)
                 setInitialTaskData(null)
               }}
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
+              className={`btn-playful px-6 py-3 rounded-2xl text-xs font-black shadow-kid active:scale-95 transition-all flex items-center gap-2 uppercase tracking-widest border-b-4 ${
+                showAddForm 
+                  ? 'bg-white text-red-500 border-red-100 hover:bg-red-50' 
+                  : 'bg-violet-600 text-white border-violet-800 hover:bg-violet-700'
+              }`}
             >
-              {showAddForm ? t('common.cancel') : `+ ${t('tasks.addTask')}`}
+              {showAddForm ? `❌ ${t('common.cancel')}` : `✨ ${t('tasks.addTask')}`}
             </button>
           ) : (
-            <div className="px-4 py-2 bg-slate-700/50 text-gray-300 rounded-lg text-sm">
-              {t('tasks.onlyRootCanCreate')}
+            <div className="px-6 py-3 bg-violet-50 text-violet-400 border-4 border-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-soft">
+              🔒 {t('tasks.onlyRootCanCreate')}
             </div>
           )}
         </div>
       </div>
 
-      <DaySelector
-        weekDates={weekDates}
-        language={language}
-        selectedDate={selectedDate}
-        selectedDay={selectedDay}
-        setSelectedDay={setSelectedDay}
-        tasks={tasks}
-        currentUserId={currentUser.uid}
-      />
+      <div className="grid grid-cols-1 gap-8">
+        <section className="space-y-6">
+          <DaySelector
+            weekDates={weekDates}
+            language={language}
+            selectedDate={selectedDate}
+            selectedDay={selectedDay}
+            setSelectedDay={setSelectedDay}
+            tasks={tasks}
+            currentUserId={currentUser.uid}
+          />
 
-      <TaskFilters
-        language={language}
-        categoryFilter={categoryFilter}
-        setCategoryFilter={setCategoryFilter}
-        t={t}
-      />
+          <TaskFilters
+            language={language}
+            categoryFilter={categoryFilter}
+            setCategoryFilter={setCategoryFilter}
+            t={t}
+          />
 
-      <DailyProgressSummary
-        language={language}
-        tasks={tasks}
-        currentUserId={currentUser.uid}
-        selectedDate={selectedDate}
-      />
+          <DailyProgressSummary
+            language={language}
+            tasks={tasks}
+            currentUserId={currentUser.uid}
+            selectedDate={selectedDate}
+          />
 
-      {taskLimits && <TaskLimits taskLimits={taskLimits} TASK_LIMITS={TASK_LIMITS} language={language} />}
-      {completionProgress && <TaskCompletionProgress completionProgress={completionProgress} COMPLETION_REWARDS={COMPLETION_REWARDS} t={t} />}
-
-      {showTemplates && (
-        <TaskTemplateList
-          templates={templates}
-          users={users}
-          currentUser={currentUser}
-          profile={profile}
-          language={language}
-          t={t}
-          onDeleteTemplate={handleDeleteTemplate}
-          onDeleteSelected={handleDeleteSelectedTemplates}
-          onDeleteAll={handleDeleteAllTemplates}
-          onBulkCreate={handleBulkCreateAndAssign}
-          onTemplatesCreated={loadTemplates}
-          onUseTemplate={(template) => {
-            setInitialTaskData(template)
-            setShowTemplates(false)
-            setShowAddForm(true)
-            setTimeout(() => {
-              document.getElementById('add-task-form')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-            }, 100)
-          }}
-        />
-      )}
-
-      {showAddForm && (
-        <TaskForm
-          users={users.filter(u => !u.isRoot && !u.isSuperRoot)}
-          currentUser={currentUser}
-          language={language}
-          t={t}
-          initialData={initialTaskData}
-          onSubmit={async (taskData, selectedUsers, saveAsTemplate) => {
-            const success = await handleAddTask(taskData, selectedUsers, users, saveAsTemplate)
-            if (success) {
-              setShowAddForm(false)
-              setInitialTaskData(null)
-            }
-          }}
-          onCancel={() => {
-            setShowAddForm(false)
-            setInitialTaskData(null)
-          }}
-        />
-      )}
-
-      {myTasks.length > 0 ? (
-        <div>
-          <h4 className="font-medium text-gray-200 mb-2">{t('tasks.myTasks')} ({myTasks.length})</h4>
-          <div className="space-y-2">
-            {myTasks.map(task => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                profile={profile}
-                language={language}
-                t={t}
-                onStart={handleStartTask}
-                onComplete={handleCompleteTask}
-                onDelete={handleDeleteTask}
-                onEvidenceUploaded={loadTasks}
-              />
-            ))}
+          <div className="grid grid-cols-1 gap-6">
+            {taskLimits && <TaskLimits taskLimits={taskLimits} TASK_LIMITS={TASK_LIMITS} language={language} />}
+            {completionProgress && <TaskCompletionProgress completionProgress={completionProgress} COMPLETION_REWARDS={COMPLETION_REWARDS} t={t} />}
           </div>
-        </div>
-      ) : (
-        <div className="text-center py-8 text-gray-400">
-          <p>{language === 'vi' ? 'Chưa có nhiệm vụ nào cho ngày này' : 'No tasks for this day'}</p>
-          {categoryFilter !== 'all' && (
-            <p className="text-sm mt-2">{language === 'vi' ? `Thử chọn category "Tất cả" để xem tất cả nhiệm vụ` : `Try selecting "All" category to see all tasks`}</p>
-          )}
-        </div>
-      )}
+        </section>
 
-      {tasks.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          {t('tasks.noTasks')}
-        </div>
-      )}
+        {showTemplates && (
+          <section className="animate-bounce-in">
+            <TaskTemplateList
+              templates={templates}
+              users={users}
+              currentUser={currentUser}
+              profile={profile}
+              language={language}
+              t={t}
+              onDeleteTemplate={handleDeleteTemplate}
+              onDeleteSelected={handleDeleteSelectedTemplates}
+              onDeleteAll={handleDeleteAllTemplates}
+              onBulkCreate={handleBulkCreateAndAssign}
+              onTemplatesCreated={loadTemplates}
+              onUseTemplate={(template) => {
+                setInitialTaskData(template)
+                setShowTemplates(false)
+                setShowAddForm(true)
+                setTimeout(() => {
+                  document.getElementById('add-task-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }, 300)
+              }}
+            />
+          </section>
+        )}
+
+        {showAddForm && (
+          <section className="animate-bounce-in">
+            <TaskForm
+              users={users.filter(u => !u.isRoot && !u.isSuperRoot)}
+              currentUser={currentUser}
+              language={language}
+              t={t}
+              initialData={initialTaskData}
+              onSubmit={async (taskData, selectedUsers, saveAsTemplate) => {
+                const success = await handleAddTask(taskData, selectedUsers, users, saveAsTemplate)
+                if (success) {
+                  setShowAddForm(false)
+                  setInitialTaskData(null)
+                  showToast(language === 'vi' ? '🎉 Đã thêm nhiệm vụ mới!' : '🎉 New task added!', 'success')
+                }
+              }}
+              onCancel={() => {
+                setShowAddForm(false)
+                setInitialTaskData(null)
+              }}
+            />
+          </section>
+        )}
+
+        <section className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xl font-black text-violet-900 flex items-center gap-3 uppercase tracking-tight">
+              <span className="p-2 bg-violet-100 rounded-xl shadow-soft">🎯</span> 
+              {t('tasks.myTasks')} 
+              <span className="text-violet-300 font-bold ml-2">({myTasks.length})</span>
+            </h4>
+          </div>
+
+          {myTasks.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4">
+              {myTasks.map(task => (
+                <TaskItem
+                  key={task.id}
+                  task={task}
+                  profile={profile}
+                  language={language}
+                  t={t}
+                  onStart={handleStartTask}
+                  onComplete={handleCompleteTask}
+                  onDelete={handleDeleteTask}
+                  onEvidenceUploaded={loadTasks}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-20 bg-white/50 rounded-[2.5rem] border-4 border-dashed border-violet-100 shadow-inner group">
+              <div className="text-7xl mb-6 grayscale group-hover:grayscale-0 transition-all duration-500 hover:scale-110 opacity-30 group-hover:opacity-100">😴</div>
+              <p className="text-violet-300 font-black text-xl uppercase tracking-widest">{language === 'vi' ? 'Không có nhiệm vụ nào hôm nay!' : 'No tasks for today!'}</p>
+              {categoryFilter !== 'all' && (
+                <p className="text-sm mt-3 text-violet-200 font-bold uppercase tracking-widest">{language === 'vi' ? `Thử chọn "Tất cả" để khám phá thêm nhé` : `Try "All" to find more missions`}</p>
+              )}
+            </div>
+          )}
+
+          {tasks.length === 0 && !loadingTasks && (
+            <div className="text-center py-24 bg-gradient-to-br from-violet-50 to-white rounded-[3rem] border-4 border-violet-100 shadow-kid relative overflow-hidden">
+               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(139,92,246,0.1),transparent)]" />
+               <div className="relative z-10">
+                  <div className="text-8xl mb-8 animate-bounce-slow inline-block">🎈</div>
+                  <p className="text-violet-900 font-black text-2xl uppercase tracking-tighter">{t('tasks.noTasks')}</p>
+                  <p className="text-violet-400 font-bold mt-3 uppercase tracking-widest text-sm">{language === 'vi' ? 'Sẵn sàng để bắt đầu hành trình mới chưa bé?' : 'Ready to start a new adventure?'}</p>
+                  {profile.isRoot && (
+                    <button 
+                      onClick={() => setShowAddForm(true)}
+                      className="mt-8 btn-playful bg-violet-600 text-white px-8 py-4 rounded-2xl font-black shadow-kid hover:bg-violet-700 transition-all uppercase tracking-widest text-xs border-b-4 border-violet-800"
+                    >
+                      ✨ {t('tasks.addTask')}
+                    </button>
+                  )}
+               </div>
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   )
 }

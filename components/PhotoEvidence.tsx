@@ -256,48 +256,66 @@ export default function PhotoEvidence({ taskId, currentEvidence, onEvidenceUploa
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 kid-card p-6 bg-gradient-to-br from-indigo-50 to-white border-indigo-100 shadow-soft">
       <Toast
         show={toast.show}
         message={toast.message}
         type={toast.type}
         onClose={() => setToast({ ...toast, show: false })}
       />
-      <h4 className="font-medium text-gray-700">📸 Ảnh/Video bằng chứng</h4>
+      <div className="flex items-center gap-3 mb-2">
+        <span className="text-2xl animate-bounce-slow">📸</span>
+        <h4 className="font-black text-indigo-900 uppercase tracking-tight">{t('tasks.evidence') || 'Ảnh/Video bằng chứng'}</h4>
+      </div>
       
       {currentEvidence ? (
-        <div className="space-y-2">
-          {currentEvidence.includes('video') || currentEvidence.match(/\.(mp4|webm|ogg)$/i) ? (
-            <video
-              src={currentEvidence}
-              controls
-              className="w-full max-w-md rounded-lg border border-gray-200"
-            >
-              Trình duyệt của bạn không hỗ trợ video tag.
-            </video>
-          ) : (
-            <img
-              src={currentEvidence}
-              alt="Evidence"
-              className="w-full max-w-md rounded-lg border border-gray-200"
-            />
-          )}
+        <div className="space-y-4 animate-bounce-in">
+          <div className="relative group rounded-3xl overflow-hidden border-4 border-white shadow-kid aspect-video bg-indigo-100/50 flex items-center justify-center">
+            {currentEvidence.includes('video') || currentEvidence.match(/\.(mp4|webm|ogg)$/i) ? (
+              <video
+                src={currentEvidence}
+                controls
+                className="w-full h-full object-cover"
+              >
+                Trình duyệt của bạn không hỗ trợ video tag.
+              </video>
+            ) : (
+              <img
+                src={currentEvidence}
+                alt="Evidence"
+                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+              />
+            )}
+            <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-end">
+               <span className="text-white text-xs font-black bg-black/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/20">✨ {language === 'vi' ? 'BẰNG CHỨNG' : 'EVIDENCE'}</span>
+            </div>
+          </div>
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50"
+            className="btn-playful w-full py-3 bg-white text-indigo-600 border-2 border-indigo-100 rounded-2xl font-black text-sm shadow-soft hover:bg-indigo-50 active:scale-95 transition-all flex items-center justify-center gap-2"
           >
-            Thay đổi
+            🔄 {t('common.change') || 'Thay đổi'}
           </button>
         </div>
       ) : (
-        <div>
+        <div className="animate-pulse-slow">
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 text-sm"
+            className="btn-playful w-full py-6 bg-indigo-600 text-white rounded-[1.5rem] font-black shadow-kid hover:bg-indigo-700 active:scale-95 transition-all flex flex-col items-center gap-2"
           >
-            {uploading ? 'Đang upload...' : 'Chụp/Upload ảnh hoặc video bằng chứng'}
+            {uploading ? (
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>{language === 'vi' ? 'ĐANG TẢI...' : 'UPLOADING...'}</span>
+              </div>
+            ) : (
+              <>
+                <span className="text-3xl">✨</span>
+                <span>{t('tasks.uploadEvidence') || 'Chụp/Upload bằng chứng'}</span>
+              </>
+            )}
           </button>
         </div>
       )}
@@ -310,7 +328,9 @@ export default function PhotoEvidence({ taskId, currentEvidence, onEvidenceUploa
         onChange={handleUpload}
         className="hidden"
       />
+      <div className="text-[10px] text-center font-bold text-indigo-300 uppercase tracking-widest mt-2">
+        {language === 'vi' ? 'Định dạng hỗ trợ: Ảnh hoặc Video' : 'Supported: Photo or Video'}
+      </div>
     </div>
   )
 }
-

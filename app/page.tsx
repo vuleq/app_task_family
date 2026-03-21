@@ -61,309 +61,110 @@ export default function Home() {
       setLoading(false)
     }, 10000)
 
-    const unsubscribe = onAuthStateChangedSafe(async (user) => {
-      if (user) {
-        // --- GOOGLE REDIRECT STATE MIGRATION ---
+    const unsubscribe = onAuthStateChangedSafe(async (firebaseUser) => {
+      if (!firebaseUser) {
+        setUser(null)
+        setProfile(null)
+        setError(null)
+        setLoading(false)
+        clearTimeout(timeoutId)
+        return
+      }
+
+      // 1. Set user state ngay lập tức
+      setUser(firebaseUser)
+      console.log('[page.tsx] 🔐 User authenticated:', firebaseUser.email)
+
+      try {
+        // 2. Chờ Firebase initialized (với retry logic nhẹ nhàng hơn)
+        let dbInstance = null
+        let retries = 0
+        const maxRetries = 5
+
+        while (!dbInstance && retries < maxRetries) {
+          const { db } = await import('@/lib/firebase/config')
+          if (db) {
+            dbInstance = db
+            break
+          }
+          await new Promise(resolve => setTimeout(resolve, 500))
+          retries++
+        }
+
+        if (!dbInstance) {
+          throw new Error('Firebase Firestore could not be initialized. Please check your .env.local file.')
+        }
+
+        // 3. Handle Google Redirect state if exists
         if (typeof window !== 'undefined') {
           const pendingStateStr = localStorage.getItem('pending_google_auth_state')
           if (pendingStateStr) {
             try {
               const pendingState = JSON.parse(pendingStateStr)
-              // Kiểm tra xem state có còn mới không (trong vòng 30 phút)
               if (Date.now() - pendingState.timestamp < 30 * 60 * 1000) {
-                console.log('[page.tsx] 🔄 Migrating pending Google state to UID:', user.uid)
-
-                // Migrate state dựa trên user.uid mới
-                if (pendingState.wantRoot) localStorage.setItem(`signup_isRoot_${user.uid}`, 'true')
-                if (pendingState.wantSuperRoot) localStorage.setItem(`signup_isSuperRoot_${user.uid}`, 'true')
-                if (pendingState.familyId) localStorage.setItem(`signup_familyId_${user.uid}`, pendingState.familyId)
-                if (pendingState.familyName) localStorage.setItem(`signup_familyName_${user.uid}`, pendingState.familyName)
-                if (pendingState.familyCode) localStorage.setItem(`signup_familyCode_${user.uid}`, pendingState.familyCode)
-                if (pendingState.rootCode) localStorage.setItem(`signup_rootCode_${user.uid}`, pendingState.rootCode)
-
-                // Lưu flag để handle flow signup đặc biệt cho Google
-                localStorage.setItem(`is_google_signup_${user.uid}`, 'true')
+                console.log('[page.tsx] 🔄 Migrating pending Google state to UID:', firebaseUser.uid)
+                if (pendingState.wantRoot) localStorage.setItem(`signup_isRoot_${firebaseUser.uid}`, 'true')
+                if (pendingState.wantSuperRoot) localStorage.setItem(`signup_isSuperRoot_${firebaseUser.uid}`, 'true')
+                if (pendingState.familyId) localStorage.setItem(`signup_familyId_${firebaseUser.uid}`, pendingState.familyId)
+                localStorage.setItem(`is_google_signup_${firebaseUser.uid}`, 'true')
               }
-              // Xóa pending state sau khi đã xử lý
               localStorage.removeItem('pending_google_auth_state')
             } catch (e) {
               console.error('[page.tsx] Error parsing pending state:', e)
             }
           }
         }
-        // ---------------------------------------
 
-        try {
-          // Kiểm tra Firebase đã được khởi tạo chưa - với retry logic
-          let db = null
-          let retries = 0
-          const maxRetries = 10 // Tăng số lần retry
+        // 4. Load or Create Profile
+        console.log('[page.tsx] 👤 Loading profile for:', firebaseUser.uid)
+        let userProfile = await getProfile(firebaseUser.uid)
 
-          while (!db && retries < maxRetries) {
-            const { db: firestoreDb } = await import('@/lib/firebase/config')
-            if (firestoreDb) {
-              db = firestoreDb
-              break
-            }
-            // Đợi 300ms trước khi retry (tăng delay)
-            await new Promise(resolve => setTimeout(resolve, 300))
-            retries++
-          }
+        if (!userProfile) {
+          if (creatingProfileRef.current) return
+          
+          creatingProfileRef.current = true
+          try {
+            console.log('[page.tsx] ✨ Creating new profile...')
+            const isRootFromSignup = typeof window !== 'undefined' && localStorage.getItem(`signup_isRoot_${firebaseUser.uid}`) === 'true'
+            const isSuperRootFromSignup = typeof window !== 'undefined' && localStorage.getItem(`signup_isSuperRoot_${firebaseUser.uid}`) === 'true'
+            const familyIdFromSignup = typeof window !== 'undefined' ? localStorage.getItem(`signup_familyId_${firebaseUser.uid}`) || undefined : undefined
 
-          if (!db) {
-            console.error('Firebase Firestore không khởi tạo được sau', maxRetries, 'lần thử')
-            // Không set error ngay, mà thử lại sau 1 giây
-            setTimeout(async () => {
-              const { db: retryDb } = await import('@/lib/firebase/config')
-              if (retryDb) {
-                // Retry load profile
-                try {
-                  setUser(user)
-                  let userProfile = await getProfile(user.uid)
-                  if (!userProfile) {
-                    // Kiểm tra xem đang tạo profile chưa (tránh duplicate calls)
-                    if (creatingProfileRef.current) {
-                      console.log('[page.tsx] ⚠️ Profile creation already in progress (retry), skipping...')
-                      return
-                    }
-
-                    const isRootFromSignup = typeof window !== 'undefined' && localStorage.getItem(`signup_isRoot_${user.uid}`) === 'true'
-                    const isSuperRootFromSignup = typeof window !== 'undefined' && localStorage.getItem(`signup_isSuperRoot_${user.uid}`) === 'true'
-
-                    // Retry logic cho familyId
-                    let familyIdFromSignup: string | undefined
-                    if (typeof window !== 'undefined') {
-                      let retryCount = 0
-                      const maxRetries = 5
-                      while (retryCount < maxRetries && !familyIdFromSignup) {
-                        familyIdFromSignup = localStorage.getItem(`signup_familyId_${user.uid}`) || undefined
-                        if (!familyIdFromSignup && retryCount < maxRetries - 1) {
-                          await new Promise(resolve => setTimeout(resolve, 200))
-                        }
-                        retryCount++
-                      }
-                      console.log('[page.tsx] Retry flow - familyIdFromSignup:', familyIdFromSignup)
-                    }
-
-                    // Set flag để tránh duplicate calls
-                    creatingProfileRef.current = true
-                    try {
-                      userProfile = await createDefaultProfile(user, isRootFromSignup, familyIdFromSignup, isSuperRootFromSignup)
-                    } finally {
-                      creatingProfileRef.current = false
-                    }
-                    if (typeof window !== 'undefined') {
-                      localStorage.removeItem(`signup_isRoot_${user.uid}`)
-                      localStorage.removeItem(`signup_isSuperRoot_${user.uid}`)
-                      localStorage.removeItem(`signup_familyId_${user.uid}`)
-                    }
-                  }
-                  setProfile(userProfile)
-                  if (userProfile?.familyId) {
-                    recordDailyLogin(userProfile.id, userProfile.familyId).catch(console.error)
-                  }
-                  setError(null)
-                  setLoading(false)
-                } catch (err) {
-                  console.error('Error retrying profile load:', err)
-                }
-              } else {
-                setError(t('errors.cannotLoadUser'))
-                setLoading(false)
-              }
-            }, 1000)
-            return
-          }
-
-          setUser(user)
-          // Đợi một chút để đảm bảo Firebase hoàn toàn sẵn sàng
-          await new Promise(resolve => setTimeout(resolve, 200))
-
-          // Create or get profile
-          let userProfile = await getProfile(user.uid)
-          if (!userProfile) {
-            // Kiểm tra xem đang tạo profile chưa (tránh duplicate calls)
-            if (creatingProfileRef.current) {
-              console.log('[page.tsx] ⚠️ Profile creation already in progress, skipping...')
-              return
-            }
-
-            // Check if user has isRoot, isSuperRoot flag and familyId (stored in localStorage during signup)
-            let isRootFromSignup = false
-            let isSuperRootFromSignup = false
-            let familyIdFromSignup: string | undefined
+            userProfile = await createDefaultProfile(firebaseUser, isRootFromSignup, familyIdFromSignup, isSuperRootFromSignup)
+            
+            // Cleanup signup flags
             if (typeof window !== 'undefined') {
-              isRootFromSignup = localStorage.getItem(`signup_isRoot_${user.uid}`) === 'true'
-              isSuperRootFromSignup = localStorage.getItem(`signup_isSuperRoot_${user.uid}`) === 'true'
-
-              // Retry logic: Đọc familyId với retry vì có thể localStorage chưa sync
-              // Thử đọc ngay lập tức trước
-              familyIdFromSignup = localStorage.getItem(`signup_familyId_${user.uid}`) || undefined
-
-              // Nếu không tìm thấy, thử tìm trong tất cả keys (có thể userId khác)
-              if (!familyIdFromSignup) {
-                const allFamilyIdKeys = Object.keys(localStorage).filter(key => key.startsWith('signup_familyId_'))
-                // Tìm key có chứa user.uid (có thể có format khác)
-                for (const key of allFamilyIdKeys) {
-                  if (key.includes(user.uid)) {
-                    familyIdFromSignup = localStorage.getItem(key) || undefined
-                    if (familyIdFromSignup) {
-                      console.log(`[page.tsx] ✅ Found familyId from alternative key: ${key} = ${familyIdFromSignup}`)
-                      break
-                    }
-                  }
-                }
-              }
-
-              // Nếu vẫn không tìm thấy, mới retry
-              let retryCount = 0
-              const maxRetries = 5 // Giảm số lần retry vì đã thử tìm trong tất cả keys
-              while (retryCount < maxRetries && !familyIdFromSignup) {
-                familyIdFromSignup = localStorage.getItem(`signup_familyId_${user.uid}`) || undefined
-                if (!familyIdFromSignup && retryCount < maxRetries - 1) {
-                  console.log(`[page.tsx] Retry ${retryCount + 1}/${maxRetries}: familyId not found, waiting 200ms...`)
-                  await new Promise(resolve => setTimeout(resolve, 200))
-                }
-                retryCount++
-              }
-
-              // Debug: Kiểm tra tất cả keys liên quan
-              const allKeys = Object.keys(localStorage).filter(key => key.includes(user.uid) || key.includes('signup'))
-              const allFamilyIdKeys = Object.keys(localStorage).filter(key => key.includes('signup_familyId'))
-
-              console.log('[page.tsx] Reading from localStorage:', {
-                userId: user.uid,
-                isRootFromSignup,
-                isSuperRootFromSignup,
-                familyIdFromSignup,
-                allSignupKeys: allKeys,
-                allFamilyIdKeys: allFamilyIdKeys,
-                familyIdValue: localStorage.getItem(`signup_familyId_${user.uid}`),
-                retries: retryCount,
-                // Kiểm tra tất cả các familyId keys để tìm xem có key nào khác không
-                allFamilyIdValues: allFamilyIdKeys.map(key => ({
-                  key,
-                  value: localStorage.getItem(key),
-                })),
-              })
-
-              // Cleanup: Xóa các keys cũ không còn dùng (từ các lần signup trước)
-              if (typeof window !== 'undefined' && allFamilyIdKeys.length > 1) {
-                // Giữ lại key của user hiện tại, xóa các key khác
-                const currentUserKey = `signup_familyId_${user.uid}`
-                for (const key of allFamilyIdKeys) {
-                  if (key !== currentUserKey) {
-                    // Kiểm tra xem key này có phải của user khác không (dựa vào userId trong key)
-                    const keyUserId = key.replace('signup_familyId_', '')
-                    // Chỉ xóa nếu không phải là user hiện tại
-                    if (keyUserId !== user.uid) {
-                      localStorage.removeItem(key)
-                      console.log(`[page.tsx] Cleaned up old localStorage key: ${key}`)
-                    }
-                  }
-                }
-              }
-
-              if (!familyIdFromSignup && isRootFromSignup) {
-                console.error('[page.tsx] ⚠️ ERROR: familyIdFromSignup is undefined but isRootFromSignup is true!')
-                console.error('[page.tsx] This will cause createDefaultProfile to create a new family with auto-generated codes.')
-                console.error('[page.tsx] All localStorage keys:', allKeys)
-                console.error('[page.tsx] All localStorage items:', allKeys.map(key => ({ key, value: localStorage.getItem(key) })))
-              }
+              localStorage.removeItem(`signup_isRoot_${firebaseUser.uid}`)
+              localStorage.removeItem(`signup_isSuperRoot_${firebaseUser.uid}`)
+              localStorage.removeItem(`signup_familyId_${firebaseUser.uid}`)
             }
-
-            // Set flag để tránh duplicate calls
-            creatingProfileRef.current = true
-            try {
-              userProfile = await createDefaultProfile(user, isRootFromSignup, familyIdFromSignup, isSuperRootFromSignup)
-            } finally {
-              creatingProfileRef.current = false
-            }
-            // Clean up localStorage
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem(`signup_isRoot_${user.uid}`)
-              localStorage.removeItem(`signup_isSuperRoot_${user.uid}`)
-              localStorage.removeItem(`signup_familyId_${user.uid}`)
-              // Hiển thị family code và root code nếu có
-              const familyCode = localStorage.getItem(`signup_familyCode_${user.uid}`)
-              const rootCode = localStorage.getItem(`signup_rootCode_${user.uid}`)
-              if (familyCode) {
-                const message = language === 'vi'
-                  ? `🎉 Gia đình của bạn đã được tạo!\n\n📋 Mã gia đình (để tham gia): ${familyCode}\n🔐 Mã Root (để trở thành root): ${rootCode || 'N/A'}\n\n💡 Hãy chia sẻ mã gia đình với các thành viên để họ tham gia. Giữ bí mật mã Root!`
-                  : `🎉 Your family has been created!\n\n📋 Family code (to join): ${familyCode}\n🔐 Root code (to become root): ${rootCode || 'N/A'}\n\n💡 Share the family code with members to join. Keep the root code secret!`
-                alert(message)
-                localStorage.removeItem(`signup_familyCode_${user.uid}`)
-                localStorage.removeItem(`signup_rootCode_${user.uid}`)
-              }
-            }
+          } finally {
+            creatingProfileRef.current = false
           }
+        }
 
-          // Migration: Xử lý user cũ chưa có familyId
+        // 5. Finalize status
+        if (userProfile) {
+          // Migration cho user cũ
           if (!userProfile.familyId && !userProfile.isSuperRoot) {
-            console.log('[Migration] User cũ chưa có familyId, đang xử lý...')
-            try {
-              if (userProfile.isRoot) {
-                // Nếu là root user cũ, tự động tạo family cho họ
-                const { createFamily } = await import('@/lib/firebase/family')
-                const familyName = userProfile.name || user.email?.split('@')[0] || 'Family'
-                const result = await createFamily(familyName, user.uid)
-                await updateProfile(userProfile.id, { familyId: result.familyId })
-                // Get lại profile sau khi update
-                userProfile = await getProfile(user.uid)
-                if (!userProfile) {
-                  throw new Error('Failed to get updated profile')
-                }
-                // Hiển thị thông báo
-                if (typeof window !== 'undefined') {
-                  alert(language === 'vi'
-                    ? `🎉 Hệ thống đã tự động tạo gia đình cho bạn! Mã gia đình: ${result.familyCode}\n\nHãy chia sẻ mã này với các thành viên khác để họ có thể tham gia.`
-                    : `🎉 System has automatically created a family for you! Family code: ${result.familyCode}\n\nShare this code with other members so they can join.`)
-                }
-              } else {
-                // Nếu không phải root, vẫn cho user vào app nhưng hiển thị cảnh báo
-                console.warn('[Migration] User không phải root và chưa có familyId')
-                if (typeof window !== 'undefined') {
-                  localStorage.setItem(`needsJoinFamily_${user.uid}`, 'true')
-                }
-              }
-            } catch (migrationErr: any) {
-              console.error('[Migration] Lỗi khi tạo family cho user cũ:', migrationErr)
-              // Không crash app - vẫn cho user vào với profile hiện tại
-              console.warn('[Migration] Bỏ qua migration, tiếp tục với profile hiện tại')
+            if (userProfile.isRoot) {
+              const { createFamily } = await import('@/lib/firebase/family')
+              const result = await createFamily(userProfile.name || 'Family', firebaseUser.uid)
+              await updateProfile(userProfile.id, { familyId: result.familyId })
+              userProfile = { ...userProfile, familyId: result.familyId }
             }
           }
 
-          // Đảm bảo characterAvatar luôn có giá trị (cho user cũ chưa có)
-          if (userProfile && !userProfile.characterAvatar) {
-            const avatarNumber = (user.uid.charCodeAt(0) % 7) + 1
-            userProfile = { ...userProfile, characterAvatar: avatarNumber }
-            // Cập nhật vào database
-            try {
-              await updateProfile(userProfile.id, { characterAvatar: avatarNumber })
-            } catch (err) {
-              console.error('Error updating characterAvatar:', err)
-            }
-          }
-          if (userProfile) {
-            setProfile(userProfile)
-            if (userProfile.familyId) {
-              recordDailyLogin(userProfile.id, userProfile.familyId).catch(console.error)
-            }
+          setProfile(userProfile)
+          if (userProfile.familyId) {
+            recordDailyLogin(userProfile.id, userProfile.familyId).catch(console.error)
           }
           setError(null)
-        } catch (err: any) {
-          console.error('Error loading profile:', err)
-          // Hiển thị lỗi chi tiết để debug trên production
-          const errorDetail = err?.message || err?.code || String(err)
-          setError(`${t('errors.cannotLoadUser')}\n\n🔍 Chi tiết: ${errorDetail}`)
-        } finally {
-          setLoading(false)
-          clearTimeout(timeoutId)
         }
-      } else {
-        setUser(null)
-        setProfile(null)
-        setError(null)
+      } catch (err: any) {
+        console.error('[page.tsx] ❌ Error in auth flow:', err)
+        const errorDetail = err?.message || err?.code || String(err)
+        setError(`${t('errors.cannotLoadUser')}\n\n🔍 Chi tiết: ${errorDetail}`)
+      } finally {
         setLoading(false)
         clearTimeout(timeoutId)
       }
@@ -373,7 +174,7 @@ export default function Home() {
       unsubscribe()
       clearTimeout(timeoutId)
     }
-  }, [])
+  }, [language, t])
 
   if (loading) {
     return <LoadingSpinner />
@@ -393,32 +194,30 @@ export default function Home() {
 
     return (
       <div
-        className="min-h-screen flex items-center justify-center p-4"
+        className="min-h-screen flex items-center justify-center p-4 bg-primary-50"
         style={errorBackgroundStyle}
       >
-        <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-xl p-8 max-w-md w-full border border-slate-700/50">
-          <div className="text-center">
-            <div className="text-4xl mb-4">⚠️</div>
-            <h1 className="text-xl font-bold text-gray-100 mb-4">{t('errors.firebaseNotConfigured')}</h1>
-            <p className="text-gray-300 mb-6 whitespace-pre-line">{error}</p>
+        <div className="kid-card max-w-md w-full p-8 text-center">
+          <div className="text-6xl mb-6 animate-bounce">⚠️</div>
+          <h1 className="text-2xl font-black text-primary-900 mb-4">{t('errors.firebaseNotConfigured')}</h1>
+          <p className="text-primary-700 mb-6 font-bold whitespace-pre-line">{error}</p>
 
-            {/* Debug info */}
-            <div className="bg-slate-900/60 border border-slate-600/50 rounded-lg p-3 text-left mb-4">
-              <p className="text-xs text-gray-400 mb-1 font-bold">🔍 Debug Status:</p>
-              <ul className="text-xs text-gray-500 space-y-0.5 font-mono">
-                <li>Auth: {firebaseAuth ? '✅' : '❌'} | DB: {firestoreDb ? '✅' : '❌'}</li>
-                <li>User: {user ? `✅ ${user.email}` : '❌ not logged in'}</li>
-              </ul>
-            </div>
+          <div className="bg-white/50 border-2 border-primary-100 rounded-2xl p-4 text-left mb-6">
+            <p className="text-xs text-primary-400 mb-2 font-black uppercase tracking-widest">🔍 TRẠNG THÁI HỆ THỐNG</p>
+            <ul className="text-sm text-primary-600 space-y-1 font-bold">
+              <li>Auth: {firebaseAuth ? '✅ Sẵn sàng' : '❌ Lỗi'}</li>
+              <li>Database: {firestoreDb ? '✅ Sẵn sàng' : '❌ Lỗi'}</li>
+              <li>User: {user ? `✅ ${user.email}` : '❌ Chưa đăng nhập'}</li>
+            </ul>
+          </div>
 
-            <div className="bg-yellow-900/30 border border-yellow-500/50 rounded-lg p-4 text-left">
-              <p className="text-sm text-gray-200 mb-2"><strong>{t('errors.toFix')}</strong></p>
-              <ol className="text-sm text-gray-300 list-decimal list-inside space-y-1">
-                <li>{t('errors.createEnvFile')}</li>
-                <li>{t('errors.addFirebaseInfo')}</li>
-                <li>{t('errors.restartServer')}</li>
-              </ol>
-            </div>
+          <div className="bg-accent-50 border-2 border-accent-100 rounded-2xl p-6 text-left shadow-kid">
+            <p className="text-base text-accent-700 mb-3 font-black">🌟 {t('errors.toFix')}</p>
+            <ol className="text-sm text-accent-600 list-decimal list-inside space-y-2 font-bold">
+              <li>{t('errors.createEnvFile')}</li>
+              <li>{t('errors.addFirebaseInfo')}</li>
+              <li>{t('errors.restartServer')}</li>
+            </ol>
           </div>
         </div>
       </div>
@@ -460,7 +259,7 @@ export default function Home() {
       backgroundAttachment: 'fixed',
     }
     : {
-      background: 'linear-gradient(to bottom right, rgb(15 23 42), rgb(30 41 59), rgb(15 23 42))',
+      background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
     }
 
   // Super Root Dashboard - hiển thị riêng cho super root
@@ -503,7 +302,7 @@ export default function Home() {
               )}
 
               {/* Danh sách nhiệm vụ */}
-              <div id="tasks-section" className="bg-slate-800/90 rounded-lg shadow-xl p-6 border border-slate-700/50">
+              <div id="tasks-section" className="kid-card">
                 <TasksList
                   currentUser={user}
                   profile={profile}
@@ -512,7 +311,7 @@ export default function Home() {
               </div>
 
               {/* Phê duyệt nhiệm vụ */}
-              <div id="approval-section" className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-xl p-6 border border-slate-700/50">
+              <div id="approval-section" className="kid-card">
                 <TaskApproval
                   currentUserId={user.uid}
                   currentUserRole={profile.role}
@@ -522,7 +321,7 @@ export default function Home() {
               </div>
 
               {/* Cửa hàng đổi thưởng */}
-              <div id="shop-section" className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-xl p-6 border border-slate-700/50">
+              <div id="shop-section" className="kid-card">
                 <RewardsShop
                   currentUserId={user.uid}
                   profile={profile}
@@ -531,7 +330,7 @@ export default function Home() {
               </div>
 
               {/* Hệ thống Rương */}
-              <div id="chests-section" className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-xl p-6 border border-slate-700/50">
+              <div id="chests-section" className="kid-card">
                 <ChestSystem
                   currentUserId={user.uid}
                   profile={profile}
@@ -555,7 +354,7 @@ export default function Home() {
               )}
 
               {/* Profile Management */}
-              <div id="profile-section" className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-xl p-6 border border-slate-700/50">
+              <div id="profile-section" className="kid-card">
                 <ProfilePage
                   profile={profile}
                   onUpdate={(updatedProfile) => {
