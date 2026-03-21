@@ -29,12 +29,13 @@ export default function TaskItem({
     const isDailyTask = task.type === 'daily' && task.parentTaskId
 
     // Status config
-    const statusConfig = {
+    const configMap = {
         pending: { label: t('tasks.statusPending'), color: 'text-amber-500', bg: 'bg-amber-50', dot: 'bg-amber-400' },
         in_progress: { label: t('tasks.statusInProgress'), color: 'text-blue-500', bg: 'bg-blue-50', dot: 'bg-blue-400' },
         completed: { label: t('tasks.statusWaitingApproval'), color: 'text-violet-500', bg: 'bg-violet-50', dot: 'bg-violet-400' },
         approved: { label: t('tasks.statusApproved'), color: 'text-emerald-500', bg: 'bg-emerald-50', dot: 'bg-emerald-400' }
-    }[task.status as keyof typeof statusConfig] || { label: task.status, color: 'text-violet-400', bg: 'bg-violet-50', dot: 'bg-violet-300' }
+    }
+    const statusConfig = configMap[task.status as keyof typeof configMap] || { label: task.status, color: 'text-violet-400', bg: 'bg-violet-50', dot: 'bg-violet-300' }
 
     return (
         <div className={`kid-card p-6 flex flex-col transition-all active:scale-[0.99] border-2 group relative overflow-hidden ${

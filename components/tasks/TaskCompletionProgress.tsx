@@ -1,4 +1,5 @@
 import React from 'react'
+import { useI18n } from '@/lib/i18n/context'
 
 interface TaskCompletionProgressProps {
     completionProgress: {
@@ -11,6 +12,7 @@ interface TaskCompletionProgressProps {
 }
 
 export function TaskCompletionProgress({ completionProgress, COMPLETION_REWARDS, t }: TaskCompletionProgressProps) {
+    const { language } = useI18n()
     return (
         <div className="mb-8 kid-card p-8 border-amber-100 bg-gradient-to-br from-white to-amber-50/20 shadow-kid relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100 rounded-full -mr-16 -mt-16 opacity-30 animate-pulse-slow" />
