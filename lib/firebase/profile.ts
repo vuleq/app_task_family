@@ -190,6 +190,7 @@ export const createDefaultProfile = async (user: User, isRoot: boolean = false, 
 
 export const getProfile = async (userId: string): Promise<UserProfile | null> => {
   const profileRef = doc(checkDb(), 'users', userId)
+  console.log('[profile.ts] 🔍 getProfile requested path:', profileRef.path)
   const profileSnap = await getDoc(profileRef)
 
   if (!profileSnap.exists()) {
