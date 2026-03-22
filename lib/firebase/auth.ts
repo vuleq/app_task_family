@@ -80,9 +80,7 @@ export const getCurrentUser = (): Promise<User | null> => {
 // Wrapper for onAuthStateChanged that handles undefined auth
 export const onAuthStateChangedSafe = (callback: (user: User | null) => void) => {
   if (!auth) {
-    console.warn('Firebase Auth is not initialized')
-    // Gọi callback ngay lập tức với null để app không bị stuck ở loading
-    setTimeout(() => callback(null), 0)
+    console.warn('[auth.ts] ⚠️ Firebase Auth not yet initialized when observer attached.')
     return () => { }
   }
   return onAuthStateChanged(auth, callback)

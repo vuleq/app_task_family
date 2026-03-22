@@ -3,26 +3,26 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { onAuthStateChangedSafe } from '@/lib/firebase/auth'
-import { getProfile, getProfileWithRetry, createDefaultProfile, updateProfile, UserProfile } from '@/lib/firebase/profile'
+import { getProfileWithRetry, createDefaultProfile, updateProfile, UserProfile } from '@/lib/firebase/profile'
 import { auth as firebaseAuth, db as firestoreDb } from '@/lib/firebase/config'
 import { User } from 'firebase/auth'
 import LoginPage from '@/components/LoginPage'
-import { JoinFamilyFlow } from '@/components/JoinFamilyFlow'
+import JoinFamilyFlow from '@/components/JoinFamilyFlow'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import { ProfilePage } from '@/components/ProfilePage'
+import ProfilePage from '@/components/ProfilePage'
 import Sidebar from '@/components/Sidebar'
-import { TasksList } from '@/components/tasks/TasksList'
+import TasksList from '@/components/TasksList'
 import PhotoEvidence from '@/components/PhotoEvidence'
-import { TaskApproval } from '@/components/tasks/TaskApproval'
-import { RewardsShop } from '@/components/rewards/RewardsShop'
-import { ChestSystem } from '@/components/chests/ChestSystem'
-import { BackgroundMusic } from '@/components/BackgroundMusic'
-import { Statistics } from '@/components/Statistics'
-import { TaskMonitoring } from '@/components/monitoring/TaskMonitoring'
-import { RootMemberDashboard } from '@/components/dashboard/RootMemberDashboard'
-import { recordDailyLogin } from '@/lib/firebase/stats'
-import { SuperRootDashboard } from '@/components/dashboard/SuperRootDashboard'
-import { CharacterCreation } from '@/components/CharacterCreation'
+import TaskApproval from '@/components/TaskApproval'
+import RewardsShop from '@/components/RewardsShop'
+import ChestSystem from '@/components/ChestSystem'
+import BackgroundMusic from '@/components/BackgroundMusic'
+import Statistics from '@/components/Statistics'
+import TaskMonitoring from '@/components/TaskMonitoring'
+import RootMemberDashboard from '@/components/RootMemberDashboard'
+import { recordDailyLogin } from '@/lib/firebase/loginHistory'
+import SuperRootDashboard from '@/components/SuperRootDashboard'
+import CharacterCreation from '@/components/CharacterCreation'
 import { useI18n } from '@/lib/i18n/context'
 
 export default function Home() {
@@ -34,6 +34,7 @@ export default function Home() {
   const router = useRouter()
   // Flag để tránh tạo profile nhiều lần
   const creatingProfileRef = useRef(false)
+  const currentAuthUidRef = useRef<string | null>(null)
 
   // Random background image
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null)
@@ -63,7 +64,12 @@ export default function Home() {
     }, 10000)
 
     const unsubscribe = onAuthStateChangedSafe(async (firebaseUser) => {
-      // 1. Nếu không có user, reset state và thoát ngay
+      // 1. Cập nhật ID hiện tại ngay lập tức để chặn các callback cũ
+      const currentUid = firebaseUser?.uid || null
+      currentAuthUidRef.current = currentUid
+
+      const isMostRecent = () => currentAuthUidRef.current === currentUid
+
       if (!firebaseUser) {
         setUser(null)
         setProfile(null)
@@ -75,12 +81,18 @@ export default function Home() {
 
       // 2. Cập nhật user state ngay lập tức
       setUser(firebaseUser)
-      console.log('[page.tsx] 🔐 User authenticated:', firebaseUser.email)
+      console.log('[page.tsx] 🔐 User identified:', firebaseUser.email, '(Checking if most recent...)')
 
       try {
-        // 3. Kiểm tra profile - Luôn fetch lại khi auth change
+        // 3. Kiểm tra profile
         console.log('[page.tsx] 👤 Loading profile for:', firebaseUser.uid)
         let userProfile = await getProfileWithRetry(firebaseUser.uid)
+
+        // Kiểm tra xem đây có còn là session mới nhất không trước khi sset state
+        if (!isMostRecent()) {
+          console.warn('[page.tsx] ⚠️ Overlapping auth session detected, aborting profile load for:', firebaseUser.uid)
+          return
+        }
 
         if (!userProfile) {
           if (creatingProfileRef.current) return
@@ -92,6 +104,8 @@ export default function Home() {
             const familyIdFromSignup = typeof window !== 'undefined' ? localStorage.getItem(`signup_familyId_${firebaseUser.uid}`) || undefined : undefined
 
             userProfile = await createDefaultProfile(firebaseUser, isRootFromSignup, familyIdFromSignup, isSuperRootFromSignup)
+            
+            if (!isMostRecent()) return // Double check after async creation
             
             // Cleanup signup flags
             if (typeof window !== 'undefined') {
@@ -105,7 +119,7 @@ export default function Home() {
         }
 
         // 4. Hoàn tất cập nhật profile
-        if (userProfile && typeof userProfile === 'object') {
+        if (userProfile && typeof userProfile === 'object' && isMostRecent()) {
           // Migration cho user cũ (nếu cần)
           if (!userProfile.familyId && !userProfile.isSuperRoot && userProfile.isRoot) {
             try {
@@ -118,22 +132,28 @@ export default function Home() {
             }
           }
 
-          setProfile(userProfile)
-          if (userProfile.familyId) {
-            recordDailyLogin(userProfile.id, userProfile.familyId).catch(console.error)
+          if (isMostRecent()) {
+            setProfile(userProfile)
+            if (userProfile.familyId) {
+              recordDailyLogin(userProfile.id, userProfile.familyId).catch(console.error)
+            }
+            setError(null)
           }
-          setError(null)
-        } else if (userProfile) {
+        } else if (userProfile && isMostRecent()) {
           console.error('[page.tsx] Invalid profile found (not an object):', userProfile)
           setError('Profile found but data is corrupted. Please try logging out.')
         }
       } catch (err: any) {
-        console.error('[page.tsx] ❌ AUTH INITIALIZATION ERROR:', err)
-        const errorDetail = err?.message || err?.code || String(err)
-        setError(`Lỗi hệ thống: ${errorDetail}`)
+        if (isMostRecent()) {
+          console.error('[page.tsx] ❌ AUTH INITIALIZATION ERROR:', err)
+          const errorDetail = err?.message || err?.code || String(err)
+          setError(`Lỗi hệ thống: ${errorDetail}`)
+        }
       } finally {
-        setLoading(false)
-        clearTimeout(timeoutId)
+        if (isMostRecent()) {
+          setLoading(false)
+          clearTimeout(timeoutId)
+        }
       }
     })
 
@@ -348,7 +368,7 @@ export default function Home() {
               <div id="profile-section" className="kid-card">
                 <ProfilePage
                   profile={profile}
-                  onUpdate={(updatedProfile) => {
+                  onUpdate={(updatedProfile: UserProfile) => {
                     setProfile(updatedProfile)
                   }}
                 />
