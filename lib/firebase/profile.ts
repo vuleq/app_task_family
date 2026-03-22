@@ -189,9 +189,7 @@ export const createDefaultProfile = async (user: User, isRoot: boolean = false, 
 }
 
 export const getProfile = async (userId: string): Promise<UserProfile | null> => {
-  console.log('[profile.ts] 🚀 ENTERING getProfile for UID:', userId)
   const profileRef = doc(checkDb(), 'users', userId)
-  console.log('[profile.ts] 🔍 getProfile requested path:', profileRef.path)
   const profileSnap = await getDoc(profileRef)
 
   if (!profileSnap.exists()) {
@@ -202,6 +200,36 @@ export const getProfile = async (userId: string): Promise<UserProfile | null> =>
     id: profileSnap.id,
     ...profileSnap.data(),
   } as UserProfile
+}
+
+/**
+ * Lấy profile với cơ chế thử lại (retry) nếu gặp lỗi permission-denied.
+ * Lỗi này thường xảy ra ngay sau khi đăng nhập lại khi token chưa kịp cập nhật với Firestore.
+ */
+export const getProfileWithRetry = async (userId: string, maxRetries: number = 3): Promise<UserProfile | null> => {
+  let lastError: any = null
+  
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      console.log(`[profile.ts] 🔍 Attempt ${i + 1} to get profile for UID: ${userId}`)
+      const profile = await getProfile(userId)
+      if (i > 0) console.log(`[profile.ts] ✅ Successfully fetched profile on attempt ${i + 1}`)
+      return profile
+    } catch (err: any) {
+      lastError = err
+      // Chỉ retry nếu là lỗi permission-denied
+      if (err?.code === 'permission-denied' || err?.message?.includes('permissions')) {
+        console.warn(`[profile.ts] ⚠️ Permission denied on attempt ${i + 1}. Retrying in 1s...`)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        continue
+      }
+      // Các lỗi khác thì throw luôn
+      throw err
+    }
+  }
+  
+  console.error(`[profile.ts] ❌ Failed to fetch profile after ${maxRetries} attempts.`)
+  throw lastError
 }
 
 // Lấy danh sách tất cả users trong cùng family (để assign task)

@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { onAuthStateChangedSafe } from '@/lib/firebase/auth'
-import { getProfile, createDefaultProfile, updateProfile, UserProfile } from '@/lib/firebase/profile'
+import { getProfile, getProfileWithRetry, createDefaultProfile, updateProfile, UserProfile } from '@/lib/firebase/profile'
 import { db as firestoreDb, auth as firebaseAuth } from '@/lib/firebase/config'
 import { User } from 'firebase/auth'
 import LoginPage from '@/components/LoginPage'
@@ -118,7 +118,7 @@ export default function Home() {
 
         // 4. Load or Create Profile
         console.log('[page.tsx] 👤 Loading profile for:', firebaseUser.uid)
-        let userProfile = await getProfile(firebaseUser.uid)
+        let userProfile = await getProfileWithRetry(firebaseUser.uid)
 
         if (!userProfile) {
           if (creatingProfileRef.current) return
@@ -167,16 +167,18 @@ export default function Home() {
           setError(null)
         }
       } catch (err: any) {
-        console.error('[page.tsx] ❌ ALL AUTH ERROR DETAILS:', {
+        console.error('[page.tsx] ❌ AUTH INITIALIZATION ERROR:', {
           message: err?.message,
           code: err?.code,
           name: err?.name,
           fullError: err,
           uid: firebaseUser.uid,
-          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+          authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
         })
         const errorDetail = err?.message || err?.code || String(err)
-        setError(`${t('errors.cannotLoadUser')}\n\n🔍 Chi tiết: ${errorDetail}`)
+        const errorType = err?.code === 'permission-denied' ? 'Lỗi quyền truy cập (Permission Denied)' : 'Lỗi tải dữ liệu'
+        setError(`${errorType}\n\n🔍 Chi tiết: ${errorDetail}\n\nProject ID: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '(Auto-detected)'}`)
       } finally {
         setLoading(false)
         clearTimeout(timeoutId)
@@ -224,13 +226,23 @@ export default function Home() {
             </ul>
           </div>
 
-          <div className="bg-accent-50 border-2 border-accent-100 rounded-2xl p-6 text-left shadow-kid">
-            <p className="text-base text-accent-700 mb-3 font-black">🌟 {t('errors.toFix')}</p>
-            <ol className="text-sm text-accent-600 list-decimal list-inside space-y-2 font-bold">
-              <li>{t('errors.createEnvFile')}</li>
-              <li>{t('errors.addFirebaseInfo')}</li>
-              <li>{t('errors.restartServer')}</li>
-            </ol>
+          <div className="flex flex-col gap-3 mt-6">
+            <button
+               onClick={() => window.location.reload()}
+               className="w-full py-4 bg-primary-600 text-white rounded-2xl font-black shadow-kid hover:bg-primary-700 active:scale-95 transition-all uppercase tracking-tight"
+            >
+              🔄 {t('errors.tryAgain') || 'Thử lại'}
+            </button>
+            <button
+               onClick={async () => {
+                 const { logout } = await import('@/lib/firebase/auth');
+                 await logout();
+                 window.location.href = '/';
+               }}
+               className="w-full py-4 bg-white text-red-500 border-2 border-red-100 rounded-2xl font-black shadow-soft hover:bg-red-50 active:scale-95 transition-all uppercase tracking-tight"
+            >
+              🚪 {t('header.logout') || 'Đăng xuất'}
+            </button>
           </div>
         </div>
       </div>

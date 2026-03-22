@@ -29,8 +29,10 @@ const firebaseConfig = {
 // Log resolved config for debugging
 if (typeof window !== 'undefined') {
   console.log('[config.ts] 🛠️ Resolved Firebase Config:', {
-    ...firebaseConfig,
-    apiKey: firebaseConfig.apiKey ? '***' + firebaseConfig.apiKey.slice(-5) : undefined
+    apiKey: firebaseConfig.apiKey ? '***' + firebaseConfig.apiKey.slice(-5) : undefined,
+    authDomain: firebaseConfig.authDomain,
+    projectId: firebaseConfig.projectId,
+    appId: firebaseConfig.appId,
   })
 }
 
