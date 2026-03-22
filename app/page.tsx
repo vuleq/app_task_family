@@ -198,6 +198,13 @@ export default function Home() {
     }
   }, [language, t])
 
+  console.log('[page.tsx] 📺 UI State:', { 
+    user: user?.email || 'NONE', 
+    profile: profile?.id || 'NONE', 
+    loading, 
+    error: !!error 
+  })
+
   if (loading) {
     return <LoadingSpinner />
   }
