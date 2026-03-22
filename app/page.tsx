@@ -4,25 +4,25 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { onAuthStateChangedSafe } from '@/lib/firebase/auth'
 import { getProfile, getProfileWithRetry, createDefaultProfile, updateProfile, UserProfile } from '@/lib/firebase/profile'
-import { db as firestoreDb, auth as firebaseAuth } from '@/lib/firebase/config'
+import { auth as firebaseAuth, db as firestoreDb } from '@/lib/firebase/config'
 import { User } from 'firebase/auth'
 import LoginPage from '@/components/LoginPage'
-import JoinFamilyFlow from '@/components/JoinFamilyFlow'
+import { JoinFamilyFlow } from '@/components/JoinFamilyFlow'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import ProfilePage from '@/components/ProfilePage'
+import { ProfilePage } from '@/components/ProfilePage'
 import Sidebar from '@/components/Sidebar'
-import TasksList from '@/components/TasksList'
+import { TasksList } from '@/components/tasks/TasksList'
 import PhotoEvidence from '@/components/PhotoEvidence'
-import TaskApproval from '@/components/TaskApproval'
-import RewardsShop from '@/components/RewardsShop'
-import ChestSystem from '@/components/ChestSystem'
-import BackgroundMusic from '@/components/BackgroundMusic'
-import Statistics from '@/components/Statistics'
-import TaskMonitoring from '@/components/TaskMonitoring'
-import RootMemberDashboard from '@/components/RootMemberDashboard'
-import { recordDailyLogin } from '@/lib/firebase/loginHistory'
-import SuperRootDashboard from '@/components/SuperRootDashboard'
-import CharacterCreation from '@/components/CharacterCreation'
+import { TaskApproval } from '@/components/tasks/TaskApproval'
+import { RewardsShop } from '@/components/rewards/RewardsShop'
+import { ChestSystem } from '@/components/chests/ChestSystem'
+import { BackgroundMusic } from '@/components/BackgroundMusic'
+import { Statistics } from '@/components/Statistics'
+import { TaskMonitoring } from '@/components/monitoring/TaskMonitoring'
+import { RootMemberDashboard } from '@/components/dashboard/RootMemberDashboard'
+import { recordDailyLogin } from '@/lib/firebase/stats'
+import { SuperRootDashboard } from '@/components/dashboard/SuperRootDashboard'
+import { CharacterCreation } from '@/components/CharacterCreation'
 import { useI18n } from '@/lib/i18n/context'
 
 export default function Home() {
@@ -63,6 +63,7 @@ export default function Home() {
     }, 10000)
 
     const unsubscribe = onAuthStateChangedSafe(async (firebaseUser) => {
+      // 1. Nếu không có user, reset state và thoát ngay
       if (!firebaseUser) {
         setUser(null)
         setProfile(null)
@@ -72,67 +73,20 @@ export default function Home() {
         return
       }
 
-      // 1. Set user state ngay lập tức
+      // 2. Cập nhật user state ngay lập tức
       setUser(firebaseUser)
       console.log('[page.tsx] 🔐 User authenticated:', firebaseUser.email)
 
       try {
-        // 2. Chờ Firebase initialized (với retry logic nhẹ nhàng hơn)
-        let dbInstance = null
-        let retries = 0
-        const maxRetries = 5
-
-        while (!dbInstance && retries < maxRetries) {
-          const { db } = await import('@/lib/firebase/config')
-          if (db) {
-            dbInstance = db
-            break
-          }
-          await new Promise(resolve => setTimeout(resolve, 500))
-          retries++
-        }
-
-        if (!dbInstance) {
-          throw new Error('Firebase Firestore could not be initialized. Please check your .env.local file.')
-        }
-
-        // 3. Handle Google Redirect state if exists
-        if (typeof window !== 'undefined') {
-          const pendingStateStr = localStorage.getItem('pending_google_auth_state')
-          if (pendingStateStr) {
-            try {
-              const pendingState = JSON.parse(pendingStateStr)
-              if (Date.now() - pendingState.timestamp < 30 * 60 * 1000) {
-                console.log('[page.tsx] 🔄 Migrating pending Google state to UID:', firebaseUser.uid)
-                if (pendingState.wantRoot) localStorage.setItem(`signup_isRoot_${firebaseUser.uid}`, 'true')
-                if (pendingState.wantSuperRoot) localStorage.setItem(`signup_isSuperRoot_${firebaseUser.uid}`, 'true')
-                if (pendingState.familyId) localStorage.setItem(`signup_familyId_${firebaseUser.uid}`, pendingState.familyId)
-                localStorage.setItem(`is_google_signup_${firebaseUser.uid}`, 'true')
-              }
-              localStorage.removeItem('pending_google_auth_state')
-            } catch (e) {
-              console.error('[page.tsx] Error parsing pending state:', e)
-            }
-          }
-        }
-
-        // 4. Load or Create Profile
-        const currentAuthUser = (await import('@/lib/firebase/config')).auth?.currentUser
-        console.log('[page.tsx] 🔐 Auth State Check:', {
-          onAuthStateChangedUser: firebaseUser.uid,
-          currentAuthUser: currentAuthUser?.uid || 'NONE',
-          isMatches: currentAuthUser?.uid === firebaseUser.uid
-        })
-        
+        // 3. Kiểm tra profile - Luôn fetch lại khi auth change
         console.log('[page.tsx] 👤 Loading profile for:', firebaseUser.uid)
         let userProfile = await getProfileWithRetry(firebaseUser.uid)
 
         if (!userProfile) {
           if (creatingProfileRef.current) return
-          
           creatingProfileRef.current = true
           try {
-            console.log('[page.tsx] ✨ Creating new profile for UID:', firebaseUser.uid, 'on Project:', process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID)
+            console.log('[page.tsx] ✨ Creating new profile for UID:', firebaseUser.uid)
             const isRootFromSignup = typeof window !== 'undefined' && localStorage.getItem(`signup_isRoot_${firebaseUser.uid}`) === 'true'
             const isSuperRootFromSignup = typeof window !== 'undefined' && localStorage.getItem(`signup_isSuperRoot_${firebaseUser.uid}`) === 'true'
             const familyIdFromSignup = typeof window !== 'undefined' ? localStorage.getItem(`signup_familyId_${firebaseUser.uid}`) || undefined : undefined
@@ -150,20 +104,17 @@ export default function Home() {
           }
         }
 
-        // 5. Finalize status
-        if (userProfile) {
-          // Migration cho user cũ
-          if (!userProfile.familyId && !userProfile.isSuperRoot) {
-            if (userProfile.isRoot) {
-              try {
-                const { createFamily } = await import('@/lib/firebase/family')
-                const result = await createFamily(userProfile.name || 'Family', firebaseUser.uid)
-                await updateProfile(userProfile.id, { familyId: result.familyId })
-                userProfile = { ...userProfile, familyId: result.familyId }
-              } catch (migrationErr: any) {
-                console.error('[Migration] Lỗi khi tạo family cho user cũ:', migrationErr)
-                console.warn('[Migration] Bỏ qua migration, tiếp tục với profile hiện tại')
-              }
+        // 4. Hoàn tất cập nhật profile
+        if (userProfile && typeof userProfile === 'object') {
+          // Migration cho user cũ (nếu cần)
+          if (!userProfile.familyId && !userProfile.isSuperRoot && userProfile.isRoot) {
+            try {
+              const { createFamily } = await import('@/lib/firebase/family')
+              const result = await createFamily(userProfile.name || 'Family', firebaseUser.uid)
+              await updateProfile(userProfile.id, { familyId: result.familyId })
+              userProfile = { ...userProfile, familyId: result.familyId }
+            } catch (migrationErr) {
+              console.error('[Migration] Error:', migrationErr)
             }
           }
 
@@ -172,20 +123,14 @@ export default function Home() {
             recordDailyLogin(userProfile.id, userProfile.familyId).catch(console.error)
           }
           setError(null)
+        } else if (userProfile) {
+          console.error('[page.tsx] Invalid profile found (not an object):', userProfile)
+          setError('Profile found but data is corrupted. Please try logging out.')
         }
       } catch (err: any) {
-        console.error('[page.tsx] ❌ AUTH INITIALIZATION ERROR:', {
-          message: err?.message,
-          code: err?.code,
-          name: err?.name,
-          fullError: err,
-          uid: firebaseUser.uid,
-          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-          authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-        })
+        console.error('[page.tsx] ❌ AUTH INITIALIZATION ERROR:', err)
         const errorDetail = err?.message || err?.code || String(err)
-        const errorType = err?.code === 'permission-denied' ? 'Lỗi quyền truy cập (Permission Denied)' : 'Lỗi tải dữ liệu'
-        setError(`${errorType}\n\n🔍 Chi tiết: ${errorDetail}\n\nProject ID: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '(Auto-detected)'}`)
+        setError(`Lỗi hệ thống: ${errorDetail}`)
       } finally {
         setLoading(false)
         clearTimeout(timeoutId)
