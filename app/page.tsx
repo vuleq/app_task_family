@@ -172,7 +172,7 @@ export default function Home() {
       unsubscribe()
       clearTimeout(timeoutId)
     }
-  }, [language, t])
+  }, []) // Remove [language, t] to prevent resubscription on i18n changes
 
   console.log('[page.tsx] 📺 UI State:', { 
     user: user?.email || 'NONE', 
@@ -245,7 +245,7 @@ export default function Home() {
 
   const handleProfileUpdate = async () => {
     if (user) {
-      const updatedProfile = await getProfile(user.uid)
+      const updatedProfile = await getProfileWithRetry(user.uid)
       if (updatedProfile) {
         setProfile(updatedProfile)
       }
