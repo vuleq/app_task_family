@@ -27,8 +27,19 @@ import { useI18n } from '@/lib/i18n/context'
 
 export default function Home() {
   const { t, language } = useI18n()
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [user, setUserState] = useState<User | null>(null)
+  const [profile, setProfileState] = useState<UserProfile | null>(null)
+  
+  const setUser = (u: User | null) => {
+    console.log('[TRACER] 🛡️ setUser called with:', u?.email || 'NONE', 'UID:', u?.uid || 'NONE', 'at:', new Date().toISOString())
+    setUserState(u)
+  }
+  
+  const setProfile = (p: UserProfile | null) => {
+    console.log('[TRACER] 👤 setProfile called with:', p ? (typeof p === 'object' ? p.id : `STRING:${p}`) : 'NONE', 'at:', new Date().toISOString())
+    setProfileState(p)
+  }
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
