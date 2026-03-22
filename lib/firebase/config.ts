@@ -26,6 +26,14 @@ const firebaseConfig = {
   appId: cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_APP_ID),
 }
 
+// Log resolved config for debugging
+if (typeof window !== 'undefined') {
+  console.log('[config.ts] 🛠️ Resolved Firebase Config:', {
+    ...firebaseConfig,
+    apiKey: firebaseConfig.apiKey ? '***' + firebaseConfig.apiKey.slice(-5) : undefined
+  })
+}
+
 // Check if Firebase config is valid
 const isFirebaseConfigValid = () => {
   const isValid = !!(
