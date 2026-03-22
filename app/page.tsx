@@ -117,6 +117,13 @@ export default function Home() {
         }
 
         // 4. Load or Create Profile
+        const currentAuthUser = (await import('@/lib/firebase/config')).auth?.currentUser
+        console.log('[page.tsx] 🔐 Auth State Check:', {
+          onAuthStateChangedUser: firebaseUser.uid,
+          currentAuthUser: currentAuthUser?.uid || 'NONE',
+          isMatches: currentAuthUser?.uid === firebaseUser.uid
+        })
+        
         console.log('[page.tsx] 👤 Loading profile for:', firebaseUser.uid)
         let userProfile = await getProfileWithRetry(firebaseUser.uid)
 

@@ -1,6 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Test rule - remove after fixing permission issue
+    match /test_connectivity/{docId} {
+      allow read: if request.auth != null;
+    }
+
     // Users collection
     match /users/{userId} {
       // Cho phép đọc tất cả users (để assign task), nhưng chỉ cho phép ghi user của chính mình
