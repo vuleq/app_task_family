@@ -47,6 +47,7 @@ export const sendResetPasswordEmail = async (email: string) => {
 
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider()
+  provider.setCustomParameters({ prompt: 'select_account' })
   return await signInWithPopup(checkAuth(), provider)
 }
 
