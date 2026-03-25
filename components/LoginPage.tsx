@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { loginWithEmail, signupWithEmail, loginWithGoogle, sendVerificationEmail, logout, sendResetPasswordEmail } from '@/lib/firebase/auth'
+import { loginWithEmail, signupWithEmail, loginWithGoogle, sendVerificationEmail, logout, sendResetPasswordEmail, getSignInMethodsForEmail } from '@/lib/firebase/auth'
 import { createFamily, joinFamilyByCode, getFamilyByRootCode } from '@/lib/firebase/family'
 import { getAllUsers } from '@/lib/firebase/profile'
 import { useI18n } from '@/lib/i18n/context'
@@ -166,6 +166,23 @@ export default function LoginPage({ externalError, onClearExternalError }: Login
         if (typeof window !== 'undefined') window.location.reload()
       }
     } catch (err: any) {
+      // Check if this is a Google-linked account trying to use email/password
+      if (isLogin && (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found')) {
+        try {
+          const methods = await getSignInMethodsForEmail(email.trim())
+          if (methods.includes('google.com')) {
+            setError(
+              language === 'vi'
+                ? '📧 Email này đã được đăng ký bằng Google. Vui lòng dùng nút "Đăng nhập với Google" bên dưới.'
+                : '📧 This email was registered with Google. Please use the "Sign in with Google" button below.'
+            )
+            setLoading(false)
+            return
+          }
+        } catch {
+          // fallthrough to generic error
+        }
+      }
       setError(err.message || t('login.errorOccurred'))
       setLoading(false)
     }

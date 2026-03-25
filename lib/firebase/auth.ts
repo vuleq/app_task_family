@@ -10,6 +10,7 @@ import {
   getRedirectResult,
   sendEmailVerification,
   sendPasswordResetEmail,
+  fetchSignInMethodsForEmail,
 } from 'firebase/auth'
 import { auth } from './config'
 
@@ -87,4 +88,13 @@ export const onAuthStateChangedSafe = (callback: (user: User | null) => void) =>
 }
 
 export { auth }
+
+export const getSignInMethodsForEmail = async (email: string): Promise<string[]> => {
+  const a = checkAuth()
+  try {
+    return await fetchSignInMethodsForEmail(a, email)
+  } catch {
+    return []
+  }
+}
 
