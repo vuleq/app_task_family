@@ -5,6 +5,7 @@ import {
   User,
   onAuthStateChanged,
   GoogleAuthProvider,
+  FacebookAuthProvider,
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
@@ -54,6 +55,11 @@ export const loginWithGoogle = async () => {
 export const loginWithGoogleRedirect = async () => {
   const provider = new GoogleAuthProvider()
   return await signInWithRedirect(checkAuth(), provider)
+}
+
+export const loginWithFacebook = async () => {
+  const provider = new FacebookAuthProvider()
+  return await signInWithPopup(checkAuth(), provider)
 }
 
 export const getRedirectResultSafe = async () => {
