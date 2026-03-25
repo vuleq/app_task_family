@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { loginWithEmail, signupWithEmail, loginWithGoogle, loginWithGoogleRedirect, sendVerificationEmail, logout, sendResetPasswordEmail } from '@/lib/firebase/auth'
+import { loginWithEmail, signupWithEmail, loginWithGoogle, sendVerificationEmail, logout, sendResetPasswordEmail } from '@/lib/firebase/auth'
 import { createFamily, joinFamilyByCode, getFamilyByRootCode } from '@/lib/firebase/family'
 import { getAllUsers } from '@/lib/firebase/profile'
 import { useI18n } from '@/lib/i18n/context'
@@ -10,7 +10,12 @@ import Toast from './Toast'
 // Super root code để tạo super root user (quản lý tất cả families)
 const SUPER_ROOT_CODE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SUPER_ROOT_CODE) || 'SUPERADMIN2024'
 
-export default function LoginPage() {
+interface LoginPageProps {
+  externalError?: string | null;
+  onClearExternalError?: () => void;
+}
+
+export default function LoginPage({ externalError, onClearExternalError }: LoginPageProps) {
   const { t, language } = useI18n()
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
@@ -43,6 +48,13 @@ export default function LoginPage() {
     }
   }, [])
 
+  // Đồng bộ externalError vào local error state
+  useEffect(() => {
+    if (externalError) {
+      setError(externalError);
+    }
+  }, [externalError]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -50,16 +62,8 @@ export default function LoginPage() {
 
     try {
       if (isLogin) {
-        const userCredential = await loginWithEmail(email, password)
-        const isTestAccount = email.includes('agent_test_2326')
-        if (!userCredential.user.emailVerified && !isTestAccount) {
-          await logout()
-          setError(language === 'vi'
-            ? 'Email của bạn chưa được xác thực. Vui lòng kiểm tra hộp thư đến và bấm vào link xác thực.'
-            : 'Your email is not verified. Please check your inbox and click the verification link.')
-          setLoading(false)
-          return
-        }
+        await loginWithEmail(email, password)
+        // Note: Verification check moved to parent (app/page.tsx) to prevent state loss on logout
       } else {
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
         if (!emailRegex.test(email.trim())) {
@@ -171,16 +175,10 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      if (typeof window !== 'undefined') {
-        const pendingData = {
-          isLogin, wantRoot, wantSuperRoot, rootAction, rootCode, superRootCode,
-          familyCode, familyName, customFamilyCode, customRootCode, useCustomCodes, timestamp: Date.now()
-        }
-        localStorage.setItem('pending_google_auth_state', JSON.stringify(pendingData))
-      }
-      await loginWithGoogleRedirect()
+      await loginWithGoogle()
     } catch (err: any) {
       setError(err.message || t('login.errorOccurred'))
+      setLoading(false)
     }
   }
 
@@ -457,6 +455,7 @@ export default function LoginPage() {
               setIsLogin(!isLogin)
               setIsForgotPassword(false)
               setError('')
+              if (onClearExternalError) onClearExternalError()
               setWantRoot(false)
               setWantSuperRoot(false)
               setFamilyCode('')

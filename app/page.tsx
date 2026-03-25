@@ -27,21 +27,12 @@ import { useI18n } from '@/lib/i18n/context'
 
 export default function Home() {
   const { t, language } = useI18n()
-  const [user, setUserState] = useState<User | null>(null)
-  const [profile, setProfileState] = useState<UserProfile | null>(null)
-  
-  const setUser = (u: User | null) => {
-    console.log('[TRACER] 🛡️ setUser called with:', u?.email || 'NONE', 'UID:', u?.uid || 'NONE', 'at:', new Date().toISOString())
-    setUserState(u)
-  }
-  
-  const setProfile = (p: UserProfile | null) => {
-    console.log('[TRACER] 👤 setProfile called with:', p ? (typeof p === 'object' ? p.id : `STRING:${p}`) : 'NONE', 'at:', new Date().toISOString())
-    setProfileState(p)
-  }
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [verificationError, setVerificationError] = useState<string | null>(null)
   const router = useRouter()
   // Flag để tránh tạo profile nhiều lần
   const creatingProfileRef = useRef(false)
@@ -88,6 +79,23 @@ export default function Home() {
         setLoading(false)
         clearTimeout(timeoutId)
         return
+      }
+
+      // Check email verification (except for test accounts)
+      const isTestAccount = firebaseUser.email?.includes('agent_test_2326')
+      if (!firebaseUser.emailVerified && !isTestAccount) {
+        console.warn('[page.tsx] 📧 Email not verified for:', firebaseUser.email)
+        setVerificationError(
+          language === 'vi'
+            ? 'Email của bạn chưa được xác thực. Vui lòng kiểm tra hộp thư đến và bấm vào link xác thực.'
+            : 'Your email is not verified. Please check your inbox and click the verification link.'
+        )
+        import('@/lib/firebase/auth').then(({ logout }) => logout())
+        setLoading(false)
+        clearTimeout(timeoutId)
+        return
+      } else {
+        setVerificationError(null)
       }
 
       // 2. Cập nhật user state ngay lập tức
@@ -174,12 +182,7 @@ export default function Home() {
     }
   }, []) // Remove [language, t] to prevent resubscription on i18n changes
 
-  console.log('[page.tsx] 📺 UI State:', { 
-    user: user?.email || 'NONE', 
-    profile: profile?.id || 'NONE', 
-    loading, 
-    error: !!error 
-  })
+
 
   if (loading) {
     return <LoadingSpinner />
@@ -240,7 +243,12 @@ export default function Home() {
   }
 
   if (!user) {
-    return <LoginPage />
+    return (
+      <LoginPage 
+        externalError={verificationError} 
+        onClearExternalError={() => setVerificationError(null)} 
+      />
+    )
   }
 
   const handleProfileUpdate = async () => {
