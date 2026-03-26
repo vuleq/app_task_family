@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { loginWithEmail, signupWithEmail, loginWithGoogle, loginWithFacebook, sendVerificationEmail, logout, sendResetPasswordEmail, getSignInMethodsForEmail } from '@/lib/firebase/auth'
+import { loginWithEmail, signupWithEmail, loginWithGoogle, sendVerificationEmail, logout, sendResetPasswordEmail, getSignInMethodsForEmail } from '@/lib/firebase/auth'
 import { createFamily, joinFamilyByCode, getFamilyByRootCode } from '@/lib/firebase/family'
 import { getAllUsers } from '@/lib/firebase/profile'
 import { useI18n } from '@/lib/i18n/context'
@@ -199,16 +199,6 @@ export default function LoginPage({ externalError, onClearExternalError }: Login
     }
   }
 
-  const handleFacebookLogin = async () => {
-    setError('')
-    setLoading(true)
-    try {
-      await loginWithFacebook()
-    } catch (err: any) {
-      setError(err.message || t('login.errorOccurred'))
-      setLoading(false)
-    }
-  }
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -477,16 +467,6 @@ export default function LoginPage({ externalError, onClearExternalError }: Login
           {t('login.loginWithGoogle')}
         </button>
 
-        <button
-          onClick={handleFacebookLogin}
-          disabled={loading}
-          className="mt-4 w-full btn-playful bg-[#1877F2] text-white py-4 px-6 rounded-[1.5rem] font-black shadow-soft hover:bg-[#166fe5] transition-all flex items-center justify-center gap-4 uppercase tracking-widest text-xs active:translate-y-1"
-        >
-          <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
-            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-          </svg>
-          {t('login.loginWithFacebook')}
-        </button>
 
         <div className="mt-10 text-center">
           <button

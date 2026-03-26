@@ -190,7 +190,6 @@ export const createDefaultProfile = async (user: User, isRoot: boolean = false, 
 
 export const getProfile = async (userId: string): Promise<UserProfile | null> => {
   const firestore = checkDb()
-  console.log('[profile.ts] 🔍 Fetching profile for UID:', userId, 'on Project:', (firestore as any)._databaseId?.projectId || firestore.app.options.projectId)
   const profileRef = doc(firestore, 'users', userId)
   const profileSnap = await getDoc(profileRef)
 
