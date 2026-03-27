@@ -166,6 +166,17 @@ export default function Sidebar({ profile, onUpdate }: SidebarProps) {
                                         src={profile.avatar}
                                         alt={profile.name}
                                         className="w-full h-full object-cover -rotate-3 group-hover:scale-110 transition-transform"
+                                        onError={(e) => {
+                                            const target = e.target as HTMLImageElement
+                                            target.style.display = 'none'
+                                            const parent = target.parentElement
+                                            if (parent) {
+                                                const span = document.createElement('span')
+                                                span.className = 'text-3xl text-white font-black -rotate-3'
+                                                span.textContent = profile.name.charAt(0).toUpperCase()
+                                                parent.appendChild(span)
+                                            }
+                                        }}
                                     />
                                 ) : (
                                     <span className="text-3xl text-white font-black -rotate-3">

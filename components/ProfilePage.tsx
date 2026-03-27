@@ -158,7 +158,22 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
                 <div className="w-32 h-32 rounded-full bg-gradient-to-br from-violet-100 to-violet-50 p-1 shadow-soft ring-4 ring-white">
                   <div className="w-full h-full rounded-full overflow-hidden bg-white flex items-center justify-center">
                     {avatar ? (
-                      <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+                      <img
+                        src={avatar}
+                        alt="Avatar"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.style.display = 'none'
+                          const parent = target.parentElement
+                          if (parent) {
+                            const span = document.createElement('span')
+                            span.className = 'text-5xl font-black text-violet-200'
+                            span.textContent = name.charAt(0).toUpperCase()
+                            parent.appendChild(span)
+                          }
+                        }}
+                      />
                     ) : (
                       <span className="text-5xl font-black text-violet-200">
                         {name.charAt(0).toUpperCase()}

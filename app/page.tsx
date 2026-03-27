@@ -139,6 +139,22 @@ export default function Home() {
 
         // 4. Hoàn tất cập nhật profile
         if (userProfile && typeof userProfile === 'object' && isMostRecent()) {
+          // Sync Google avatar URL nếu user đăng nhập bằng Google và avatar chưa phải ảnh custom
+          const isGoogleUser = firebaseUser.providerData.some(p => p.providerId === 'google.com')
+          const isDefaultOrGoogleAvatar = !userProfile.avatar ||
+            userProfile.avatar === '/icons/icon-192x192.png' ||
+            userProfile.avatar.includes('lh3.googleusercontent.com') ||
+            userProfile.avatar.includes('googleusercontent.com')
+          if (isGoogleUser && firebaseUser.photoURL && isDefaultOrGoogleAvatar && userProfile.avatar !== firebaseUser.photoURL) {
+            try {
+              await updateProfile(userProfile.id, { avatar: firebaseUser.photoURL })
+              userProfile = { ...userProfile, avatar: firebaseUser.photoURL }
+              console.log('[page.tsx] ✅ Synced Google avatar URL')
+            } catch (syncErr) {
+              console.warn('[page.tsx] ⚠️ Could not sync Google avatar:', syncErr)
+            }
+          }
+
           // Migration cho user cũ (nếu cần)
           if (!userProfile.familyId && !userProfile.isSuperRoot && userProfile.isRoot) {
             try {
