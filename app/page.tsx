@@ -310,7 +310,7 @@ export default function Home() {
           <BackgroundMusic isLoggedIn={!!user && !!profile} />
           <main className="max-w-7xl mx-auto px-4 py-6">
             <div id="dashboard-section">
-              <SuperRootDashboard currentUserId={user.uid} />
+              <SuperRootDashboard currentUserId={user.uid} profile={profile} />
             </div>
           </main>
         </div>
