@@ -192,20 +192,17 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     }
   }
 
-  // ── Cập nhật URL ảnh rương tại đây sau khi upload lên Cloudinary ──
   const chestImageUrls: Record<string, string> = {
-    // 5 loại gốc — thay URL mới sau khi upload
-    wood:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356618/wood_chest_closed_iagexl.png',
-    silver:    'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356711/silver_chest_closed_pcyuoh.png',
-    gold:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356728/gold_chest_closed_qfovoa.png',
-    mystery:   'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356739/mystery_chest_closed_ljqpnj.png',
-    legendary: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356745/legendary_chest_closed_aurtuy.png',
-    // 5 loại mới — điền URL Cloudinary sau khi upload
-    candy:   '',
-    cosmic:  '',
-    nature:  '',
-    tech:    '',
-    frozen:  '',
+    wood:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585192/wooden_chest-removebg-preview_ojd1od.png',
+    silver:    'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Silver_chest-removebg-preview_rx2zzi.png',
+    gold:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Golden_chest-removebg-preview_h6osf1.png',
+    mystery:   'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Mystery_chest-removebg-preview_ybp3e3.png',
+    legendary: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Legendary_chest-removebg-preview_ntolx5.png',
+    candy:     'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585190/Candy_chest-removebg-preview_xwxmnz.png',
+    cosmic:    'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Cosmic_chest-removebg-preview_qyrtb0.png',
+    nature:    'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Nature_chest-removebg-preview_rblkbb.png',
+    tech:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/tech_chest-removebg-preview_ovx4he.png',
+    frozen:    'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Frozen_chest-removebg-preview_rgej5m.png',
   }
 
   const chestOpeningVideoUrls: Record<string, string> = {
