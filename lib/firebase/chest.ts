@@ -575,3 +575,11 @@ export const updateChest = async (
     ...(closedImageUrl !== undefined && { closedImageUrl }),
   })
 }
+
+/**
+ * Xóa rương (chỉ root mới có quyền)
+ */
+export const deleteChest = async (chestId: string): Promise<void> => {
+  const chestRef = doc(checkDb(), 'chests', chestId)
+  await deleteDoc(chestRef)
+}
