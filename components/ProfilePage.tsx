@@ -147,10 +147,10 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+      <div className="grid grid-cols-1 gap-6 items-start">
         <div className="space-y-6">
           {/* Avatar & Basic Info Card */}
-          <div className="kid-card p-8 bg-white border-violet-100 shadow-kid relative overflow-hidden group">
+          <div className="kid-card p-6 bg-white border-violet-100 shadow-kid relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-violet-50 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform" />
             
             <div className="relative z-10 flex flex-col items-center text-center">
@@ -238,16 +238,16 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
 
         <div className="space-y-8">
           {/* Character Info Card */}
-          <div className="kid-card p-8 bg-white border-violet-100 shadow-kid min-h-full">
-            <div className="flex items-center justify-between mb-8">
+          <div className="kid-card p-6 bg-white border-violet-100 shadow-kid">
+            <div className="flex items-center justify-between mb-6">
                <h3 className="text-xl font-black text-violet-900 uppercase tracking-tight">{t('profile.character')}</h3>
                <div className="bg-violet-100 text-violet-600 px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">
                  LEVEL {currentLevel}
                </div>
             </div>
-            
+
             <div className="flex flex-col items-center">
-              <CharacterDisplay profile={profile} size="large" showLevelInfo={true} />
+              <CharacterDisplay profile={profile} size="medium" showLevelInfo={true} />
             </div>
 
             {/* Profession Selection - Chỉ hiển thị khi level >= 5 */}
