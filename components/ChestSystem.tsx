@@ -36,9 +36,8 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
   const [newChest, setNewChest] = useState({ name: '', cost: 50, chestType: 'wood' as ChestType })
   const [editingChest, setEditingChest] = useState<Chest & { chestType?: string } | null>(null)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
-  const [openingVideoUrl, setOpeningVideoUrl] = useState<string | null>(null)
-  const [videoEnded, setVideoEnded] = useState(false)
-  const [showRewardDelay, setShowRewardDelay] = useState(false)
+  const [openingChestImg, setOpeningChestImg] = useState<string | null>(null)
+  const [openingPhase, setOpeningPhase] = useState<'idle' | 'shaking' | 'opening' | 'revealed'>('idle')
 
   useEffect(() => {
     loadData()
@@ -108,12 +107,11 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     if (opening) return
     const userChest = userChests.find(uc => uc.id === userChestId)
     const chest = userChest ? chests.find(c => c.id === userChest.chestId) : null
-    const chestType = chest ? getEffectiveChestType(chest) : null
-    const videoUrl = chest?.openingMediaUrl || (chestType ? chestOpeningVideoUrls[chestType] : null)
-    
+    const chestImg = chest ? getChestImageUrl(chest) : null
+
     setOpening(userChestId)
     let rewardItem: ChestItem | null = null
-    
+
     try {
       rewardItem = await openChest(userChestId, currentUserId)
       loadData()
@@ -123,31 +121,23 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
       setOpening(null)
       return
     }
-    
-    if (videoUrl && rewardItem) {
-      setOpeningVideoUrl(videoUrl)
-      setVideoEnded(false)
-      setShowRewardDelay(false)
+
+    if (rewardItem) {
+      setOpeningChestImg(chestImg)
+      setOpeningPhase('shaking')
       setShowResult(null)
+      // Shake for 2s, then play open animation
       setTimeout(() => {
-        setShowResult(rewardItem)
-        setShowRewardDelay(true)
-      }, 2500)
-      return
-    }
-
-    if (rewardItem) setShowResult(rewardItem)
-    setOpening(null)
-  }
-
-  const handleVideoEnd = async () => {
-    setVideoEnded(true)
-    setTimeout(() => {
-      setOpeningVideoUrl(null)
-      setVideoEnded(false)
-      setShowRewardDelay(false)
+        setOpeningPhase('opening')
+        // Open animation lasts 0.6s, then reveal reward
+        setTimeout(() => {
+          setShowResult(rewardItem)
+          setOpeningPhase('revealed')
+        }, 700)
+      }, 2000)
+    } else {
       setOpening(null)
-    }, 1000)
+    }
   }
 
   const getRarityColor = (rarity: string) => {
@@ -203,20 +193,6 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     nature:    'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Nature_chest-removebg-preview_rblkbb.png',
     tech:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/tech_chest-removebg-preview_ovx4he.png',
     frozen:    'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Frozen_chest-removebg-preview_rgej5m.png',
-  }
-
-  const chestOpeningVideoUrls: Record<string, string> = {
-    wood:      'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360488/wooden_chest_open_l9b8jv.mp4',
-    silver:    'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360533/silver_chest_open_flmbw7.mp4',
-    gold:      'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360576/gold_chest_open_o7mz7g.mp4',
-    mystery:   'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360618/mystery_chest_open_xaa7pc.mp4',
-    legendary: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360650/legendary_chest_open_juqrdc.mp4',
-    // 5 loại mới dùng chung video với loại gần nhất cho đến khi có video riêng
-    candy:  'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360488/wooden_chest_open_l9b8jv.mp4',
-    frozen: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360533/silver_chest_open_flmbw7.mp4',
-    nature: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360576/gold_chest_open_o7mz7g.mp4',
-    tech:   'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360650/legendary_chest_open_juqrdc.mp4',
-    cosmic: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360618/mystery_chest_open_xaa7pc.mp4',
   }
 
   const getChestImageUrl = (chest: Chest): string | null => {
@@ -437,31 +413,55 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
       )}
 
       {/* Opening Animation Modal */}
-      {openingVideoUrl && (
+      {openingPhase !== 'idle' && (
         <div className="fixed inset-0 bg-violet-950/95 flex items-center justify-center z-[100] p-6 backdrop-blur-xl">
-           <div className="relative w-full max-w-4xl animate-bounce-in">
-              <div className="aspect-video bg-black rounded-[3rem] overflow-hidden shadow-2xl border-8 border-violet-800/30">
-                 <video src={openingVideoUrl} autoPlay onEnded={handleVideoEnd} className="w-full h-full object-cover" />
-              </div>
-              
-              {showResult && showRewardDelay && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-violet-900/40 backdrop-blur-sm rounded-[3rem] p-10 animate-fade-in">
-                   <div className="mb-6 animate-bounce-slow text-8xl">💎</div>
-                   <h3 className="text-4xl font-black text-white mb-2 uppercase tracking-tight drop-shadow-lg text-center">{t('chestSystem.congratulations')}!</h3>
-                   <div className={`mt-4 p-8 rounded-[2.5rem] border-8 shadow-2xl bg-white max-w-sm w-full text-center transform scale-110 ${getRarityColor(showResult.rarity)}`}>
-                      {showResult.image && <img src={showResult.image} className="w-32 h-32 mx-auto mb-6 object-contain drop-shadow-xl" />}
-                      <p className="text-2xl font-black text-violet-900 uppercase tracking-tight mb-2">{showResult.name}</p>
-                      <p className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-6">{getRarityName(showResult.rarity)}</p>
-                      <button onClick={() => { setOpeningVideoUrl(null); setShowResult(null); setOpening(null); }} className="w-full py-4 bg-violet-600 text-white rounded-2xl font-black shadow-kid uppercase tracking-widest hover:bg-violet-700 border-b-4 border-violet-800">AMAZING!</button>
-                   </div>
+           <div className="flex flex-col items-center justify-center space-y-8">
+              {/* Chest with shake/open animation */}
+              {openingPhase !== 'revealed' && (
+                <div className={openingPhase === 'shaking' ? 'animate-chest-shake' : 'animate-chest-open'}>
+                  {openingChestImg
+                    ? <img src={openingChestImg} alt="chest" className="w-48 h-48 object-contain drop-shadow-2xl" />
+                    : <div className="text-9xl">📦</div>
+                  }
+                </div>
+              )}
+
+              {openingPhase === 'shaking' && (
+                <p className="text-white font-black text-xl uppercase tracking-widest animate-pulse">Opening...</p>
+              )}
+
+              {openingPhase === 'opening' && (
+                <div className="flex gap-4 text-4xl">
+                  {['✨','⭐','💫','🌟','✨'].map((s, i) => (
+                    <span key={i} className="animate-sparkle" style={{ animationDelay: `${i * 0.15}s` }}>{s}</span>
+                  ))}
+                </div>
+              )}
+
+              {/* Reward reveal */}
+              {openingPhase === 'revealed' && showResult && (
+                <div className="animate-reward-pop">
+                  <div className={`kid-card p-12 max-w-sm w-full text-center bg-white shadow-kid border-8 ${getRarityColor(showResult.rarity)}`}>
+                    <div className="text-7xl mb-6">🎁</div>
+                    <h3 className="text-2xl font-black text-violet-900 mb-2 uppercase tracking-tight">{t('chestSystem.congratulations')}!</h3>
+                    <div className="my-8">
+                      {showResult.image && <img src={showResult.image} className="w-40 h-40 mx-auto object-contain drop-shadow-2xl animate-float" />}
+                      <p className="text-2xl font-black text-violet-900 uppercase tracking-tight mt-4">{showResult.name}</p>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">{getRarityName(showResult.rarity)}</span>
+                    </div>
+                    <button
+                      onClick={() => { setOpeningPhase('idle'); setOpeningChestImg(null); setShowResult(null); setOpening(null); }}
+                      className="w-full py-5 bg-violet-600 text-white rounded-[1.8rem] font-black shadow-kid uppercase tracking-widest hover:bg-violet-700 border-b-8 border-violet-800 active:translate-y-1 active:border-b-4"
+                    >COLLECT REWARD</button>
+                  </div>
                 </div>
               )}
            </div>
         </div>
       )}
 
-      {/* Simple Result Modal */}
-      {showResult && !openingVideoUrl && (
+      {/* Simple Result Modal (fallback when animation skipped) */}
+      {showResult && openingPhase === 'idle' && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-6">
            <div className={`kid-card p-12 max-w-sm w-full text-center bg-white shadow-kid border-8 animate-bounce-in ${getRarityColor(showResult.rarity)}`}>
               <div className="text-7xl mb-6">🎁</div>
