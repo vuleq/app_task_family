@@ -32,7 +32,8 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
   const [opening, setOpening] = useState<string | null>(null)
   const [showResult, setShowResult] = useState<ChestItem | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
-  const [newChest, setNewChest] = useState({ name: '', cost: 50, chestType: 'wood' as 'wood' | 'silver' | 'gold' | 'mystery' | 'legendary' })
+  type ChestType = 'wood' | 'silver' | 'gold' | 'mystery' | 'legendary' | 'candy' | 'cosmic' | 'nature' | 'tech' | 'frozen'
+  const [newChest, setNewChest] = useState({ name: '', cost: 50, chestType: 'wood' as ChestType })
   const [editingChest, setEditingChest] = useState<Chest & { chestType?: string } | null>(null)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
   const [openingVideoUrl, setOpeningVideoUrl] = useState<string | null>(null)
@@ -43,13 +44,30 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     loadData()
   }, [])
 
+  // Lấy loại rương: ưu tiên chestType lưu trong DB, fallback suy ra từ itemPool
+  const getEffectiveChestType = (chest: Chest): string => {
+    if (chest.chestType) return chest.chestType
+    const hasLegendary = chest.itemPool.some(i => i.rarity === 'legendary')
+    const hasEpic = chest.itemPool.some(i => i.rarity === 'epic')
+    const hasRare = chest.itemPool.some(i => i.rarity === 'rare')
+    const hasCommon = chest.itemPool.some(i => i.rarity === 'common')
+    if (hasCommon && hasRare && hasEpic && hasLegendary) return 'mystery'
+    if (hasEpic && hasLegendary && !hasCommon && !hasRare) return 'legendary'
+    if (hasRare && hasEpic && !hasLegendary) return 'gold'
+    if (hasCommon && hasRare && !hasEpic && !hasLegendary) return 'silver'
+    return 'wood'
+  }
+
   const sortChestsByType = (chests: Chest[]): Chest[] => {
-    const order: Record<string, number> = { 'wood': 1, 'silver': 2, 'gold': 3, 'mystery': 4, 'legendary': 5 }
+    const order: Record<string, number> = {
+      wood: 1, candy: 2, silver: 3, frozen: 4, gold: 5,
+      nature: 6, mystery: 7, tech: 8, legendary: 9, cosmic: 10,
+    }
     return [...chests].sort((a, b) => {
-      const typeA = getChestTypeFromItemPool(a.itemPool)
-      const typeB = getChestTypeFromItemPool(b.itemPool)
-      const orderA = order[typeA] || 999
-      const orderB = order[typeB] || 999
+      const typeA = getEffectiveChestType(a)
+      const typeB = getEffectiveChestType(b)
+      const orderA = order[typeA] ?? 999
+      const orderB = order[typeB] ?? 999
       return orderA === orderB ? a.cost - b.cost : orderA - orderB
     })
   }
@@ -90,7 +108,7 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     if (opening) return
     const userChest = userChests.find(uc => uc.id === userChestId)
     const chest = userChest ? chests.find(c => c.id === userChest.chestId) : null
-    const chestType = chest ? getChestTypeFromItemPool(chest.itemPool) : null
+    const chestType = chest ? getEffectiveChestType(chest) : null
     const videoUrl = chest?.openingMediaUrl || (chestType ? chestOpeningVideoUrls[chestType] : null)
     
     setOpening(userChestId)
@@ -152,49 +170,62 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     }
   }
 
-  const getItemPoolByChestType = (chestType: 'wood' | 'silver' | 'gold' | 'mystery' | 'legendary'): ChestItem[] => {
+  const getItemPoolByChestType = (chestType: ChestType): ChestItem[] => {
     switch (chestType) {
-      case 'wood': return [...DEFAULT_CHEST_ITEMS.common]
-      case 'silver': return [...DEFAULT_CHEST_ITEMS.common, ...DEFAULT_CHEST_ITEMS.rare]
-      case 'gold': return [...DEFAULT_CHEST_ITEMS.rare, ...DEFAULT_CHEST_ITEMS.epic]
-      case 'mystery': return [...DEFAULT_CHEST_ITEMS.common, ...DEFAULT_CHEST_ITEMS.rare, ...DEFAULT_CHEST_ITEMS.epic, ...DEFAULT_CHEST_ITEMS.legendary]
-      case 'legendary': return [...DEFAULT_CHEST_ITEMS.epic, ...DEFAULT_CHEST_ITEMS.legendary]
-      default: return [...DEFAULT_CHEST_ITEMS.common]
+      case 'wood':
+      case 'candy':
+        return [...DEFAULT_CHEST_ITEMS.common]
+      case 'silver':
+      case 'frozen':
+        return [...DEFAULT_CHEST_ITEMS.common, ...DEFAULT_CHEST_ITEMS.rare]
+      case 'gold':
+      case 'nature':
+        return [...DEFAULT_CHEST_ITEMS.rare, ...DEFAULT_CHEST_ITEMS.epic]
+      case 'mystery':
+      case 'cosmic':
+        return [...DEFAULT_CHEST_ITEMS.common, ...DEFAULT_CHEST_ITEMS.rare, ...DEFAULT_CHEST_ITEMS.epic, ...DEFAULT_CHEST_ITEMS.legendary]
+      case 'legendary':
+      case 'tech':
+        return [...DEFAULT_CHEST_ITEMS.epic, ...DEFAULT_CHEST_ITEMS.legendary]
+      default:
+        return [...DEFAULT_CHEST_ITEMS.common]
     }
   }
 
-  const getChestTypeFromItemPool = (itemPool: ChestItem[]): 'wood' | 'silver' | 'gold' | 'mystery' | 'legendary' => {
-    const hasLegendary = itemPool.some(item => item.rarity === 'legendary')
-    const hasEpic = itemPool.some(item => item.rarity === 'epic')
-    const hasRare = itemPool.some(item => item.rarity === 'rare')
-    const hasCommon = itemPool.some(item => item.rarity === 'common')
-    if (hasCommon && hasRare && hasEpic && hasLegendary) return 'mystery'
-    if (hasEpic && hasLegendary && !hasCommon && !hasRare) return 'legendary'
-    if (hasRare && hasEpic && !hasLegendary) return 'gold'
-    if (hasCommon && hasRare && !hasEpic && !hasLegendary) return 'silver'
-    return 'wood'
-  }
-
+  // ── Cập nhật URL ảnh rương tại đây sau khi upload lên Cloudinary ──
   const chestImageUrls: Record<string, string> = {
-    wood: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356618/wood_chest_closed_iagexl.png',
-    silver: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356711/silver_chest_closed_pcyuoh.png',
-    gold: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356728/gold_chest_closed_qfovoa.png',
-    mystery: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356739/mystery_chest_closed_ljqpnj.png',
+    // 5 loại gốc — thay URL mới sau khi upload
+    wood:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356618/wood_chest_closed_iagexl.png',
+    silver:    'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356711/silver_chest_closed_pcyuoh.png',
+    gold:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356728/gold_chest_closed_qfovoa.png',
+    mystery:   'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356739/mystery_chest_closed_ljqpnj.png',
     legendary: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356745/legendary_chest_closed_aurtuy.png',
+    // 5 loại mới — điền URL Cloudinary sau khi upload
+    candy:   '',
+    cosmic:  '',
+    nature:  '',
+    tech:    '',
+    frozen:  '',
   }
 
   const chestOpeningVideoUrls: Record<string, string> = {
-    wood: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360488/wooden_chest_open_l9b8jv.mp4',
-    silver: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360533/silver_chest_open_flmbw7.mp4',
-    gold: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360576/gold_chest_open_o7mz7g.mp4',
-    mystery: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360618/mystery_chest_open_xaa7pc.mp4',
+    wood:      'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360488/wooden_chest_open_l9b8jv.mp4',
+    silver:    'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360533/silver_chest_open_flmbw7.mp4',
+    gold:      'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360576/gold_chest_open_o7mz7g.mp4',
+    mystery:   'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360618/mystery_chest_open_xaa7pc.mp4',
     legendary: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360650/legendary_chest_open_juqrdc.mp4',
+    // 5 loại mới dùng chung video với loại gần nhất cho đến khi có video riêng
+    candy:  'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360488/wooden_chest_open_l9b8jv.mp4',
+    frozen: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360533/silver_chest_open_flmbw7.mp4',
+    nature: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360576/gold_chest_open_o7mz7g.mp4',
+    tech:   'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360650/legendary_chest_open_juqrdc.mp4',
+    cosmic: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360618/mystery_chest_open_xaa7pc.mp4',
   }
 
   const getChestImageUrl = (chest: Chest): string | null => {
     if (chest.closedImageUrl) return chest.closedImageUrl
-    const chestType = getChestTypeFromItemPool(chest.itemPool)
-    return chestImageUrls[chestType] || null
+    const type = getEffectiveChestType(chest)
+    return chestImageUrls[type] || null
   }
 
   const getUserChestImageUrl = (userChest: UserChest): string | null => {
@@ -204,7 +235,7 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
 
   const handleEditChest = (chest: Chest) => {
     if (!profile.isRoot) return
-    const chestType = getChestTypeFromItemPool(chest.itemPool)
+    const chestType = getEffectiveChestType(chest)
     setEditingChest({ ...chest, chestType })
     setShowAddForm(false)
   }
@@ -212,8 +243,10 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
   const handleUpdateChest = async () => {
     if (!editingChest) return
     try {
-      const itemPool = getItemPoolByChestType(editingChest.chestType as any)
-      await updateChest(editingChest.id, editingChest.name, editingChest.cost, itemPool)
+      const type = (editingChest.chestType || 'wood') as ChestType
+      const itemPool = getItemPoolByChestType(type)
+      const imageUrl = chestImageUrls[type] || ''
+      await updateChest(editingChest.id, editingChest.name, editingChest.cost, itemPool, type, imageUrl)
       setEditingChest(null)
       loadData()
       setToast({ show: true, message: 'Updated!', type: 'success' })
@@ -226,7 +259,8 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     if (!profile.isRoot || !profile.familyId) return
     try {
       const itemPool = getItemPoolByChestType(newChest.chestType)
-      await createChest(newChest.name, newChest.cost, itemPool, profile.familyId)
+      const imageUrl = chestImageUrls[newChest.chestType] || ''
+      await createChest(newChest.name, newChest.cost, itemPool, profile.familyId, newChest.chestType, imageUrl)
       setNewChest({ name: '', cost: 50, chestType: 'wood' })
       setShowAddForm(false)
       loadData()
@@ -301,11 +335,16 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
                 onChange={(e) => editingChest ? setEditingChest({...editingChest, chestType: e.target.value as any}) : setNewChest({...newChest, chestType: e.target.value as any})}
                 className="w-full px-6 py-4 border-4 border-violet-50 rounded-2xl bg-violet-50/30 font-black text-violet-900 focus:outline-none focus:border-violet-200 appearance-none cursor-pointer"
               >
-                <option value="wood">Wood</option>
-                <option value="silver">Silver</option>
-                <option value="gold">Gold</option>
-                <option value="mystery">Mystery</option>
-                <option value="legendary">Legendary</option>
+                <option value="wood">🪵 Wood</option>
+                <option value="candy">🍬 Candy</option>
+                <option value="silver">🥈 Silver</option>
+                <option value="frozen">❄️ Frozen</option>
+                <option value="gold">🥇 Gold</option>
+                <option value="nature">🌿 Nature</option>
+                <option value="mystery">🔮 Mystery</option>
+                <option value="tech">🤖 Tech</option>
+                <option value="legendary">👑 Legendary</option>
+                <option value="cosmic">🌌 Cosmic</option>
               </select>
             </div>
           </div>
@@ -320,13 +359,18 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
         {chests.map(chest => {
           const chestImageUrl = getChestImageUrl(chest)
-          const chestType = getChestTypeFromItemPool(chest.itemPool)
-          const themes: any = {
-            wood: 'bg-orange-50 border-orange-100 text-orange-900 shadow-orange-100',
-            silver: 'bg-slate-50 border-slate-100 text-slate-900 shadow-slate-100',
-            gold: 'bg-amber-50 border-amber-100 text-amber-900 shadow-amber-100',
-            mystery: 'bg-purple-50 border-purple-100 text-purple-900 shadow-purple-100',
-            legendary: 'bg-amber-100 border-amber-200 text-orange-900 shadow-amber-200'
+          const chestType = getEffectiveChestType(chest)
+          const themes: Record<string, string> = {
+            wood:      'bg-orange-50 border-orange-100 text-orange-900 shadow-orange-100',
+            silver:    'bg-slate-50 border-slate-100 text-slate-900 shadow-slate-100',
+            gold:      'bg-amber-50 border-amber-100 text-amber-900 shadow-amber-100',
+            mystery:   'bg-purple-50 border-purple-100 text-purple-900 shadow-purple-100',
+            legendary: 'bg-amber-100 border-amber-200 text-orange-900 shadow-amber-200',
+            candy:     'bg-pink-50 border-pink-100 text-pink-900 shadow-pink-100',
+            cosmic:    'bg-indigo-50 border-indigo-200 text-indigo-900 shadow-indigo-200',
+            nature:    'bg-green-50 border-green-100 text-green-900 shadow-green-100',
+            tech:      'bg-sky-50 border-sky-100 text-sky-900 shadow-sky-100',
+            frozen:    'bg-cyan-50 border-cyan-100 text-cyan-900 shadow-cyan-100',
           }
           return (
             <div key={chest.id} className={`kid-card p-8 flex flex-col group relative hover:rotate-1 transition-all border-4 ${themes[chestType]}`}>

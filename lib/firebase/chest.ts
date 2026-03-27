@@ -35,6 +35,7 @@ export interface Chest {
   name: string
   cost: number // Coins để mua
   itemPool: ChestItem[] // Danh sách item có thể nhận được
+  chestType?: string // Loại rương: wood, silver, gold, mystery, legendary, candy, cosmic, nature, tech, frozen
   closedImageUrl?: string // URL ảnh rương đóng
   openingMediaUrl?: string // URL animation/video khi mở rương (có thể là .gif hoặc .mp4)
   familyId: string // ID của gia đình
@@ -537,7 +538,9 @@ export const createChest = async (
   name: string,
   cost: number,
   itemPool: ChestItem[],
-  familyId: string
+  familyId: string,
+  chestType?: string,
+  closedImageUrl?: string
 ): Promise<string> => {
   const chestsRef = collection(checkDb(), 'chests')
   const docRef = await addDoc(chestsRef, {
@@ -545,6 +548,8 @@ export const createChest = async (
     cost,
     itemPool,
     familyId,
+    ...(chestType && { chestType }),
+    ...(closedImageUrl && { closedImageUrl }),
     createdAt: Timestamp.now(),
   })
   return docRef.id
@@ -557,12 +562,16 @@ export const updateChest = async (
   chestId: string,
   name: string,
   cost: number,
-  itemPool: ChestItem[]
+  itemPool: ChestItem[],
+  chestType?: string,
+  closedImageUrl?: string
 ): Promise<void> => {
   const chestRef = doc(checkDb(), 'chests', chestId)
   await updateDoc(chestRef, {
     name,
     cost,
     itemPool,
+    ...(chestType && { chestType }),
+    ...(closedImageUrl !== undefined && { closedImageUrl }),
   })
 }
