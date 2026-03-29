@@ -132,7 +132,7 @@ const REWARD_URLS = {
   xp200coins:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663451/200_xp_va_coin-removebg-preview_lsq1lr.png',
   xp500coins:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663450/500_xp_va_coin-removebg-preview_fixt6q.png',
   fifa39k:         'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663451/goi_the_cau_thu_39k-removebg-preview_d4jryi.png',
-  fifaPremium175k: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663452/goi_the_cau_thu_premium_175-removebg-preview_kv4eg3.png',
+  fifaPremium175k: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1774756309/goi_the_cau_thu_premium_175-removebg-preview_fevwos.png',
   cgvTicket:       'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663451/CGV_tickets-removebg-preview_tcmtyq.png',
   fifa365box:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663452/Hop_the_hinh_FIFA_365_2026-removebg-preview_ar5yyc.png',
   punkverse:       'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663451/punkverse_ticket-removebg-preview_axjjcf.png',
