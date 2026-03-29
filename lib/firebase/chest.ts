@@ -26,6 +26,7 @@ export interface ChestItem {
   name: string
   value: number // XP amount, coin amount, hoặc item ID
   rarity: 'common' | 'rare' | 'epic' | 'legendary'
+  weight?: number // Trọng số xác suất (dùng thay rarity-based weights nếu có)
   image?: string
   description?: string
 }
@@ -38,6 +39,7 @@ export interface Chest {
   chestType?: string // Loại rương: wood, silver, gold, mystery, legendary, candy, cosmic, nature, tech, frozen
   closedImageUrl?: string // URL ảnh rương đóng
   openingMediaUrl?: string // URL animation/video khi mở rương (có thể là .gif hoặc .mp4)
+  maxPerWeek?: number // Giới hạn mua tối đa trong 1 tuần (undefined = không giới hạn)
   familyId: string // ID của gia đình
   createdAt: any
 }
@@ -108,6 +110,110 @@ export const getRewardImageUrl = (chestType: string, itemType: string): string |
   // Format: https://res.cloudinary.com/{cloud-name}/image/upload/family-tasks/chests/rewards/{filename}
   return `https://res.cloudinary.com/${cloudName}/image/upload/family-tasks/chests/rewards/${fileName}`
 }
+
+// URLs hình ảnh rương (dùng chung với ChestSystem.tsx)
+export const CHEST_IMAGE_URLS: Record<string, string> = {
+  wood:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585192/wooden_chest-removebg-preview_ojd1od.png',
+  silver:    'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Silver_chest-removebg-preview_rx2zzi.png',
+  gold:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Golden_chest-removebg-preview_h6osf1.png',
+  mystery:   'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Mystery_chest-removebg-preview_ybp3e3.png',
+  legendary: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Legendary_chest-removebg-preview_ntolx5.png',
+  candy:     'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585190/Candy_chest-removebg-preview_xwxmnz.png',
+  cosmic:    'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Cosmic_chest-removebg-preview_qyrtb0.png',
+  nature:    'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Nature_chest-removebg-preview_rblkbb.png',
+  tech:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/tech_chest-removebg-preview_ovx4he.png',
+  frozen:    'https://res.cloudinary.com/dvuy40chj/image/upload/v1774585191/Frozen_chest-removebg-preview_rgej5m.png',
+}
+
+// URLs hình thưởng thực tế
+const REWARD_URLS = {
+  xp50coins:       'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663450/50_xp_va_coins-removebg-preview_cen9zw.png',
+  xp100coins:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1774669832/100_xp_va_coins-removebg-preview_rlee6w.png',
+  xp200coins:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663451/200_xp_va_coin-removebg-preview_lsq1lr.png',
+  xp500coins:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663450/500_xp_va_coin-removebg-preview_fixt6q.png',
+  fifa39k:         'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663451/goi_the_cau_thu_39k-removebg-preview_d4jryi.png',
+  fifaPremium175k: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663452/goi_the_cau_thu_premium_175-removebg-preview_kv4eg3.png',
+  cgvTicket:       'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663451/CGV_tickets-removebg-preview_tcmtyq.png',
+  fifa365box:      'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663452/Hop_the_hinh_FIFA_365_2026-removebg-preview_ar5yyc.png',
+  punkverse:       'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663451/punkverse_ticket-removebg-preview_axjjcf.png',
+}
+
+/**
+ * 10 rương = 5 cặp tương đương (cùng item pool + xác suất, khác skin):
+ *   Đồng = Cosmic  (50 coins)
+ *   Bạc  = Candy   (100 coins)
+ *   Vàng = Nature  (150 coins)
+ *   Kim Cương = Tech (200 coins)
+ *   Huyền Thoại = Frozen (300 coins, 1 lần/tuần)
+ */
+
+// Item pools dùng chung cho từng tier
+// Xác suất = weight / tổng weight của tier đó
+const TIER_POOLS = {
+  // 50 coins: XP50(55%) XP100(35%) Pack39k(10%)
+  tier1: [
+    { id: 'xp50_coins',  type: 'xp',     name: 'XP 50 + Coins',       value: 50,  rarity: 'common', weight: 55, image: REWARD_URLS.xp50coins,  description: 'Nhận 50 XP + Coins' },
+    { id: 'xp100_coins', type: 'xp',     name: 'XP 100 + Coins',      value: 100, rarity: 'common', weight: 35, image: REWARD_URLS.xp100coins, description: 'Nhận 100 XP + Coins' },
+    { id: 'fifa39k',     type: 'special', name: 'Gói Thẻ Cầu Thủ 39k', value: 1,  rarity: 'rare',   weight: 10, image: REWARD_URLS.fifa39k,    description: 'Gói thẻ cầu thủ FIFA 365 2026' },
+  ] as ChestItem[],
+
+  // 100 coins: XP100(45%) XP200(35%) Pack39k(20%)
+  tier2: [
+    { id: 'xp100_coins', type: 'xp',     name: 'XP 100 + Coins',       value: 100, rarity: 'common', weight: 45, image: REWARD_URLS.xp100coins, description: 'Nhận 100 XP + Coins' },
+    { id: 'xp200_coins', type: 'xp',     name: 'XP 200 + Coins',       value: 200, rarity: 'rare',   weight: 35, image: REWARD_URLS.xp200coins, description: 'Nhận 200 XP + Coins' },
+    { id: 'fifa39k',     type: 'special', name: 'Gói Thẻ Cầu Thủ 39k', value: 1,   rarity: 'rare',   weight: 20, image: REWARD_URLS.fifa39k,    description: 'Gói thẻ cầu thủ FIFA 365 2026' },
+  ] as ChestItem[],
+
+  // 150 coins: XP200(42%) Pack39k(32%) CGV(26%)
+  tier3: [
+    { id: 'xp200_coins', type: 'xp',     name: 'XP 200 + Coins',       value: 200, rarity: 'rare', weight: 42, image: REWARD_URLS.xp200coins, description: 'Nhận 200 XP + Coins' },
+    { id: 'fifa39k',     type: 'special', name: 'Gói Thẻ Cầu Thủ 39k', value: 1,   rarity: 'epic', weight: 32, image: REWARD_URLS.fifa39k,    description: 'Gói thẻ cầu thủ FIFA 365 2026' },
+    { id: 'cgv_ticket',  type: 'special', name: 'Vé Xem Phim CGV',      value: 1,   rarity: 'epic', weight: 26, image: REWARD_URLS.cgvTicket,  description: 'Vé xem phim rạp CGV' },
+  ] as ChestItem[],
+
+  // 200 coins: XP500(40%) Pack39k(22%) CGV(18%) Premium175k(12%) FIFA365(4%) Punkverse(4%)
+  tier4: [
+    { id: 'xp500_coins',       type: 'xp',     name: 'XP 500 + Coins',          value: 500, rarity: 'epic',      weight: 40, image: REWARD_URLS.xp500coins,      description: 'Nhận 500 XP + Coins' },
+    { id: 'fifa39k',           type: 'special', name: 'Gói Thẻ Cầu Thủ 39k',   value: 1,   rarity: 'rare',      weight: 22, image: REWARD_URLS.fifa39k,          description: 'Gói thẻ cầu thủ FIFA 365 2026' },
+    { id: 'cgv_ticket',        type: 'special', name: 'Vé Xem Phim CGV',        value: 1,   rarity: 'rare',      weight: 18, image: REWARD_URLS.cgvTicket,        description: 'Vé xem phim rạp CGV' },
+    { id: 'fifa_premium_175k', type: 'special', name: 'Gói Thẻ Premium 175k',   value: 1,   rarity: 'epic',      weight: 12, image: REWARD_URLS.fifaPremium175k,  description: 'Hộp thẻ hình Adrenalyn Premium 175k' },
+    { id: 'fifa365_box_209k',  type: 'special', name: 'Hộp Thẻ FIFA 365 209k',  value: 1,   rarity: 'legendary', weight: 4,  image: REWARD_URLS.fifa365box,       description: 'Hộp thẻ hình Panini FIFA 365 2026' },
+    { id: 'punkverse_ticket',  type: 'special', name: 'Vé Punkverse',            value: 1,   rarity: 'legendary', weight: 4,  image: REWARD_URLS.punkverse,        description: 'Vé tham dự sự kiện Punkverse' },
+  ] as ChestItem[],
+
+  // 300 coins: Punkverse(30%) FIFA365(30%) Premium175k(20%) CGV(12%) Pack39k(8%)
+  // Punkverse có cooldown 2 tuần (xử lý trong openChest)
+  tier5: [
+    { id: 'punkverse_ticket',  type: 'special', name: 'Vé Punkverse',            value: 1, rarity: 'legendary', weight: 30, image: REWARD_URLS.punkverse,        description: 'Vé tham dự sự kiện Punkverse' },
+    { id: 'fifa365_box_209k',  type: 'special', name: 'Hộp Thẻ FIFA 365 209k',  value: 1, rarity: 'legendary', weight: 30, image: REWARD_URLS.fifa365box,       description: 'Hộp thẻ hình Panini FIFA 365 2026' },
+    { id: 'fifa_premium_175k', type: 'special', name: 'Gói Thẻ Premium 175k',   value: 1, rarity: 'epic',      weight: 20, image: REWARD_URLS.fifaPremium175k,  description: 'Hộp thẻ hình Adrenalyn Premium 175k' },
+    { id: 'cgv_ticket',        type: 'special', name: 'Vé Xem Phim CGV',        value: 1, rarity: 'rare',      weight: 12, image: REWARD_URLS.cgvTicket,        description: 'Vé xem phim rạp CGV' },
+    { id: 'fifa39k',           type: 'special', name: 'Gói Thẻ Cầu Thủ 39k',   value: 1, rarity: 'rare',      weight: 8,  image: REWARD_URLS.fifa39k,          description: 'Gói thẻ cầu thủ FIFA 365 2026' },
+  ] as ChestItem[],
+}
+
+export const CHEST_TIER_CONFIGS = [
+  // ── Tier 1: 50 coins ──────────────────────────────────────
+  { name: 'Rương Đồng',   cost: 50,  chestType: 'wood',      itemPool: TIER_POOLS.tier1 },
+  { name: 'Rương Cosmic', cost: 50,  chestType: 'cosmic',    itemPool: TIER_POOLS.tier1 },
+
+  // ── Tier 2: 100 coins ─────────────────────────────────────
+  { name: 'Rương Bạc',   cost: 100, chestType: 'silver',    itemPool: TIER_POOLS.tier2 },
+  { name: 'Rương Kẹo',   cost: 100, chestType: 'candy',     itemPool: TIER_POOLS.tier2 },
+
+  // ── Tier 3: 150 coins ─────────────────────────────────────
+  { name: 'Rương Vàng',  cost: 150, chestType: 'gold',      itemPool: TIER_POOLS.tier3 },
+  { name: 'Rương Rừng',  cost: 150, chestType: 'nature',    itemPool: TIER_POOLS.tier3 },
+
+  // ── Tier 4: 200 coins ─────────────────────────────────────
+  { name: 'Rương Bí Ẩn', cost: 200, chestType: 'mystery',   itemPool: TIER_POOLS.tier4 },
+  { name: 'Rương Tech',  cost: 200, chestType: 'tech',      itemPool: TIER_POOLS.tier4 },
+
+  // ── Tier 5: 300 coins, giới hạn 2 lần/tuần ───────────────
+  // Punkverse có cooldown 2 tuần riêng → tối đa 1 vé/2 tuần dù mua bao nhiêu lần
+  { name: 'Rương Huyền Thoại', cost: 300, chestType: 'legendary', maxPerWeek: 2, itemPool: TIER_POOLS.tier5 },
+  { name: 'Rương Băng',        cost: 300, chestType: 'frozen',    maxPerWeek: 2, itemPool: TIER_POOLS.tier5 },
+]
 
 // Danh sách item mặc định cho các loại rương
 export const DEFAULT_CHEST_ITEMS: Record<string, ChestItem[]> = {
@@ -328,7 +434,22 @@ export const purchaseChest = async (userId: string, chestId: string): Promise<st
   if (userProfile.coins < chest.cost) {
     throw new Error(`Không đủ Coins. Cần ${chest.cost} Coins, bạn có ${userProfile.coins} Coins`)
   }
-  
+
+  // Kiểm tra giới hạn mua trong tuần (maxPerWeek)
+  if (chest.maxPerWeek) {
+    const weeklyRef = collection(checkDb(), 'userChests')
+    const oneWeekAgo = Timestamp.fromMillis(Timestamp.now().toMillis() - 7 * 24 * 60 * 60 * 1000)
+    const weeklyQ = query(weeklyRef, where('userId', '==', userId), where('chestId', '==', chestId))
+    const weeklySnap = await getDocs(weeklyQ)
+    const weeklyCount = weeklySnap.docs.filter(d => {
+      const t = d.data().createdAt as Timestamp
+      return t && t.toMillis() >= oneWeekAgo.toMillis()
+    }).length
+    if (weeklyCount >= chest.maxPerWeek) {
+      throw new Error(`Rương này chỉ được mua ${chest.maxPerWeek} lần/tuần. Hãy quay lại vào tuần sau!`)
+    }
+  }
+
   // Trừ coins
   await updateProfile(userId, {
     coins: userProfile.coins - chest.cost,
@@ -380,100 +501,69 @@ export const openChest = async (userChestId: string, userId: string): Promise<Ch
   
   const chest = chestSnap.data() as Chest
   
-  // Random item từ itemPool
   const itemPool = chest.itemPool
-  if (itemPool.length === 0) {
-    throw new Error('Rương không có item nào')
-  }
-  
-  // Xác định chest type từ itemPool để điều chỉnh weights phù hợp
-  const hasLegendary = itemPool.some(item => item.rarity === 'legendary')
-  const hasEpic = itemPool.some(item => item.rarity === 'epic')
-  const hasRare = itemPool.some(item => item.rarity === 'rare')
-  const hasCommon = itemPool.some(item => item.rarity === 'common')
-  
-  // Nếu là Legendary chest (chỉ có epic + legendary), ưu tiên legendary items
-  const isLegendaryChest = hasEpic && hasLegendary && !hasCommon && !hasRare
-  
-  // Weighted random dựa trên rarity
-  // Nếu là Legendary chest, tăng weight cho legendary items
-  const weights: Record<string, number> = isLegendaryChest
-    ? {
-        common: 0,
-        rare: 0,
-        epic: 20,  // Giảm weight của epic
-        legendary: 80, // Tăng weight của legendary lên rất cao
-      }
-    : {
-        common: 50,
-        rare: 30,
-        epic: 15,
-        legendary: 5,
-      }
-  
-  const weightedItems: ChestItem[] = []
-  itemPool.forEach(item => {
-    const weight = weights[item.rarity] || 10
-    for (let i = 0; i < weight; i++) {
-      weightedItems.push(item)
-    }
-  })
-  
-  const randomIndex = Math.floor(Math.random() * weightedItems.length)
-  const receivedItem = { ...weightedItems[randomIndex] }
-  
-  // Xác định chest type từ itemPool để chọn đúng hình ảnh
-  let chestType = 'wood' // default
-  if (hasCommon && hasRare && hasEpic && hasLegendary) {
-    chestType = 'mystery'
-  } else if (hasEpic && hasLegendary && !hasCommon && !hasRare) {
-    chestType = 'legendary'
-  } else if (hasRare && hasEpic && !hasLegendary) {
-    chestType = 'gold'
-  } else if (hasCommon && hasRare && !hasEpic && !hasLegendary) {
-    chestType = 'silver'
-  } else if (hasCommon && !hasRare && !hasEpic && !hasLegendary) {
-    chestType = 'wood'
-  }
-  
-  // Thêm image URL vào receivedItem dựa trên chest type và item type
-  if (!receivedItem.image) {
-    receivedItem.image = getRewardImageUrl(chestType, receivedItem.type)
-  }
-  
-  // Cập nhật user chest
-  await updateDoc(userChestRef, {
-    opened: true,
-    receivedItem,
-    openedAt: Timestamp.now(),
-  })
-  
-  // Áp dụng item cho user
+  if (itemPool.length === 0) throw new Error('Rương không có item nào')
+
+  // Lấy profile sớm để kiểm tra Punkverse cooldown
   const userProfile = await getProfile(userId)
-  if (!userProfile) {
-    throw new Error('Không tìm thấy thông tin người dùng')
-  }
-  
-  if (receivedItem.type === 'xp') {
-    await updateProfile(userId, {
-      xp: userProfile.xp + receivedItem.value,
-    })
-  } else if (receivedItem.type === 'coins') {
-    await updateProfile(userId, {
-      coins: userProfile.coins + receivedItem.value,
-    })
-  } else if (receivedItem.type === 'special') {
-    // Xử lý special items (có thể mở rộng sau)
-    if (receivedItem.id === 'special_levelup') {
-      // Tính level hiện tại và XP cần để lên level tiếp theo
-      // (Cần import calculateLevel và getXPForLevel từ utils/level)
-      // Tạm thời chỉ thêm XP lớn
-      await updateProfile(userId, {
-        xp: userProfile.xp + 1000,
-      })
+  if (!userProfile) throw new Error('Không tìm thấy thông tin người dùng')
+
+  // Punkverse cooldown: nếu nhận trong vòng 2 tuần → loại khỏi pool lần này
+  const twoWeeksAgo = Timestamp.fromMillis(Timestamp.now().toMillis() - 14 * 24 * 60 * 60 * 1000)
+  const lastPunkverseAt = userProfile.lastPunkverseAt as Timestamp | undefined
+  const punkverseOnCooldown = lastPunkverseAt && lastPunkverseAt.toMillis() >= twoWeeksAgo.toMillis()
+  const effectivePool = punkverseOnCooldown
+    ? itemPool.filter(item => item.id !== 'punkverse_ticket')
+    : itemPool
+  if (effectivePool.length === 0) throw new Error('Rương không có item nào')
+
+  let receivedItem: ChestItem
+
+  if (effectivePool.some(item => item.weight !== undefined)) {
+    // Weight-based random (tất cả rương mới đều dùng path này)
+    const totalWeight = effectivePool.reduce((sum, item) => sum + (item.weight ?? 1), 0)
+    let rand = Math.random() * totalWeight
+    receivedItem = { ...effectivePool[effectivePool.length - 1] }
+    for (const item of effectivePool) {
+      rand -= (item.weight ?? 1)
+      if (rand <= 0) { receivedItem = { ...item }; break }
     }
+  } else {
+    // Fallback rarity-based (rương cũ không có weight)
+    const hasLegendary = effectivePool.some(i => i.rarity === 'legendary')
+    const hasEpic      = effectivePool.some(i => i.rarity === 'epic')
+    const hasRare      = effectivePool.some(i => i.rarity === 'rare')
+    const hasCommon    = effectivePool.some(i => i.rarity === 'common')
+    const isLegendaryChest = hasEpic && hasLegendary && !hasCommon && !hasRare
+    const rw: Record<string, number> = isLegendaryChest
+      ? { common: 0, rare: 0, epic: 20, legendary: 80 }
+      : { common: 50, rare: 30, epic: 15, legendary: 5 }
+    const weighted: ChestItem[] = []
+    effectivePool.forEach(item => { for (let i = 0; i < (rw[item.rarity] || 10); i++) weighted.push(item) })
+    receivedItem = { ...weighted[Math.floor(Math.random() * weighted.length)] }
   }
-  
+
+  if (!receivedItem.image) {
+    receivedItem.image = getRewardImageUrl(chest.chestType || 'wood', receivedItem.type)
+  }
+
+  // Lưu kết quả vào userChest
+  await updateDoc(userChestRef, { opened: true, receivedItem, openedAt: Timestamp.now() })
+
+  // Áp dụng phần thưởng cho user
+  if (receivedItem.type === 'xp') {
+    await updateProfile(userId, { xp: userProfile.xp + receivedItem.value })
+  } else if (receivedItem.type === 'coins') {
+    await updateProfile(userId, { coins: userProfile.coins + receivedItem.value })
+  } else if (receivedItem.type === 'special' && receivedItem.id === 'special_levelup') {
+    await updateProfile(userId, { xp: userProfile.xp + 1000 })
+  }
+
+  // Nếu nhận được Punkverse → lưu timestamp cooldown vào profile
+  if (receivedItem.id === 'punkverse_ticket') {
+    await updateProfile(userId, { lastPunkverseAt: Timestamp.now() })
+  }
+
   return receivedItem
 }
 
@@ -582,4 +672,38 @@ export const updateChest = async (
 export const deleteChest = async (chestId: string): Promise<void> => {
   const chestRef = doc(checkDb(), 'chests', chestId)
   await deleteDoc(chestRef)
+}
+
+/**
+ * Tạo/cập nhật 5 tầng rương mặc định cho gia đình dựa trên CHEST_TIER_CONFIGS.
+ * Nếu đã tồn tại rương cùng tên → cập nhật; nếu chưa → tạo mới.
+ * Chỉ root mới nên gọi hàm này.
+ */
+export const setupFamilyChests = async (familyId: string): Promise<void> => {
+  const chestsRef = collection(checkDb(), 'chests')
+  const existingSnap = await getDocs(query(chestsRef, where('familyId', '==', familyId)))
+  const existingByName: Record<string, string> = {}
+  existingSnap.docs.forEach(d => {
+    existingByName[d.data().name] = d.id
+  })
+
+  await Promise.all(CHEST_TIER_CONFIGS.map(config => {
+    const maxPerWeek = 'maxPerWeek' in config ? (config as any).maxPerWeek as number | undefined : undefined
+    const closedImageUrl = CHEST_IMAGE_URLS[config.chestType] || ''
+    const existingId = existingByName[config.name]
+    if (existingId) {
+      const chestRef = doc(checkDb(), 'chests', existingId)
+      return updateDoc(chestRef, {
+        cost: config.cost, chestType: config.chestType,
+        itemPool: config.itemPool, closedImageUrl,
+        ...(maxPerWeek ? { maxPerWeek } : {}),
+      })
+    }
+    return addDoc(chestsRef, {
+      name: config.name, cost: config.cost, chestType: config.chestType,
+      itemPool: config.itemPool, closedImageUrl, familyId,
+      createdAt: Timestamp.now(),
+      ...(maxPerWeek ? { maxPerWeek } : {}),
+    })
+  }))
 }

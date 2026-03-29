@@ -32,6 +32,7 @@ export interface UserProfile {
   isRoot?: boolean // Chỉ account root mới có thể tạo nhiệm vụ
   isSuperRoot?: boolean // Super root user - quản lý tất cả families và root users
   familyId: string // ID của gia đình (family) mà user thuộc về (có thể null nếu là super root)
+  lastPunkverseAt?: any // Timestamp của lần nhận Vé Punkverse gần nhất (dùng để cooldown 2 tuần)
   createdAt: any
   updatedAt: any
 }

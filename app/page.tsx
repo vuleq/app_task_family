@@ -24,9 +24,11 @@ import { recordDailyLogin } from '@/lib/firebase/loginHistory'
 import SuperRootDashboard from '@/components/SuperRootDashboard'
 import CharacterCreation from '@/components/CharacterCreation'
 import { useI18n } from '@/lib/i18n/context'
+import { THEMES, ThemeId, getThemeById } from '@/lib/theme'
 
 export default function Home() {
   const { t, language } = useI18n()
+  const [themeId, setThemeId] = useState<ThemeId>('classic')
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
 
@@ -38,24 +40,10 @@ export default function Home() {
   const creatingProfileRef = useRef(false)
   const currentAuthUidRef = useRef<string | null>(null)
 
-  // Random background image
-  const [backgroundImage, setBackgroundImage] = useState<string | null>(null)
-
+  // Load saved theme from localStorage on mount
   useEffect(() => {
-    // Lấy danh sách background images từ environment variables
-    const backgrounds: string[] = []
-    if (process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_1) {
-      backgrounds.push(process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_1)
-    }
-    if (process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_2) {
-      backgrounds.push(process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_2)
-    }
-
-    // Random chọn 1 background
-    if (backgrounds.length > 0) {
-      const randomIndex = Math.floor(Math.random() * backgrounds.length)
-      setBackgroundImage(backgrounds[randomIndex])
-    }
+    const saved = localStorage.getItem('app_theme') as ThemeId | null
+    if (saved && THEMES.some(t => t.id === saved)) setThemeId(saved)
   }, [])
 
   useEffect(() => {
@@ -205,16 +193,9 @@ export default function Home() {
   }
 
   if (error) {
-    const errorBackgroundStyle = backgroundImage
-      ? {
-        backgroundImage: `url(${backgroundImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-      }
-      : {
-        background: 'linear-gradient(to bottom right, rgb(15 23 42), rgb(30 41 59), rgb(15 23 42))',
-      }
+    const errorBackgroundStyle = {
+      background: 'linear-gradient(to bottom right, rgb(15 23 42), rgb(30 41 59), rgb(15 23 42))',
+    }
 
     return (
       <div
@@ -283,30 +264,24 @@ export default function Home() {
         user={user}
         profile={profile}
         onUpdated={handleProfileUpdate}
-        backgroundImage={backgroundImage}
+        backgroundImage={null}
       />
     )
   }
 
-  // Style cho background image
-  const backgroundStyle = backgroundImage
-    ? {
-      backgroundImage: `url(${backgroundImage})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat',
-      backgroundAttachment: 'fixed',
-    }
-    : {
-      background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
-    }
+  const handleThemeChange = (id: ThemeId) => {
+    setThemeId(id)
+    localStorage.setItem('app_theme', id)
+  }
+
+  const backgroundStyle = { background: getThemeById(themeId).background }
 
   // Super Root Dashboard - hiển thị riêng cho super root
   if (profile.isSuperRoot) {
     return (
-      <div className="flex min-h-screen">
-        <Sidebar profile={profile} />
-        <div className="flex-1 lg:ml-80 transition-all duration-300">
+      <div className="flex min-h-screen" style={backgroundStyle}>
+        <Sidebar profile={profile} onThemeChange={handleThemeChange} />
+        <div className="flex-1 lg:ml-72 transition-all duration-300">
           <BackgroundMusic isLoggedIn={!!user && !!profile} />
           <main className="max-w-7xl mx-auto px-4 py-6">
             <div id="dashboard-section">
@@ -320,9 +295,9 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen" style={backgroundStyle}>
-      <Sidebar profile={profile} onUpdate={handleProfileUpdate} />
+      <Sidebar profile={profile} onUpdate={handleProfileUpdate} onThemeChange={handleThemeChange} />
 
-      <div className="flex-1 lg:ml-80 transition-all duration-300">
+      <div className="flex-1 lg:ml-72 transition-all duration-300">
         <BackgroundMusic isLoggedIn={!!user && !!profile} />
         
         {profile && !profile.gender && (
