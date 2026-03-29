@@ -144,6 +144,22 @@ export default function Home() {
           }
 
 
+          // Verify family still exists — orphaned familyId causes empty dashboard
+          if (userProfile.familyId && !userProfile.isSuperRoot) {
+            try {
+              const { getFamilyById } = await import('@/lib/firebase/family')
+              const family = await getFamilyById(userProfile.familyId)
+              if (!family) {
+                // Family document deleted or never created → clear so JoinFamilyFlow shows
+                console.warn('[page.tsx] ⚠️ familyId points to non-existent family, clearing...')
+                await updateProfile(userProfile.id, { familyId: '' })
+                userProfile = { ...userProfile, familyId: '' }
+              }
+            } catch (verifyErr) {
+              console.warn('[page.tsx] Could not verify family:', verifyErr)
+            }
+          }
+
           if (isMostRecent()) {
             setProfile(userProfile)
             if (userProfile.familyId) {
