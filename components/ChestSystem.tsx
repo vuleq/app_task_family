@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { UserProfile } from '@/lib/firebase/profile'
 import {
   getAllChests,
@@ -630,7 +631,7 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
         )
       })()}
 
-      {/* History item popup */}
+      {/* History item popup — rendered via portal so fixed covers full viewport */}
       {historyPopup && historyPopup.receivedItem && (() => {
         const item = historyPopup.receivedItem!
         const img = getItemImage(item)
@@ -639,9 +640,9 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
         const dateStr = date
           ? date.toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
           : '—'
-        return (
+        return createPortal(
           <div
-            className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[100] p-6"
+            className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[9999] p-6"
             onClick={() => setHistoryPopup(null)}
           >
             <div
@@ -675,13 +676,14 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
                 {language === 'vi' ? 'ĐÓNG' : 'CLOSE'}
               </button>
             </div>
-          </div>
+          </div>,
+          document.body
         )
       })()}
 
-      {/* Simple Result Modal (fallback when animation skipped) */}
-      {showResult && openingPhase === 'idle' && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-6">
+      {/* Simple Result Modal (fallback) — also via portal */}
+      {showResult && openingPhase === 'idle' && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[9999] p-6">
            <div className={`kid-card p-12 max-w-sm w-full text-center bg-white shadow-kid border-8 animate-bounce-in ${getRarityColor(showResult.rarity)}`}>
               <div className="text-7xl mb-6">🎁</div>
               <h3 className="text-2xl font-black text-violet-900 mb-2 uppercase tracking-tight">WOW! YOU GOT:</h3>
@@ -692,7 +694,8 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
               </div>
               <button onClick={() => setShowResult(null)} className="w-full py-5 bg-violet-600 text-white rounded-[1.8rem] font-black shadow-kid uppercase tracking-widest hover:bg-violet-700 border-b-8 border-violet-800 active:translate-y-1 active:border-b-4">COLLECT REWARD</button>
            </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
