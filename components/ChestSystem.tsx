@@ -57,9 +57,11 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
   const [settingUp, setSettingUp] = useState(false)
   const [historyPopup, setHistoryPopup] = useState<UserChest | null>(null)
 
-  // Returns the best available image for a ChestItem — falls back to ID lookup for old Firestore data
+  // Returns the best available image for a ChestItem.
+  // Prefer the ID-based lookup so known items always use the correct URL,
+  // even when old Firestore data has a wrong/generic image stored.
   const getItemImage = (item: ChestItem): string | undefined =>
-    item.image || REWARD_IMAGE_BY_ID[item.id]
+    REWARD_IMAGE_BY_ID[item.id] || item.image
 
   useEffect(() => {
     loadData()
@@ -643,32 +645,32 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
             onClick={() => setHistoryPopup(null)}
           >
             <div
-              className="kid-card p-10 max-w-sm w-full text-center bg-gradient-to-b from-violet-900 to-violet-950 border-violet-700 shadow-kid animate-bounce-in"
+              className="kid-card p-5 max-w-xs w-full text-center bg-gradient-to-b from-violet-900 to-violet-950 border-violet-700 shadow-kid animate-bounce-in flex flex-col items-center gap-3"
               onClick={e => e.stopPropagation()}
             >
-              <p className="text-[10px] font-black text-violet-300 uppercase tracking-[0.2em] mb-6">{historyPopup.chestName} · {dateStr}</p>
-              <div className="relative flex items-center justify-center mx-auto mb-6" style={{ width: 200, height: 200 }}>
-                <div className={`absolute inset-0 rounded-full ${cfg.glow} opacity-25 blur-3xl animate-glow-expand`} />
-                <svg className="absolute inset-0 w-full h-full animate-ray-spin opacity-10" viewBox="0 0 200 200">
+              <p className="text-[9px] font-black text-violet-300 uppercase tracking-[0.15em]">{historyPopup.chestName} · {dateStr}</p>
+              <div className="relative flex items-center justify-center" style={{ width: 140, height: 140 }}>
+                <div className={`absolute inset-0 rounded-full ${cfg.glow} opacity-25 blur-2xl animate-glow-expand`} />
+                <svg className="absolute inset-0 w-full h-full animate-ray-spin opacity-10" viewBox="0 0 140 140">
                   {AURA_ANGLES.map((deg, i) => {
                     const rad = (deg * Math.PI) / 180
-                    return <line key={i} x1="100" y1="100" x2={100 + 100 * Math.cos(rad)} y2={100 + 100 * Math.sin(rad)} stroke="white" strokeWidth="2" strokeOpacity="0.8" />
+                    return <line key={i} x1="70" y1="70" x2={70 + 70 * Math.cos(rad)} y2={70 + 70 * Math.sin(rad)} stroke="white" strokeWidth="2" strokeOpacity="0.8" />
                   })}
                 </svg>
-                <div className={`absolute rounded-full border-4 border-dashed ${cfg.border} opacity-50 animate-halo-rotate`} style={{ inset: 16 }} />
-                <div className="relative z-10 animate-reward-float">
+                <div className={`absolute rounded-full border-2 border-dashed ${cfg.border} opacity-50 animate-halo-rotate`} style={{ inset: 10 }} />
+                <div className="relative z-10">
                   {img
-                    ? <img src={img} alt={item.name} className="w-32 h-32 object-contain drop-shadow-2xl" />
-                    : <div className="text-7xl">🎁</div>}
+                    ? <img src={img} alt={item.name} className="w-24 h-24 object-contain drop-shadow-2xl" />
+                    : <div className="text-6xl">🎁</div>}
                 </div>
               </div>
-              <p className="text-white font-black text-xl uppercase tracking-tight mb-2">{item.name}</p>
-              <span className={`inline-block px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 ${cfg.badge}`}>
+              <p className="text-white font-black text-base uppercase tracking-tight leading-tight">{item.name}</p>
+              <span className={`px-3 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${cfg.badge}`}>
                 {getRarityName(item.rarity)}
               </span>
               <button
                 onClick={() => setHistoryPopup(null)}
-                className="w-full py-3 bg-white/10 text-white/80 rounded-2xl font-black uppercase tracking-widest hover:bg-white/20 text-sm border border-white/10"
+                className="w-full py-2.5 bg-white/10 text-white/80 rounded-xl font-black uppercase tracking-widest hover:bg-white/20 text-xs border border-white/10"
               >
                 {language === 'vi' ? 'ĐÓNG' : 'CLOSE'}
               </button>
