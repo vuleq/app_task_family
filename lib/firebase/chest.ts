@@ -138,6 +138,20 @@ const REWARD_URLS = {
   punkverse:       'https://res.cloudinary.com/dvuy40chj/image/upload/v1774663451/punkverse_ticket-removebg-preview_axjjcf.png',
 }
 
+// Lookup table: item ID → correct reward image URL
+// Used as fallback when the stored ChestItem.image is missing (old Firestore data)
+export const REWARD_IMAGE_BY_ID: Record<string, string> = {
+  xp50_coins:        REWARD_URLS.xp50coins,
+  xp100_coins:       REWARD_URLS.xp100coins,
+  xp200_coins:       REWARD_URLS.xp200coins,
+  xp500_coins:       REWARD_URLS.xp500coins,
+  fifa39k:           REWARD_URLS.fifa39k,
+  fifa_premium_175k: REWARD_URLS.fifaPremium175k,
+  cgv_ticket:        REWARD_URLS.cgvTicket,
+  fifa365_box_209k:  REWARD_URLS.fifa365box,
+  punkverse_ticket:  REWARD_URLS.punkverse,
+}
+
 /**
  * 10 rương = 5 cặp tương đương (cùng item pool + xác suất, khác skin):
  *   Đồng = Cosmic  (50 coins)
@@ -544,7 +558,9 @@ export const openChest = async (userChestId: string, userId: string): Promise<Ch
   }
 
   if (!receivedItem.image) {
-    receivedItem.image = getRewardImageUrl(chest.chestType || 'wood', receivedItem.type)
+    // Prefer exact ID lookup so special items (e.g. Premium 175k) get the right image
+    receivedItem.image = REWARD_IMAGE_BY_ID[receivedItem.id]
+      || getRewardImageUrl(chest.chestType || 'wood', receivedItem.type)
   }
 
   // Lưu kết quả vào userChest

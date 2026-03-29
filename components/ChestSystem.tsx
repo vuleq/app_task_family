@@ -12,6 +12,7 @@ import {
   deleteChest,
   setupFamilyChests,
   CHEST_IMAGE_URLS,
+  REWARD_IMAGE_BY_ID,
   Chest,
   UserChest,
   ChestItem,
@@ -34,21 +35,8 @@ const RARITY_AURA: Record<string, { glow: string; border: string; rays: string; 
   legendary: { glow: 'bg-amber-500',  border: 'border-amber-400',  rays: 'border-amber-300',  badge: 'bg-amber-100 text-amber-700',   particles: ['⭐','🌟','✨','💛','⭐','🌟','✨','💛'] },
 }
 
-// Precomputed SVG ray endpoints + particle positions for the reward aura
+// Precomputed SVG ray angles for the reward aura
 const AURA_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315]
-const AURA_RAYS = AURA_ANGLES.map(deg => {
-  const rad = (deg * Math.PI) / 180
-  return { x2: 130 + 130 * Math.cos(rad), y2: 130 + 130 * Math.sin(rad) }
-})
-const AURA_PARTICLES = AURA_ANGLES.map(deg => {
-  const rad = (deg * Math.PI) / 180
-  return { x: 130 + 108 * Math.cos(rad), y: 130 + 108 * Math.sin(rad) }
-})
-// Compact version for inline card (160x160 viewBox, center 80,80)
-const AURA_RAYS_SM = AURA_ANGLES.map(deg => {
-  const rad = (deg * Math.PI) / 180
-  return { x2: 80 + 80 * Math.cos(rad), y2: 80 + 80 * Math.sin(rad) }
-})
 
 export default function ChestSystem({ currentUserId, profile, onChestOpened }: ChestSystemProps) {
   const { t, language } = useI18n()
@@ -67,6 +55,11 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
   const [openingChestImg, setOpeningChestImg] = useState<string | null>(null)
   const [openingPhase, setOpeningPhase] = useState<'idle' | 'shaking' | 'opening' | 'revealed'>('idle')
   const [settingUp, setSettingUp] = useState(false)
+  const [historyPopup, setHistoryPopup] = useState<UserChest | null>(null)
+
+  // Returns the best available image for a ChestItem — falls back to ID lookup for old Firestore data
+  const getItemImage = (item: ChestItem): string | undefined =>
+    item.image || REWARD_IMAGE_BY_ID[item.id]
 
   useEffect(() => {
     loadData()
@@ -547,8 +540,8 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
                           <div className={`absolute rounded-full border-4 border-dashed ${cfg.border} opacity-60 animate-halo-rotate`} style={{ inset: 20 }} />
                           <div className={`absolute rounded-full border-2 border-dashed ${cfg.rays} opacity-35 animate-halo-rotate-reverse`} style={{ inset: 44 }} />
                           <div className="relative z-10 animate-reward-float">
-                            {showResult.image
-                              ? <img src={showResult.image} alt={showResult.name} className="w-36 h-36 object-contain" />
+                            {getItemImage(showResult)
+                              ? <img src={getItemImage(showResult)} alt={showResult.name} className="w-36 h-36 object-contain" />
                               : <div className="text-7xl">🎁</div>}
                           </div>
                         </div>
@@ -601,15 +594,20 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
             <div className="space-y-3">
               {history.map(uc => {
                 const item = uc.receivedItem!
+                const img = getItemImage(item)
                 const date = uc.openedAt?.toDate?.()
                 const dateStr = date
                   ? date.toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                   : '—'
                 return (
-                  <div key={uc.id} className={`flex items-center gap-4 p-4 rounded-2xl border-2 ${getRarityColor(item.rarity)}`}>
+                  <div
+                    key={uc.id}
+                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer hover:brightness-95 active:scale-[0.99] transition-all ${getRarityColor(item.rarity)}`}
+                    onClick={() => setHistoryPopup(uc)}
+                  >
                     <div className="w-12 h-12 rounded-xl bg-white shadow-soft flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {item.image
-                        ? <img src={item.image} alt={item.name} className="w-10 h-10 object-contain" />
+                      {img
+                        ? <img src={img} alt={item.name} className="w-10 h-10 object-contain" />
                         : <span className="text-2xl">🎁</span>}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -625,6 +623,55 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
                   </div>
                 )
               })}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* History item popup */}
+      {historyPopup && historyPopup.receivedItem && (() => {
+        const item = historyPopup.receivedItem!
+        const img = getItemImage(item)
+        const cfg = RARITY_AURA[item.rarity] || RARITY_AURA.common
+        const date = historyPopup.openedAt?.toDate?.()
+        const dateStr = date
+          ? date.toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+          : '—'
+        return (
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[100] p-6"
+            onClick={() => setHistoryPopup(null)}
+          >
+            <div
+              className="kid-card p-10 max-w-sm w-full text-center bg-gradient-to-b from-violet-900 to-violet-950 border-violet-700 shadow-kid animate-bounce-in"
+              onClick={e => e.stopPropagation()}
+            >
+              <p className="text-[10px] font-black text-violet-300 uppercase tracking-[0.2em] mb-6">{historyPopup.chestName} · {dateStr}</p>
+              <div className="relative flex items-center justify-center mx-auto mb-6" style={{ width: 200, height: 200 }}>
+                <div className={`absolute inset-0 rounded-full ${cfg.glow} opacity-25 blur-3xl animate-glow-expand`} />
+                <svg className="absolute inset-0 w-full h-full animate-ray-spin opacity-10" viewBox="0 0 200 200">
+                  {AURA_ANGLES.map((deg, i) => {
+                    const rad = (deg * Math.PI) / 180
+                    return <line key={i} x1="100" y1="100" x2={100 + 100 * Math.cos(rad)} y2={100 + 100 * Math.sin(rad)} stroke="white" strokeWidth="2" strokeOpacity="0.8" />
+                  })}
+                </svg>
+                <div className={`absolute rounded-full border-4 border-dashed ${cfg.border} opacity-50 animate-halo-rotate`} style={{ inset: 16 }} />
+                <div className="relative z-10 animate-reward-float">
+                  {img
+                    ? <img src={img} alt={item.name} className="w-32 h-32 object-contain drop-shadow-2xl" />
+                    : <div className="text-7xl">🎁</div>}
+                </div>
+              </div>
+              <p className="text-white font-black text-xl uppercase tracking-tight mb-2">{item.name}</p>
+              <span className={`inline-block px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 ${cfg.badge}`}>
+                {getRarityName(item.rarity)}
+              </span>
+              <button
+                onClick={() => setHistoryPopup(null)}
+                className="w-full py-3 bg-white/10 text-white/80 rounded-2xl font-black uppercase tracking-widest hover:bg-white/20 text-sm border border-white/10"
+              >
+                {language === 'vi' ? 'ĐÓNG' : 'CLOSE'}
+              </button>
             </div>
           </div>
         )
