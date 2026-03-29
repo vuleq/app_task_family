@@ -279,7 +279,7 @@ export default function Home() {
   // Super Root Dashboard - hiển thị riêng cho super root
   if (profile.isSuperRoot) {
     return (
-      <div className="flex min-h-screen" style={backgroundStyle}>
+      <div className="flex min-h-screen" data-theme={themeId} style={backgroundStyle}>
         <Sidebar profile={profile} onThemeChange={handleThemeChange} />
         <div className="flex-1 lg:ml-72 transition-all duration-300">
           <BackgroundMusic isLoggedIn={!!user && !!profile} />
@@ -294,7 +294,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-screen" style={backgroundStyle}>
+    <div className="flex min-h-screen" data-theme={themeId} style={backgroundStyle}>
       <Sidebar profile={profile} onUpdate={handleProfileUpdate} onThemeChange={handleThemeChange} />
 
       <div className="flex-1 lg:ml-72 transition-all duration-300">
