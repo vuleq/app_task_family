@@ -265,9 +265,12 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
                 </label>
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { code: 'bs', emoji: '👨‍⚕️', name: language === 'vi' ? 'Bác Sĩ' : 'Doctor' },
-                    { code: 'ch', emoji: '🚒', name: language === 'vi' ? 'Cứu Hỏa' : 'Firefighter' },
-                    { code: 'cs', emoji: '👮', name: language === 'vi' ? 'Cảnh Sát' : 'Police' },
+                    { code: 'bs',  emoji: '👨‍⚕️', name: language === 'vi' ? 'Bác Sĩ'        : 'Doctor'      },
+                    { code: 'ch',  emoji: '🚒',   name: language === 'vi' ? 'Cứu Hỏa'      : 'Firefighter' },
+                    { code: 'cs',  emoji: '👮',   name: language === 'vi' ? 'Cảnh Sát'     : 'Police'      },
+                    { code: 'phi', emoji: '👨‍🚀',  name: language === 'vi' ? 'Phi Hành Gia' : 'Astronaut'   },
+                    { code: 'hk',  emoji: '⚔️',   name: language === 'vi' ? 'Hiệp Sĩ'      : 'Knight'      },
+                    { code: 'it',  emoji: '💻',   name: language === 'vi' ? 'Nhân Viên IT' : 'IT Staff'    },
                   ].map((prof) => (
                     <button
                       key={prof.code}
