@@ -258,7 +258,8 @@ export default function Home() {
   }
 
   // Nếu đã login nhưng chưa có profile hoặc chưa có familyId (ngoại trừ super root)
-  if (!profile || (profile.familyId === '' && !profile.isSuperRoot)) {
+  // Dùng !profile.familyId để bắt cả undefined, null và '' (không chỉ '')
+  if (!profile || (!profile.familyId && !profile.isSuperRoot)) {
     return (
       <JoinFamilyFlow
         user={user}
