@@ -7,6 +7,35 @@ import { getAllUsers } from '@/lib/firebase/profile'
 import { useI18n } from '@/lib/i18n/context'
 import Toast from './Toast'
 
+// Map Firebase error codes to friendly messages
+const getFirebaseErrorMessage = (err: any, language: string): string => {
+  const code = err?.code || ''
+  const vi: Record<string, string> = {
+    'auth/user-not-found':       'Email này chưa có tài khoản. Vui lòng đăng ký trước.',
+    'auth/wrong-password':       'Mật khẩu không đúng. Vui lòng thử lại.',
+    'auth/invalid-credential':   'Email hoặc mật khẩu không đúng.',
+    'auth/invalid-email':        'Địa chỉ email không hợp lệ.',
+    'auth/email-already-in-use': 'Email này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác.',
+    'auth/weak-password':        'Mật khẩu quá yếu. Vui lòng dùng ít nhất 6 ký tự.',
+    'auth/too-many-requests':    'Quá nhiều lần thử. Vui lòng đợi vài phút rồi thử lại.',
+    'auth/network-request-failed': 'Lỗi kết nối mạng. Vui lòng kiểm tra internet.',
+    'auth/popup-closed-by-user': 'Đăng nhập bị hủy. Vui lòng thử lại.',
+  }
+  const en: Record<string, string> = {
+    'auth/user-not-found':       'No account found with this email. Please sign up first.',
+    'auth/wrong-password':       'Incorrect password. Please try again.',
+    'auth/invalid-credential':   'Incorrect email or password.',
+    'auth/invalid-email':        'Invalid email address.',
+    'auth/email-already-in-use': 'This email is already in use. Please log in or use another email.',
+    'auth/weak-password':        'Password is too weak. Please use at least 6 characters.',
+    'auth/too-many-requests':    'Too many attempts. Please wait a few minutes and try again.',
+    'auth/network-request-failed': 'Network error. Please check your internet connection.',
+    'auth/popup-closed-by-user': 'Sign-in cancelled. Please try again.',
+  }
+  const map = language === 'vi' ? vi : en
+  return map[code] || (language === 'vi' ? 'Đã có lỗi xảy ra. Vui lòng thử lại.' : 'An error occurred. Please try again.')
+}
+
 // Verify super root code via server-side API (code is never exposed to client)
 const verifySuperRootCode = async (code: string): Promise<boolean> => {
   try {
@@ -185,7 +214,7 @@ export default function LoginPage() {
         setLoading(false)
       }
     } catch (err: any) {
-      setError(err.message || t('login.errorOccurred'))
+      setError(getFirebaseErrorMessage(err, language))
       setLoading(false)
     }
   }
@@ -203,7 +232,7 @@ export default function LoginPage() {
       }
       await loginWithGoogleRedirect()
     } catch (err: any) {
-      setError(err.message || t('login.errorOccurred'))
+      setError(getFirebaseErrorMessage(err, language))
     }
   }
 
