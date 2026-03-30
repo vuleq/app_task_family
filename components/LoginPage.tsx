@@ -7,8 +7,20 @@ import { getAllUsers } from '@/lib/firebase/profile'
 import { useI18n } from '@/lib/i18n/context'
 import Toast from './Toast'
 
-// Super root code để tạo super root user (quản lý tất cả families)
-const SUPER_ROOT_CODE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SUPER_ROOT_CODE) || 'SUPERADMIN2024'
+// Verify super root code via server-side API (code is never exposed to client)
+const verifySuperRootCode = async (code: string): Promise<boolean> => {
+  try {
+    const res = await fetch('/api/verify-super-root', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    })
+    const data = await res.json()
+    return data.valid === true
+  } catch {
+    return false
+  }
+}
 
 export default function LoginPage() {
   const { t, language } = useI18n()
@@ -71,7 +83,8 @@ export default function LoginPage() {
 
         let isSuperRoot = false
         if (wantSuperRoot) {
-          if (superRootCode.trim() !== SUPER_ROOT_CODE) {
+          const isValidSuperRoot = await verifySuperRootCode(superRootCode)
+          if (!isValidSuperRoot) {
             setError(language === 'vi' ? 'Mã Super Root không đúng.' : 'Super Root code is incorrect.')
             setLoading(false)
             return
