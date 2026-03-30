@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { collection, query, where, getDocs } from 'firebase/firestore'
+import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore'
 import { checkDb } from '@/lib/firebase/config'
 import { getAllUsers, UserProfile } from '@/lib/firebase/profile'
 import { useI18n } from '@/lib/i18n/context'
@@ -13,15 +13,15 @@ interface MemberTasksViewProps {
 }
 
 const STATUS_CONFIG = {
-  pending:    { label: { vi: 'Chờ làm', en: 'Pending' },    color: 'bg-slate-100 text-slate-600 border-slate-200' },
+  pending:    { label: { vi: 'Chờ làm', en: 'Pending' },     color: 'bg-slate-100 text-slate-600 border-slate-200' },
   in_progress:{ label: { vi: 'Đang làm', en: 'In Progress' }, color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  completed:  { label: { vi: 'Chờ duyệt', en: 'Waiting' },  color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-  approved:   { label: { vi: 'Đã duyệt', en: 'Approved' },  color: 'bg-green-100 text-green-700 border-green-200' },
+  completed:  { label: { vi: 'Chờ duyệt', en: 'Waiting' },   color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  approved:   { label: { vi: 'Đã duyệt', en: 'Approved' },   color: 'bg-green-100 text-green-700 border-green-200' },
 }
 
 const TYPE_CONFIG = {
-  daily:   { label: { vi: 'Ngày', en: 'Daily' },   color: 'bg-violet-100 text-violet-700' },
-  weekly:  { label: { vi: 'Tuần', en: 'Weekly' },  color: 'bg-indigo-100 text-indigo-700' },
+  daily:   { label: { vi: 'Ngày', en: 'Daily' },    color: 'bg-violet-100 text-violet-700' },
+  weekly:  { label: { vi: 'Tuần', en: 'Weekly' },   color: 'bg-indigo-100 text-indigo-700' },
   monthly: { label: { vi: 'Tháng', en: 'Monthly' }, color: 'bg-pink-100 text-pink-700' },
 }
 
@@ -30,6 +30,8 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
   const [tasks, setTasks] = useState<Task[]>([])
   const [members, setMembers] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const [filterMember, setFilterMember] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -37,9 +39,13 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
   const [filterDate, setFilterDate] = useState<string>('')
   const [groupByMember, setGroupByMember] = useState(true)
 
+  // Selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
   const loadData = useCallback(async () => {
     if (!familyId) return
     setLoading(true)
+    setSelectedIds(new Set())
     try {
       const [allUsers, snap] = await Promise.all([
         getAllUsers(familyId),
@@ -48,7 +54,6 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
       const nonRoot = allUsers.filter(u => !u.isRoot && !u.isSuperRoot)
       setMembers(nonRoot)
       const allTasks = snap.docs.map(d => ({ id: d.id, ...d.data() } as Task))
-      // Only show tasks assigned to non-root members
       const nonRootIds = new Set(nonRoot.map(u => u.id))
       setTasks(allTasks.filter(t => nonRootIds.has(t.assignedTo)))
     } catch (e) {
@@ -96,14 +101,80 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
     return c
   }, [filtered])
 
+  // Selection helpers
+  const filteredIds = useMemo(() => filtered.map(t => t.id), [filtered])
+  const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIds.has(id))
+  const someSelected = selectedIds.size > 0
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filteredIds))
+    }
+  }
+
+  const selectAllForMember = (memberTasks: Task[]) => {
+    const ids = memberTasks.map(t => t.id)
+    const allMemberSelected = ids.every(id => selectedIds.has(id))
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (allMemberSelected) {
+        ids.forEach(id => next.delete(id))
+      } else {
+        ids.forEach(id => next.add(id))
+      }
+      return next
+    })
+  }
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return
+    setDeleting(true)
+    setConfirmDelete(false)
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map(id => deleteDoc(doc(checkDb(), 'tasks', id)))
+      )
+      await loadData()
+    } catch (e) {
+      console.error('Error deleting tasks:', e)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const TaskRow = ({ task }: { task: Task }) => {
     const statusCfg = STATUS_CONFIG[task.status as keyof typeof STATUS_CONFIG]
     const typeCfg = TYPE_CONFIG[task.type as keyof typeof TYPE_CONFIG]
     const member = members.find(m => m.id === task.assignedTo)
     const date = task.taskDate || task.completedDate || ''
+    const isSelected = selectedIds.has(task.id)
 
     return (
-      <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-violet-200 hover:bg-violet-50/30 transition-all group">
+      <div
+        className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+          isSelected
+            ? 'border-red-300 bg-red-50'
+            : 'border-slate-100 hover:border-violet-200 hover:bg-violet-50/30'
+        }`}
+        onClick={() => toggleSelect(task.id)}
+      >
+        {/* Checkbox */}
+        <div className={`w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+          isSelected ? 'bg-red-500 border-red-500' : 'border-slate-300'
+        }`}>
+          {isSelected && <span className="text-white text-xs font-bold">✓</span>}
+        </div>
+
         {/* Status dot */}
         <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
           task.status === 'approved' ? 'bg-green-500' :
@@ -144,8 +215,12 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
 
         {/* Evidence thumbnail */}
         {task.evidence && (
-          <a href={task.evidence} target="_blank" rel="noopener noreferrer"
-            className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 group-hover:border-violet-300 transition-colors"
+          <a
+            href={task.evidence}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 hover:border-violet-300 transition-colors"
           >
             <img src={task.evidence} alt="" className="w-full h-full object-cover" />
           </a>
@@ -174,7 +249,7 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
             {language === 'vi' ? 'Nhiệm vụ của thành viên' : 'Member Tasks'}
             <span className="text-sm font-bold text-violet-400">({filtered.length})</span>
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setGroupByMember(g => !g)}
               className={`text-xs px-3 py-1.5 rounded-xl font-bold border transition-colors ${
@@ -184,8 +259,8 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
               }`}
             >
               {groupByMember
-                ? (language === 'vi' ? '👤 Nhóm theo thành viên' : '👤 Grouped')
-                : (language === 'vi' ? '📋 Danh sách phẳng' : '📋 Flat list')}
+                ? (language === 'vi' ? '👤 Theo thành viên' : '👤 Grouped')
+                : (language === 'vi' ? '📋 Danh sách' : '📋 Flat list')}
             </button>
             <button
               onClick={loadData}
@@ -199,7 +274,6 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
 
       {/* Filters */}
       <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap gap-3">
-        {/* Member filter */}
         <select
           value={filterMember}
           onChange={e => setFilterMember(e.target.value)}
@@ -211,7 +285,6 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
           ))}
         </select>
 
-        {/* Type filter */}
         <select
           value={filterType}
           onChange={e => setFilterType(e.target.value)}
@@ -223,7 +296,6 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
           <option value="monthly">{language === 'vi' ? 'Tháng' : 'Monthly'}</option>
         </select>
 
-        {/* Date filter */}
         <input
           type="date"
           value={filterDate}
@@ -265,6 +337,59 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
         })}
       </div>
 
+      {/* Bulk action bar */}
+      {filtered.length > 0 && (
+        <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-3">
+          <button
+            onClick={toggleSelectAll}
+            className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${
+              allSelected
+                ? 'bg-slate-200 text-slate-700 border-slate-300'
+                : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
+            }`}
+          >
+            {allSelected
+              ? (language === 'vi' ? '☑ Bỏ chọn tất cả' : '☑ Deselect all')
+              : (language === 'vi' ? '☐ Chọn tất cả' : '☐ Select all')}
+          </button>
+
+          {someSelected && (
+            <>
+              <span className="text-xs text-slate-500">
+                {language === 'vi' ? `Đã chọn ${selectedIds.size} task` : `${selectedIds.size} selected`}
+              </span>
+              {!confirmDelete ? (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg bg-red-100 text-red-600 border border-red-200 hover:bg-red-200 transition-colors ml-auto"
+                >
+                  🗑 {language === 'vi' ? `Xóa ${selectedIds.size} task` : `Delete ${selectedIds.size} tasks`}
+                </button>
+              ) : (
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="text-xs font-bold text-red-600">
+                    {language === 'vi' ? 'Xác nhận xóa?' : 'Confirm delete?'}
+                  </span>
+                  <button
+                    onClick={handleDeleteSelected}
+                    disabled={deleting}
+                    className="text-xs font-black px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+                  >
+                    {deleting ? '...' : (language === 'vi' ? '✓ Xóa ngay' : '✓ Delete')}
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="text-xs font-bold px-3 py-1.5 rounded-lg bg-white text-slate-500 border border-slate-200 hover:border-slate-400 transition-colors"
+                  >
+                    {language === 'vi' ? 'Huỷ' : 'Cancel'}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Content */}
       <div className="p-4">
         {filtered.length === 0 ? (
@@ -274,23 +399,40 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
           </div>
         ) : groupByMember ? (
           <div className="space-y-5">
-            {grouped.map(({ member, tasks: memberTasks }) => (
-              <div key={member.id}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center text-sm font-black text-violet-700 flex-shrink-0">
-                    {member.avatar
-                      ? <img src={member.avatar} alt={member.name} className="w-full h-full object-cover rounded-full" />
-                      : member.name.charAt(0).toUpperCase()}
+            {grouped.map(({ member, tasks: memberTasks }) => {
+              const memberIds = memberTasks.map(t => t.id)
+              const allMemberSelected = memberIds.every(id => selectedIds.has(id))
+              return (
+                <div key={member.id}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center text-sm font-black text-violet-700 flex-shrink-0 overflow-hidden">
+                      {member.avatar
+                        ? <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
+                        : member.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-black text-slate-700">{member.name}</span>
+                    <span className="text-xs text-slate-400 font-medium">({memberTasks.length})</span>
+                    {/* Select all for this member */}
+                    <button
+                      onClick={() => selectAllForMember(memberTasks)}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${
+                        allMemberSelected
+                          ? 'bg-red-100 text-red-600 border-red-200'
+                          : 'bg-slate-100 text-slate-500 border-slate-200 hover:border-slate-400'
+                      }`}
+                    >
+                      {allMemberSelected
+                        ? (language === 'vi' ? 'Bỏ chọn' : 'Deselect')
+                        : (language === 'vi' ? 'Chọn tất cả' : 'Select all')}
+                    </button>
+                    <div className="flex-1 h-px bg-slate-100" />
                   </div>
-                  <span className="text-sm font-black text-slate-700">{member.name}</span>
-                  <span className="text-xs text-slate-400 font-medium">({memberTasks.length})</span>
-                  <div className="flex-1 h-px bg-slate-100" />
+                  <div className="space-y-1.5 pl-9">
+                    {memberTasks.map(task => <TaskRow key={task.id} task={task} />)}
+                  </div>
                 </div>
-                <div className="space-y-1.5 pl-9">
-                  {memberTasks.map(task => <TaskRow key={task.id} task={task} />)}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <div className="space-y-1.5">
