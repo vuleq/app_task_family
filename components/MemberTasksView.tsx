@@ -25,13 +25,14 @@ const TYPE_CONFIG = {
   monthly: { label: { vi: 'Tháng', en: 'Monthly' }, color: 'bg-pink-100 text-pink-700' },
 }
 
-export default function MemberTasksView({ currentUserId, familyId }: MemberTasksViewProps) {
+export default function MemberTasksView({ currentUserId: _currentUserId, familyId }: MemberTasksViewProps) {
   const { language } = useI18n()
   const [tasks, setTasks] = useState<Task[]>([])
   const [members, setMembers] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmDeleteMember, setConfirmDeleteMember] = useState<string | null>(null) // memberId
 
   const [filterMember, setFilterMember] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -122,20 +123,6 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
     }
   }
 
-  const selectAllForMember = (memberTasks: Task[]) => {
-    const ids = memberTasks.map(t => t.id)
-    const allMemberSelected = ids.every(id => selectedIds.has(id))
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      if (allMemberSelected) {
-        ids.forEach(id => next.delete(id))
-      } else {
-        ids.forEach(id => next.add(id))
-      }
-      return next
-    })
-  }
-
   const handleDeleteSelected = async () => {
     if (selectedIds.size === 0) return
     setDeleting(true)
@@ -144,6 +131,21 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
       await Promise.all(
         Array.from(selectedIds).map(id => deleteDoc(doc(checkDb(), 'tasks', id)))
       )
+      await loadData()
+    } catch (e) {
+      console.error('Error deleting tasks:', e)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleDeleteAllForMember = async (memberId: string) => {
+    const ids = tasks.filter(t => t.assignedTo === memberId).map(t => t.id)
+    if (ids.length === 0) return
+    setDeleting(true)
+    setConfirmDeleteMember(null)
+    try {
+      await Promise.all(ids.map(id => deleteDoc(doc(checkDb(), 'tasks', id))))
       await loadData()
     } catch (e) {
       console.error('Error deleting tasks:', e)
@@ -400,8 +402,6 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
         ) : groupByMember ? (
           <div className="space-y-5">
             {grouped.map(({ member, tasks: memberTasks }) => {
-              const memberIds = memberTasks.map(t => t.id)
-              const allMemberSelected = memberIds.every(id => selectedIds.has(id))
               return (
                 <div key={member.id}>
                   <div className="flex items-center gap-2 mb-2">
@@ -412,19 +412,35 @@ export default function MemberTasksView({ currentUserId, familyId }: MemberTasks
                     </div>
                     <span className="text-sm font-black text-slate-700">{member.name}</span>
                     <span className="text-xs text-slate-400 font-medium">({memberTasks.length})</span>
-                    {/* Select all for this member */}
-                    <button
-                      onClick={() => selectAllForMember(memberTasks)}
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${
-                        allMemberSelected
-                          ? 'bg-red-100 text-red-600 border-red-200'
-                          : 'bg-slate-100 text-slate-500 border-slate-200 hover:border-slate-400'
-                      }`}
-                    >
-                      {allMemberSelected
-                        ? (language === 'vi' ? 'Bỏ chọn' : 'Deselect')
-                        : (language === 'vi' ? 'Chọn tất cả' : 'Select all')}
-                    </button>
+
+                    {confirmDeleteMember === member.id ? (
+                      <>
+                        <span className="text-[10px] font-bold text-red-600">
+                          {language === 'vi' ? 'Xóa hết?' : 'Delete all?'}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteAllForMember(member.id)}
+                          disabled={deleting}
+                          className="text-[10px] font-black px-2 py-0.5 rounded bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+                        >
+                          {deleting ? '...' : '✓'}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteMember(null)}
+                          className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200 hover:border-slate-400 transition-colors"
+                        >
+                          ✕
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteMember(member.id)}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded border bg-red-50 text-red-500 border-red-200 hover:bg-red-100 transition-colors"
+                      >
+                        🗑 {language === 'vi' ? 'Xóa tất cả' : 'Delete all'}
+                      </button>
+                    )}
+
                     <div className="flex-1 h-px bg-slate-100" />
                   </div>
                   <div className="space-y-1.5 pl-9">
