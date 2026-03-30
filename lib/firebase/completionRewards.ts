@@ -1,7 +1,37 @@
-import { collection, query, where, getDocs, addDoc, doc, getDoc, Timestamp } from 'firebase/firestore'
+import { collection, query, where, getDocs, addDoc, doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore'
 import { checkDb } from './config'
 import { updateProfile, getProfile } from './profile'
 import { getCurrentDate, getWeekStartDate, getMonthStartDate } from './taskLimits'
+
+export type BonusNotification = {
+  id: string
+  userId: string
+  type: 'daily' | 'weekly' | 'monthly'
+  coins: number
+  xp: number
+  read: boolean
+  createdAt: any
+}
+
+const createBonusNotification = async (
+  userId: string,
+  type: 'daily' | 'weekly' | 'monthly',
+  coins: number,
+  xp: number
+): Promise<void> => {
+  await addDoc(collection(checkDb(), 'bonusNotifications'), {
+    userId,
+    type,
+    coins,
+    xp,
+    read: false,
+    createdAt: Timestamp.now(),
+  })
+}
+
+export const markBonusNotificationRead = async (notificationId: string): Promise<void> => {
+  await updateDoc(doc(checkDb(), 'bonusNotifications', notificationId), { read: true })
+}
 
 // Completion rewards configuration
 export const COMPLETION_REWARDS = {
@@ -105,6 +135,7 @@ export const checkDailyCompletion = async (userId: string, familyId: string, com
 
       // Đánh dấu đã trao thưởng
       await markDailyRewardGiven(userId, date, familyId)
+      await createBonusNotification(userId, 'daily', COMPLETION_REWARDS.daily.coins, COMPLETION_REWARDS.daily.xp)
 
       return {
         rewarded: true,
@@ -202,6 +233,7 @@ export const checkWeeklyCompletion = async (userId: string, familyId: string): P
 
       // Đánh dấu đã trao thưởng
       await markWeeklyRewardGiven(userId, weekStartDate, familyId)
+      await createBonusNotification(userId, 'weekly', COMPLETION_REWARDS.weekly.coins, COMPLETION_REWARDS.weekly.xp)
 
       return {
         rewarded: true,
@@ -299,6 +331,7 @@ export const checkMonthlyCompletion = async (userId: string, familyId: string): 
 
       // Đánh dấu đã trao thưởng
       await markMonthlyRewardGiven(userId, monthStartDate, familyId)
+      await createBonusNotification(userId, 'monthly', COMPLETION_REWARDS.monthly.coins, COMPLETION_REWARDS.monthly.xp)
 
       return {
         rewarded: true,
