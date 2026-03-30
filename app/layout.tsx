@@ -25,7 +25,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#0ea5e9',
+  themeColor: '#7C3AED', // Primary Violet
 }
 
 export default function RootLayout({
@@ -38,7 +38,7 @@ export default function RootLayout({
       <head>
         {/* Favicon sẽ được tạo sau khi có PWA icons */}
       </head>
-      <body className="font-sans">
+      <body className="font-sans bg-primary-50 text-primary-900">
         <I18nProvider>
           {children}
         </I18nProvider>

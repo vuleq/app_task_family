@@ -6,6 +6,14 @@ import { getMemberStats, MemberStats } from '@/lib/firebase/loginHistory'
 import { useI18n } from '@/lib/i18n/context'
 import Toast from './Toast'
 
+// recharts is currently disabled due to installation issues in this environment
+// import {
+//   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+//   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+// } from 'recharts'
+
+const MEMBER_COLORS = ['#60a5fa', '#34d399', '#f97316', '#a78bfa', '#fbbf24', '#2dd4bf', '#f472b6', '#94a3b8']
+
 interface RootMemberDashboardProps {
   currentUserId: string
   familyId: string
@@ -17,7 +25,7 @@ interface MemberWithStats {
   stats: MemberStats
 }
 
-export default function RootMemberDashboard({ currentUserId, familyId, profile }: RootMemberDashboardProps) {
+export default function RootMemberDashboard({ currentUserId, familyId }: RootMemberDashboardProps) {
   const { language } = useI18n()
   const [memberStats, setMemberStats] = useState<MemberWithStats[]>([])
   const [loading, setLoading] = useState(true)
@@ -54,6 +62,30 @@ export default function RootMemberDashboard({ currentUserId, familyId, profile }
   useEffect(() => {
     loadDashboardData()
   }, [loadDashboardData])
+
+  const totalLoginDays = memberStats.reduce((s, { stats }) => s + stats.loginDays, 0)
+  const totalTasksDone = memberStats.reduce((s, { stats }) => s + stats.tasksApproved, 0)
+  const totalXP = memberStats.reduce((s, { member }) => s + (member.xp || 0), 0)
+
+  const shortName = (name: string) => name.split(' ').pop() ?? name
+
+  const summaryCards = [
+    {
+      label: language === 'vi' ? 'Tổng ngày đăng nhập' : 'Total Login Days',
+      value: totalLoginDays,
+      color: '#60a5fa',
+    },
+    {
+      label: language === 'vi' ? 'Task hoàn thành' : 'Tasks Completed',
+      value: totalTasksDone,
+      color: '#34d399',
+    },
+    {
+      label: language === 'vi' ? 'Tổng XP' : 'Total XP',
+      value: totalXP,
+      color: '#a78bfa',
+    },
+  ]
 
   const getRoleLabel = (member: UserProfile) => {
     if (member.isRoot) return language === 'vi' ? 'Quản lý' : 'Root'
@@ -95,16 +127,59 @@ export default function RootMemberDashboard({ currentUserId, familyId, profile }
         </div>
       </div>
 
-      {/* Member cards */}
+      {/* Summary Cards */}
+      <div className="grid grid-cols-3 gap-4">
+        {summaryCards.map((card, idx) => (
+          <div key={idx} className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-4 border border-slate-700/50">
+            <p className="text-2xl font-bold" style={{ color: card.color }}>
+              {card.value.toLocaleString()}
+            </p>
+            <p className="text-xs text-gray-400">{card.label}</p>
+            <div className="h-1 mt-3 bg-slate-700/50 rounded-full overflow-hidden">
+              <div
+                className="h-full"
+                style={{ width: '40%', backgroundColor: card.color }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts Row Placeholder */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-6 border border-slate-700/50 min-h-[220px] flex flex-col items-center justify-center text-center">
+          <p className="text-gray-300 font-medium mb-1">
+            {language === 'vi' ? 'Hoạt động thành viên' : 'Member Activity'}
+          </p>
+          <p className="text-xs text-gray-500 max-w-[200px]">
+            {language === 'vi' ? 'Biểu đồ đang được tối ưu hóa. Vui lòng quay lại sau.' : 'Charts are being optimized. Please check back later.'}
+          </p>
+        </div>
+        <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-6 border border-slate-700/50 min-h-[220px] flex flex-col items-center justify-center text-center">
+          <p className="text-gray-300 font-medium mb-1">
+            {language === 'vi' ? 'Phân bổ XP' : 'XP Distribution'}
+          </p>
+          <p className="text-xs text-gray-500 max-w-[200px]">
+            {language === 'vi' ? 'Dữ liệu biểu đồ đang tạm ẩn để tăng tốc độ tải.' : 'XP chart data is hidden to improve loading speed.'}
+          </p>
+        </div>
+      </div>
+
+      {/* Member Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {memberStats.map(({ member, stats }) => (
+        {memberStats.map(({ member, stats }, idx) => (
           <div
             key={member.id}
             className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-4 border border-slate-700/50"
           >
-            {/* Member header */}
             <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-700/50">
-              <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-slate-600 flex items-center justify-center">
+              <div
+                className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                style={{
+                  backgroundColor: MEMBER_COLORS[idx % MEMBER_COLORS.length] + '26',
+                  border: `2px solid ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`,
+                }}
+              >
                 {member.avatar ? (
                   <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
                 ) : (
@@ -122,7 +197,6 @@ export default function RootMemberDashboard({ currentUserId, familyId, profile }
               )}
             </div>
 
-            {/* Stats grid 2x3 */}
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="bg-slate-700/50 rounded p-2 text-center">
                 <p className="text-2xl font-bold text-blue-400">{stats.loginDays}</p>

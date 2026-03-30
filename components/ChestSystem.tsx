@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { UserProfile } from '@/lib/firebase/profile'
 import {
   getAllChests,
@@ -37,50 +37,31 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
   const [openingVideoUrl, setOpeningVideoUrl] = useState<string | null>(null)
   const [videoEnded, setVideoEnded] = useState(false)
-  const [showRewardDelay, setShowRewardDelay] = useState(false) // Delay để hiển thị phần thưởng
+  const [showRewardDelay, setShowRewardDelay] = useState(false)
 
   useEffect(() => {
     loadData()
   }, [])
 
-  // Sắp xếp chests theo thứ tự: Wood → Silver → Gold → Mystery → Legendary
   const sortChestsByType = (chests: Chest[]): Chest[] => {
-    const order: Record<string, number> = {
-      'wood': 1,
-      'silver': 2,
-      'gold': 3,
-      'mystery': 4,
-      'legendary': 5,
-    }
-    
+    const order: Record<string, number> = { 'wood': 1, 'silver': 2, 'gold': 3, 'mystery': 4, 'legendary': 5 }
     return [...chests].sort((a, b) => {
       const typeA = getChestTypeFromItemPool(a.itemPool)
       const typeB = getChestTypeFromItemPool(b.itemPool)
       const orderA = order[typeA] || 999
       const orderB = order[typeB] || 999
-      
-      // Nếu cùng loại, sắp xếp theo cost (từ thấp đến cao)
-      if (orderA === orderB) {
-        return a.cost - b.cost
-      }
-      
-      return orderA - orderB
+      return orderA === orderB ? a.cost - b.cost : orderA - orderB
     })
   }
 
   const loadData = async () => {
     try {
-      if (!profile.familyId) {
-        console.error('Profile does not have familyId')
-        return
-      }
+      if (!profile.familyId) return
       const [chestsData, userChestsData] = await Promise.all([
         getAllChests(profile.familyId),
         getUserChests(currentUserId, profile.familyId),
       ])
-      // Sắp xếp chests theo thứ tự mong muốn
-      const sortedChests = sortChestsByType(chestsData)
-      setChests(sortedChests)
+      setChests(sortChestsByType(chestsData))
       setUserChests(userChestsData)
     } catch (error) {
       console.error('Error loading chests:', error)
@@ -92,7 +73,6 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
 
   const handlePurchase = async (chestId: string) => {
     if (purchasing) return
-
     setPurchasing(chestId)
     try {
       await purchaseChest(currentUserId, chestId)
@@ -100,7 +80,6 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
       loadData()
       if (onChestOpened) onChestOpened()
     } catch (error: any) {
-      console.error('Error purchasing chest:', error)
       setToast({ show: true, message: error.message || t('chestSystem.purchaseError'), type: 'error' })
     } finally {
       setPurchasing(null)
@@ -109,136 +88,78 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
 
   const handleOpen = async (userChestId: string) => {
     if (opening) return
-
-    // Tìm chest tương ứng để lấy openingMediaUrl
     const userChest = userChests.find(uc => uc.id === userChestId)
     const chest = userChest ? chests.find(c => c.id === userChest.chestId) : null
-    
-    // Xác định chest type
     const chestType = chest ? getChestTypeFromItemPool(chest.itemPool) : null
-    
-    // Ưu tiên: 1. openingMediaUrl từ database, 2. URL từ mapping, 3. Không có video
     const videoUrl = chest?.openingMediaUrl || (chestType ? chestOpeningVideoUrls[chestType] : null)
     
-    // Mở rương ngay để lấy phần thưởng (không đợi video xong)
     setOpening(userChestId)
     let rewardItem: ChestItem | null = null
     
     try {
-      // Mở rương ngay để lấy phần thưởng
       rewardItem = await openChest(userChestId, currentUserId)
       loadData()
       if (onChestOpened) onChestOpened()
     } catch (error: any) {
-      console.error('Error opening chest:', error)
       setToast({ show: true, message: error.message || t('chestSystem.openError'), type: 'error' })
       setOpening(null)
       return
     }
     
-    // Nếu có video/animation, hiển thị video với phần thưởng overlay (delay 2-3 giây)
     if (videoUrl && rewardItem) {
       setOpeningVideoUrl(videoUrl)
       setVideoEnded(false)
-      setShowRewardDelay(false) // Reset delay state
-      setShowResult(null) // Chưa hiển thị phần thưởng ngay
-      console.log(`[ChestSystem] Playing opening video for ${chestType} chest with reward:`, rewardItem)
-      
-      // Delay 2.5 giây trước khi hiển thị phần thưởng
+      setShowRewardDelay(false)
+      setShowResult(null)
       setTimeout(() => {
         setShowResult(rewardItem)
         setShowRewardDelay(true)
-      }, 2500) // 2.5 giây delay
-      
-      // Video sẽ tự động đóng khi xong, phần thưởng đã hiển thị
+      }, 2500)
       return
     }
 
-    // Nếu không có video, chỉ hiển thị phần thưởng
-    if (rewardItem) {
-      setShowResult(rewardItem)
-    }
+    if (rewardItem) setShowResult(rewardItem)
     setOpening(null)
   }
 
-  // Mở rương trực tiếp (không có video)
-  const openChestDirectly = async (userChestId: string) => {
-    setOpening(userChestId)
-    try {
-      const item = await openChest(userChestId, currentUserId)
-      setShowResult(item)
-      loadData()
-      if (onChestOpened) onChestOpened()
-    } catch (error: any) {
-      console.error('Error opening chest:', error)
-      setToast({ show: true, message: error.message || t('chestSystem.openError'), type: 'error' })
-    } finally {
-      setOpening(null)
-    }
-  }
-
-  // Xử lý khi video kết thúc
   const handleVideoEnd = async () => {
     setVideoEnded(true)
-    // Đóng video sau 1s, phần thưởng vẫn hiển thị
     setTimeout(() => {
       setOpeningVideoUrl(null)
       setVideoEnded(false)
       setShowRewardDelay(false)
       setOpening(null)
-      // Phần thưởng đã được hiển thị trong modal showResult, không cần làm gì thêm
     }, 1000)
   }
 
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
-      case 'common':
-        return 'bg-slate-700/50 text-gray-100 border-slate-600'
-      case 'rare':
-        return 'bg-blue-500/20 text-blue-300 border-blue-500/50'
-      case 'epic':
-        return 'bg-purple-500/20 text-purple-300 border-purple-500/50'
-      case 'legendary':
-        return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50'
-      default:
-        return 'bg-slate-700/50 text-gray-100 border-slate-600'
+      case 'common': return 'bg-slate-100 text-slate-600 border-slate-200'
+      case 'rare': return 'bg-blue-100 text-blue-600 border-blue-200'
+      case 'epic': return 'bg-violet-100 text-violet-600 border-violet-200'
+      case 'legendary': return 'bg-amber-100 text-amber-600 border-amber-200'
+      default: return 'bg-slate-100 text-slate-600 border-slate-200'
     }
   }
 
   const getRarityName = (rarity: string) => {
     switch (rarity) {
-      case 'common':
-        return t('chestSystem.rarityCommon')
-      case 'rare':
-        return t('chestSystem.rarityRare')
-      case 'epic':
-        return t('chestSystem.rarityEpic')
-      case 'legendary':
-        return t('chestSystem.rarityLegendary')
-      default:
-        return rarity
+      case 'common': return t('chestSystem.rarityCommon')
+      case 'rare': return t('chestSystem.rarityRare')
+      case 'epic': return t('chestSystem.rarityEpic')
+      case 'legendary': return t('chestSystem.rarityLegendary')
+      default: return rarity
     }
   }
 
   const getItemPoolByChestType = (chestType: 'wood' | 'silver' | 'gold' | 'mystery' | 'legendary'): ChestItem[] => {
     switch (chestType) {
-      case 'wood':
-        // Rương gỗ: chỉ có common items
-        return [...DEFAULT_CHEST_ITEMS.common]
-      case 'silver':
-        // Rương bạc: common + rare items
-        return [...DEFAULT_CHEST_ITEMS.common, ...DEFAULT_CHEST_ITEMS.rare]
-      case 'gold':
-        // Rương vàng: rare + epic items
-        return [...DEFAULT_CHEST_ITEMS.rare, ...DEFAULT_CHEST_ITEMS.epic]
-      case 'mystery':
-        // Rương bí ẩn: tất cả loại items (common, rare, epic, legendary)
-        return [...DEFAULT_CHEST_ITEMS.common, ...DEFAULT_CHEST_ITEMS.rare, ...DEFAULT_CHEST_ITEMS.epic, ...DEFAULT_CHEST_ITEMS.legendary]
-      case 'legendary':
-        // Rương huyền thoại: epic + legendary items
-        return [...DEFAULT_CHEST_ITEMS.epic, ...DEFAULT_CHEST_ITEMS.legendary]
-      default:
-        return [...DEFAULT_CHEST_ITEMS.common]
+      case 'wood': return [...DEFAULT_CHEST_ITEMS.common]
+      case 'silver': return [...DEFAULT_CHEST_ITEMS.common, ...DEFAULT_CHEST_ITEMS.rare]
+      case 'gold': return [...DEFAULT_CHEST_ITEMS.rare, ...DEFAULT_CHEST_ITEMS.epic]
+      case 'mystery': return [...DEFAULT_CHEST_ITEMS.common, ...DEFAULT_CHEST_ITEMS.rare, ...DEFAULT_CHEST_ITEMS.epic, ...DEFAULT_CHEST_ITEMS.legendary]
+      case 'legendary': return [...DEFAULT_CHEST_ITEMS.epic, ...DEFAULT_CHEST_ITEMS.legendary]
+      default: return [...DEFAULT_CHEST_ITEMS.common]
     }
   }
 
@@ -247,28 +168,13 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     const hasEpic = itemPool.some(item => item.rarity === 'epic')
     const hasRare = itemPool.some(item => item.rarity === 'rare')
     const hasCommon = itemPool.some(item => item.rarity === 'common')
-    
-    // Mystery: có tất cả các loại
-    if (hasCommon && hasRare && hasEpic && hasLegendary) {
-      return 'mystery'
-    }
-    // Legendary: có epic và legendary
-    if (hasEpic && hasLegendary && !hasCommon && !hasRare) {
-      return 'legendary'
-    }
-    // Gold: có rare và epic
-    if (hasRare && hasEpic && !hasLegendary) {
-      return 'gold'
-    }
-    // Silver: có common và rare
-    if (hasCommon && hasRare && !hasEpic && !hasLegendary) {
-      return 'silver'
-    }
-    // Wood: chỉ có common
+    if (hasCommon && hasRare && hasEpic && hasLegendary) return 'mystery'
+    if (hasEpic && hasLegendary && !hasCommon && !hasRare) return 'legendary'
+    if (hasRare && hasEpic && !hasLegendary) return 'gold'
+    if (hasCommon && hasRare && !hasEpic && !hasLegendary) return 'silver'
     return 'wood'
   }
 
-  // Mapping các chest type với URL thực tế trên Cloudinary (ảnh đóng)
   const chestImageUrls: Record<string, string> = {
     wood: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356618/wood_chest_closed_iagexl.png',
     silver: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356711/silver_chest_closed_pcyuoh.png',
@@ -277,7 +183,6 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     legendary: 'https://res.cloudinary.com/dvuy40chj/image/upload/v1767356745/legendary_chest_closed_aurtuy.png',
   }
 
-  // Mapping các chest type với URL video mở rương trên Cloudinary
   const chestOpeningVideoUrls: Record<string, string> = {
     wood: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360488/wooden_chest_open_l9b8jv.mp4',
     silver: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360533/silver_chest_open_flmbw7.mp4',
@@ -286,48 +191,19 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     legendary: 'https://res.cloudinary.com/dvuy40chj/video/upload/v1767360650/legendary_chest_open_juqrdc.mp4',
   }
 
-  // Lấy URL hình ảnh rương dựa trên chest type
   const getChestImageUrl = (chest: Chest): string | null => {
-    // Nếu có closedImageUrl trong database, dùng nó (ưu tiên cao nhất)
-    if (chest.closedImageUrl) {
-      console.log(`[ChestSystem] Using database URL for chest ${chest.id}:`, chest.closedImageUrl)
-      return chest.closedImageUrl
-    }
-    
-    // Nếu không có, xác định chest type và dùng URL từ mapping
+    if (chest.closedImageUrl) return chest.closedImageUrl
     const chestType = getChestTypeFromItemPool(chest.itemPool)
-    
-    // Kiểm tra xem có URL trong mapping không
-    if (chestImageUrls[chestType]) {
-      console.log(`[ChestSystem] Using mapped URL for ${chestType} chest:`, chestImageUrls[chestType])
-      return chestImageUrls[chestType]
-    }
-    
-    // Fallback: thử tìm trong folder (nếu có)
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dvuy40chj'
-    const fallbackUrl = `https://res.cloudinary.com/${cloudName}/image/upload/family-tasks/chests/${chestType}/${chestType}_chest_closed.png`
-    console.log(`[ChestSystem] Using fallback URL for ${chestType} chest:`, fallbackUrl)
-    return fallbackUrl
+    return chestImageUrls[chestType] || null
   }
 
-  // Lấy URL hình ảnh cho user chest (rương của user)
   const getUserChestImageUrl = (userChest: UserChest): string | null => {
-    // Tìm chest tương ứng
     const chest = chests.find(c => c.id === userChest.chestId)
-    if (chest) {
-      return getChestImageUrl(chest)
-    }
-    return null
+    return chest ? getChestImageUrl(chest) : null
   }
 
   const handleEditChest = (chest: Chest) => {
-    if (!profile.isRoot) {
-      setToast({ show: true, message: language === 'vi' 
-        ? '⚠️ Chỉ tài khoản root mới có thể chỉnh sửa rương!'
-        : '⚠️ Only root accounts can edit chests!', type: 'error' })
-      return
-    }
-    // Xác định chestType dựa trên itemPool
+    if (!profile.isRoot) return
     const chestType = getChestTypeFromItemPool(chest.itemPool)
     setEditingChest({ ...chest, chestType })
     setShowAddForm(false)
@@ -335,576 +211,227 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
 
   const handleUpdateChest = async () => {
     if (!editingChest) return
-
-    if (!editingChest.name.trim()) {
-      setToast({ show: true, message: language === 'vi' ? 'Vui lòng nhập tên rương' : 'Please enter chest name', type: 'error' })
-      return
-    }
-
     try {
-      const itemPool = getItemPoolByChestType(editingChest.chestType as 'wood' | 'silver' | 'gold' | 'mystery' | 'legendary')
+      const itemPool = getItemPoolByChestType(editingChest.chestType as any)
       await updateChest(editingChest.id, editingChest.name, editingChest.cost, itemPool)
       setEditingChest(null)
       loadData()
-      setToast({ show: true, message: language === 'vi' ? 'Đã cập nhật rương thành công!' : 'Chest updated successfully!', type: 'success' })
+      setToast({ show: true, message: 'Updated!', type: 'success' })
     } catch (error) {
-      console.error('Error updating chest:', error)
-      setToast({ show: true, message: language === 'vi' ? 'Lỗi khi cập nhật rương' : 'Error updating chest', type: 'error' })
+      setToast({ show: true, message: 'Error updating', type: 'error' })
     }
   }
 
   const handleAddChest = async () => {
-    if (!profile.isRoot) {
-      setToast({ show: true, message: language === 'vi' 
-        ? '⚠️ Chỉ tài khoản root mới có thể tạo rương!'
-        : '⚠️ Only root accounts can create chests!', type: 'error' })
-      return
-    }
-
-    if (!newChest.name.trim()) {
-      setToast({ show: true, message: language === 'vi' ? 'Vui lòng nhập tên rương' : 'Please enter chest name', type: 'error' })
-      return
-    }
-
+    if (!profile.isRoot || !profile.familyId) return
     try {
-      if (!profile.familyId) {
-        setToast({ show: true, message: language === 'vi' ? 'Lỗi: Không có familyId' : 'Error: No familyId', type: 'error' })
-        return
-      }
       const itemPool = getItemPoolByChestType(newChest.chestType)
       await createChest(newChest.name, newChest.cost, itemPool, profile.familyId)
       setNewChest({ name: '', cost: 50, chestType: 'wood' })
       setShowAddForm(false)
       loadData()
-      setToast({ show: true, message: language === 'vi' ? 'Đã tạo rương thành công!' : 'Chest created successfully!', type: 'success' })
+      setToast({ show: true, message: 'Created!', type: 'success' })
     } catch (error) {
-      console.error('Error creating chest:', error)
-      setToast({ show: true, message: language === 'vi' ? 'Lỗi khi tạo rương' : 'Error creating chest', type: 'error' })
+      setToast({ show: true, message: 'Error creating', type: 'error' })
     }
   }
 
-  if (loading) {
-    return <div className="text-center py-4">{t('common.loading')}</div>
-  }
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center py-20 space-y-4">
+      <div className="w-16 h-16 border-4 border-violet-100 border-t-violet-600 rounded-full animate-spin" />
+      <p className="text-violet-400 font-black uppercase tracking-widest text-xs animate-pulse">Loading Chests...</p>
+    </div>
+  )
 
   const unopenedChests = userChests.filter(c => !c.opened)
-  const openedChests = userChests.filter(c => c.opened)
-  
-  // Group các rương đã mở giống nhau - chỉ group theo loại rương (chestId), không phân biệt phần thưởng
-  interface GroupedOpenedChest {
-    chestId: string
-    chestName: string
-    count: number
-    firstChest: UserChest // Giữ lại một chest để lấy thông tin
-    // Lưu danh sách các phần thưởng đã nhận (để hiển thị đa dạng)
-    rewards: Array<{ item: ChestItem; count: number }>
-  }
-  
-  const groupedOpenedChests: GroupedOpenedChest[] = []
-  const chestGroups = new Map<string, GroupedOpenedChest>()
-  
-  openedChests.forEach(userChest => {
-    // Chỉ group theo chestId (loại rương), không phân biệt phần thưởng
-    const key = userChest.chestId
-    
-    if (chestGroups.has(key)) {
-      const group = chestGroups.get(key)!
-      group.count++
-      
-      // Thêm phần thưởng vào danh sách (nếu có)
-      if (userChest.receivedItem) {
-        const rewardKey = userChest.receivedItem.id || userChest.receivedItem.name
-        const existingReward = group.rewards.find(r => r.item.id === userChest.receivedItem?.id)
-        if (existingReward) {
-          existingReward.count++
-        } else {
-          group.rewards.push({ item: userChest.receivedItem, count: 1 })
-        }
-      }
-    } else {
-      const rewards: Array<{ item: ChestItem; count: number }> = []
-      if (userChest.receivedItem) {
-        rewards.push({ item: userChest.receivedItem, count: 1 })
-      }
-      
-      chestGroups.set(key, {
-        chestId: userChest.chestId,
-        chestName: userChest.chestName,
-        count: 1,
-        firstChest: userChest,
-        rewards: rewards,
-      })
-    }
-  })
-  
-  groupedOpenedChests.push(...Array.from(chestGroups.values()))
 
   return (
-    <div className="space-y-6">
-      <Toast
-        show={toast.show}
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast({ ...toast, show: false })}
-      />
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-100">🎁 {t('chestSystem.title')}</h3>
-        {/* Chỉ root mới có thể tạo rương */}
-        {profile.isRoot ? (
+    <div className="space-y-12 pb-20">
+      <Toast show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
+      
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-12">
+        <div className="flex items-center gap-4">
+           <div className="w-14 h-14 bg-violet-100 rounded-[1.5rem] flex items-center justify-center text-3xl shadow-soft animate-bounce-slow">✨</div>
+           <div>
+              <h3 className="text-3xl font-black text-violet-900 uppercase tracking-tight">{t('chestSystem.title')}</h3>
+              <p className="text-[10px] font-black text-violet-300 uppercase tracking-[0.2em]">{t('chestSystem.shop')}</p>
+           </div>
+        </div>
+        {profile.isRoot && (
           <button
-            onClick={() => {
-              setShowAddForm(!showAddForm)
-              setEditingChest(null)
-            }}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
+            onClick={() => { setShowAddForm(!showAddForm); setEditingChest(null); }}
+            className="btn-playful bg-violet-600 text-white px-8 py-4 rounded-[1.5rem] text-xs font-black shadow-kid hover:bg-violet-700 active:scale-95 transition-all uppercase tracking-widest border-b-4 border-violet-800"
           >
             {showAddForm || editingChest ? t('common.cancel') : `+ ${language === 'vi' ? 'Thêm rương' : 'Add Chest'}`}
           </button>
-        ) : (
-          <div className="px-4 py-2 bg-slate-700/50 text-gray-300 rounded-lg text-sm">
-            {language === 'vi' ? '⚠️ Chỉ root mới tạo rương' : '⚠️ Only root can create chests'}
-          </div>
         )}
       </div>
 
-      {/* Form thêm rương mới - Chỉ root mới thấy */}
-      {showAddForm && profile.isRoot && !editingChest && (
-        <div className="bg-slate-700/30 rounded-lg p-4 space-y-3 border border-slate-600">
-          <h4 className="font-medium text-gray-200">{language === 'vi' ? 'Thêm rương mới' : 'Add New Chest'}</h4>
-          <input
-            type="text"
-            placeholder={language === 'vi' ? 'Tên rương' : 'Chest Name'}
-            value={newChest.name}
-            onChange={(e) => setNewChest({ ...newChest, name: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100 placeholder-gray-400"
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm text-gray-300 block mb-1">{t('chestSystem.price')}</label>
-              <input
-                type="number"
-                value={newChest.cost}
-                onChange={(e) => setNewChest({ ...newChest, cost: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100"
+      {/* Forms Section */}
+      {(showAddForm || editingChest) && (
+        <div className="kid-card p-10 bg-white border-violet-100 shadow-kid animate-bounce-in relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-violet-50 rounded-full -mr-16 -mt-16 opacity-30" />
+          <h4 className="text-xl font-black text-violet-900 mb-8 uppercase tracking-tight flex items-center gap-3">
+             <span className="text-2xl">✨</span>
+             {editingChest ? (language === 'vi' ? 'Sửa rương' : 'Edit Chest') : (language === 'vi' ? 'Tạo rương mới' : 'New Chest')}
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-violet-300 uppercase tracking-widest ml-2">Name</label>
+              <input 
+                type="text" 
+                value={editingChest ? editingChest.name : newChest.name} 
+                onChange={(e) => editingChest ? setEditingChest({...editingChest, name: e.target.value}) : setNewChest({...newChest, name: e.target.value})}
+                className="w-full px-6 py-4 border-4 border-violet-50 rounded-2xl bg-violet-50/30 font-black text-violet-900 focus:outline-none focus:border-violet-200"
               />
             </div>
-            <div>
-              <label className="text-sm text-gray-300 block mb-1">{language === 'vi' ? 'Loại rương' : 'Chest Type'}</label>
-              <select
-                value={newChest.chestType}
-                onChange={(e) => setNewChest({ ...newChest, chestType: e.target.value as 'wood' | 'silver' | 'gold' | 'mystery' | 'legendary' })}
-                className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100"
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-violet-300 uppercase tracking-widest ml-2">Cost (Coins)</label>
+              <input 
+                type="number" 
+                value={editingChest ? editingChest.cost : newChest.cost} 
+                onChange={(e) => editingChest ? setEditingChest({...editingChest, cost: parseInt(e.target.value)}) : setNewChest({...newChest, cost: parseInt(e.target.value)})}
+                className="w-full px-6 py-4 border-4 border-violet-50 rounded-2xl bg-violet-50/30 font-black text-violet-900 focus:outline-none focus:border-violet-200"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-violet-300 uppercase tracking-widest ml-2">Type</label>
+              <select 
+                value={editingChest ? editingChest.chestType : newChest.chestType} 
+                onChange={(e) => editingChest ? setEditingChest({...editingChest, chestType: e.target.value as any}) : setNewChest({...newChest, chestType: e.target.value as any})}
+                className="w-full px-6 py-4 border-4 border-violet-50 rounded-2xl bg-violet-50/30 font-black text-violet-900 focus:outline-none focus:border-violet-200 appearance-none cursor-pointer"
               >
-                <option value="wood">{language === 'vi' ? '🪵 Rương Gỗ' : '🪵 Wood Chest'}</option>
-                <option value="silver">{language === 'vi' ? '🥈 Rương Bạc' : '🥈 Silver Chest'}</option>
-                <option value="gold">{language === 'vi' ? '🥇 Rương Vàng' : '🥇 Gold Chest'}</option>
-                <option value="mystery">{language === 'vi' ? '❓ Rương Bí Ẩn' : '❓ Mystery Chest'}</option>
-                <option value="legendary">{language === 'vi' ? '⭐ Rương Huyền Thoại' : '⭐ Legendary Chest'}</option>
+                <option value="wood">Wood</option>
+                <option value="silver">Silver</option>
+                <option value="gold">Gold</option>
+                <option value="mystery">Mystery</option>
+                <option value="legendary">Legendary</option>
               </select>
             </div>
           </div>
-          <button
-            onClick={handleAddChest}
-            className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-          >
-            {language === 'vi' ? 'Thêm rương' : 'Add Chest'}
-          </button>
-        </div>
-      )}
-
-      {/* Form chỉnh sửa rương - Chỉ root mới thấy */}
-      {editingChest && profile.isRoot && (
-        <div className="bg-blue-500/20 rounded-lg p-4 space-y-3 border-2 border-blue-500/50">
-          <h4 className="font-medium text-gray-200">{language === 'vi' ? 'Chỉnh sửa rương' : 'Edit Chest'}</h4>
-          <input
-            type="text"
-            placeholder={language === 'vi' ? 'Tên rương' : 'Chest Name'}
-            value={editingChest.name}
-            onChange={(e) => setEditingChest({ ...editingChest, name: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100 placeholder-gray-400"
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm text-gray-300 block mb-1">{t('chestSystem.price')}</label>
-              <input
-                type="number"
-                value={editingChest.cost}
-                onChange={(e) => setEditingChest({ ...editingChest, cost: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100"
-              />
-            </div>
-            <div>
-              <label className="text-sm text-gray-300 block mb-1">{language === 'vi' ? 'Loại rương' : 'Chest Type'}</label>
-              <select
-                value={editingChest.chestType || 'wood'}
-                onChange={(e) => setEditingChest({ ...editingChest, chestType: e.target.value as 'wood' | 'silver' | 'gold' | 'mystery' | 'legendary' })}
-                className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100"
-              >
-                <option value="wood">{language === 'vi' ? '🪵 Rương Gỗ' : '🪵 Wood Chest'}</option>
-                <option value="silver">{language === 'vi' ? '🥈 Rương Bạc' : '🥈 Silver Chest'}</option>
-                <option value="gold">{language === 'vi' ? '🥇 Rương Vàng' : '🥇 Gold Chest'}</option>
-                <option value="mystery">{language === 'vi' ? '❓ Rương Bí Ẩn' : '❓ Mystery Chest'}</option>
-                <option value="legendary">{language === 'vi' ? '⭐ Rương Huyền Thoại' : '⭐ Legendary Chest'}</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={handleUpdateChest}
-              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-            >
-              {language === 'vi' ? 'Lưu' : 'Save'}
-            </button>
-            <button
-              onClick={() => setEditingChest(null)}
-              className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-            >
-              {t('common.cancel')}
-            </button>
+          <div className="mt-8 flex gap-4">
+             <button onClick={editingChest ? handleUpdateChest : handleAddChest} className="flex-1 btn-playful bg-emerald-500 text-white py-4 rounded-2xl font-black shadow-kid border-b-4 border-emerald-700">SAVE</button>
+             <button onClick={() => { setShowAddForm(false); setEditingChest(null); }} className="flex-1 btn-playful bg-white text-red-500 border-4 border-red-50 py-4 rounded-2xl font-black shadow-soft">CANCEL</button>
           </div>
         </div>
       )}
 
-      {/* Shop - Mua rương */}
-      <div>
-        <h4 className="font-medium text-gray-200 mb-3">{t('chestSystem.shop')}</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {chests.map(chest => {
-            const chestImageUrl = getChestImageUrl(chest)
-            return (
-            <div
-              key={chest.id}
-              className="bg-slate-800/80 backdrop-blur-sm border-2 border-slate-600 rounded-lg p-4 hover:border-purple-400 transition-all"
-            >
-              <div className="flex justify-between items-start mb-2">
-                <h5 className="font-semibold text-gray-100">{chest.name}</h5>
-                {/* Nút chỉnh sửa - chỉ root mới thấy */}
-                {profile.isRoot && (
-                  <button
-                    onClick={() => handleEditChest(chest)}
-                    className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
-                    title={language === 'vi' ? 'Chỉnh sửa rương' : 'Edit chest'}
-                  >
-                    ✏️
-                  </button>
-                )}
+      {/* Shop Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+        {chests.map(chest => {
+          const chestImageUrl = getChestImageUrl(chest)
+          const chestType = getChestTypeFromItemPool(chest.itemPool)
+          const themes: any = {
+            wood: 'bg-orange-50 border-orange-100 text-orange-900 shadow-orange-100',
+            silver: 'bg-slate-50 border-slate-100 text-slate-900 shadow-slate-100',
+            gold: 'bg-amber-50 border-amber-100 text-amber-900 shadow-amber-100',
+            mystery: 'bg-purple-50 border-purple-100 text-purple-900 shadow-purple-100',
+            legendary: 'bg-amber-100 border-amber-200 text-orange-900 shadow-amber-200'
+          }
+          return (
+            <div key={chest.id} className={`kid-card p-8 flex flex-col group relative hover:rotate-1 transition-all border-4 ${themes[chestType]}`}>
+              <div className="flex justify-between items-start mb-6">
+                 <div>
+                    <h5 className="text-2xl font-black uppercase tracking-tight leading-none mb-1">{chest.name}</h5>
+                    <p className="text-[10px] font-black opacity-50 uppercase tracking-widest">{chestType} chest</p>
+                 </div>
+                 {profile.isRoot && (
+                   <button onClick={() => handleEditChest(chest)} className="w-10 h-10 bg-white rounded-xl shadow-soft flex items-center justify-center text-lg hover:scale-110 active:scale-95 transition-all">✏️</button>
+                 )}
               </div>
               
-              {/* Hình ảnh rương */}
-              {chestImageUrl && (
-                <div className="mb-3 flex justify-center">
-                  <img
-                    src={chestImageUrl}
-                    alt={chest.name}
-                    className="w-24 h-24 object-contain"
-                    onError={(e) => {
-                      // Fallback nếu ảnh không load được
-                      const target = e.target as HTMLImageElement
-                      const chestType = getChestTypeFromItemPool(chest.itemPool)
-                      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-                      
-                      console.error(`[ChestSystem] Failed to load chest image: ${chestImageUrl}`)
-                      console.log(`[ChestSystem] Chest type: ${chestType}, Cloud name: ${cloudName}`)
-                      console.log(`[ChestSystem] Please check Cloudinary Dashboard for actual file name in folder: family-tasks/chests/${chestType}/`)
-                      
-                      // Hiển thị emoji fallback
-                      target.style.display = 'none'
-                      const parent = target.parentElement
-                      if (parent) {
-                        parent.innerHTML = '<div class="text-4xl">📦</div>'
-                      }
-                    }}
-                    onLoad={() => {
-                      console.log(`[ChestSystem] Successfully loaded chest image: ${chestImageUrl}`)
-                    }}
-                  />
-                </div>
-              )}
-              
-              <p className="text-sm text-gray-300 mb-3">
-                {t('chestSystem.price')}: <span className="font-bold text-yellow-400">{chest.cost} Coins</span>
-              </p>
-              <p className="text-xs text-gray-400 mb-3">
-                {t('chestSystem.canReceive')}
-              </p>
-              <button
-                onClick={() => handlePurchase(chest.id)}
-                disabled={purchasing === chest.id || profile.coins < chest.cost}
-                className={`w-full py-2 rounded-lg font-medium ${
-                  profile.coins >= chest.cost
-                    ? 'bg-purple-600 text-white hover:bg-purple-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {purchasing === chest.id
-                  ? t('chestSystem.purchasing')
-                  : profile.coins >= chest.cost
-                  ? `${t('chestSystem.purchase')} (${chest.cost} Coins)`
-                  : t('chestSystem.notEnoughCoins')}
-              </button>
+              <div className="my-8 flex justify-center relative">
+                 <div className="absolute inset-x-0 bottom-0 h-4 bg-black/10 blur-xl rounded-full scale-50 group-hover:scale-75 transition-transform" />
+                 {chestImageUrl ? (
+                    <img src={chestImageUrl} alt={chest.name} className="w-36 h-36 object-contain relative z-10 group-hover:scale-110 group-hover:-translate-y-2 transition-all duration-500 drop-shadow-2xl" />
+                 ) : (
+                    <div className="text-7xl py-6 animate-bounce-slow">🎁</div>
+                 )}
+              </div>
+
+              <div className="mt-auto space-y-4">
+                 <div className="bg-white/60 p-4 rounded-2xl border-4 border-white/40 flex items-center justify-center gap-3 shadow-inner">
+                    <span className="text-2xl">🪙</span>
+                    <span className="text-2xl font-black">{chest.cost}</span>
+                 </div>
+                 <button 
+                  onClick={() => handlePurchase(chest.id)}
+                  disabled={purchasing === chest.id || profile.coins < chest.cost}
+                  className={`w-full py-5 rounded-[1.8rem] text-sm font-black shadow-kid border-b-8 transition-all active:translate-y-1 active:border-b-4 ${
+                    profile.coins >= chest.cost ? 'bg-violet-600 text-white border-violet-800 hover:bg-violet-700' : 'bg-slate-200 text-slate-400 border-slate-300 pointer-events-none grayscale'
+                  }`}
+                 >
+                   {purchasing === chest.id ? 'BUYING...' : profile.coins >= chest.cost ? 'BUY CHEST!' : 'NOT ENOUGH COINS'}
+                 </button>
+              </div>
             </div>
           )
-          })}
-        </div>
+        })}
       </div>
 
-      {/* Rương chưa mở */}
+      {/* Inventory Section */}
       {unopenedChests.length > 0 && (
-        <div>
-          <h4 className="font-medium text-gray-200 mb-3">
-            {t('chestSystem.myChests')} ({unopenedChests.length})
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {unopenedChests.map(userChest => {
-              const chestImageUrl = getUserChestImageUrl(userChest)
-              return (
-              <div
-                key={userChest.id}
-                className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/50 rounded-lg p-4 text-center"
-              >
-                {/* Hình ảnh rương */}
-                {chestImageUrl ? (
-                  <div className="mb-2 flex justify-center">
-                    <img
-                      src={chestImageUrl}
-                      alt={userChest.chestName}
-                      className="w-20 h-20 object-contain"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement
-                        console.error(`[ChestSystem] Failed to load user chest image: ${chestImageUrl}`, e)
-                        target.style.display = 'none'
-                        const parent = target.parentElement
-                        if (parent) {
-                          parent.innerHTML = '<div class="text-6xl mb-2">📦</div>'
-                        }
-                      }}
-                      onLoad={() => {
-                        console.log(`[ChestSystem] Successfully loaded user chest image: ${chestImageUrl}`)
-                      }}
-                    />
+        <div className="bg-amber-50/50 rounded-[3.5rem] p-12 border-4 border-amber-200 border-dashed relative overflow-hidden">
+           <div className="absolute -top-20 -left-20 w-64 h-64 bg-amber-100 rounded-full blur-3xl opacity-30 animate-pulse" />
+           <div className="flex items-center gap-4 mb-10 relative z-10">
+              <div className="w-16 h-16 bg-white rounded-3xl shadow-soft flex items-center justify-center text-3xl">🎒</div>
+              <h4 className="text-2xl font-black text-amber-900 uppercase tracking-tight">Your Chests ({unopenedChests.length})</h4>
+           </div>
+           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
+              {unopenedChests.map(userChest => {
+                const img = getUserChestImageUrl(userChest)
+                return (
+                  <div key={userChest.id} className="kid-card p-6 bg-white border-amber-100 shadow-kid flex flex-col items-center group active:scale-95 transition-all cursor-pointer" onClick={() => handleOpen(userChest.id)}>
+                     <div className="mb-6 relative">
+                        <div className="absolute inset-0 bg-amber-100 blur-2xl rounded-full scale-50 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        {img ? <img src={img} className="w-28 h-28 object-contain relative z-10 group-hover:animate-float" /> : <div className="text-6xl py-4">📦</div>}
+                     </div>
+                     <h5 className="text-sm font-black text-amber-900 mb-6 text-center leading-tight">{userChest.chestName}</h5>
+                     <button className="w-full py-3 bg-amber-500 text-white rounded-xl font-black shadow-soft hover:bg-amber-600 uppercase tracking-widest text-[10px] border-b-4 border-amber-700">OPEN NOW</button>
                   </div>
-                ) : (
-                  <div className="text-6xl mb-2">📦</div>
-                )}
-                <h5 className="font-semibold text-gray-100 mb-2">{userChest.chestName}</h5>
-                <button
-                  onClick={() => handleOpen(userChest.id)}
-                  disabled={opening === userChest.id}
-                  className="w-full py-2 bg-yellow-600 text-white rounded-lg font-medium hover:bg-yellow-700 disabled:opacity-50"
-                >
-                  {opening === userChest.id ? t('chestSystem.opening') : t('chestSystem.open')}
-                </button>
-              </div>
-            )
-            })}
-          </div>
+                )
+              })}
+           </div>
         </div>
       )}
 
-      {/* Rương đã mở - Grouped */}
-      {groupedOpenedChests.length > 0 && (
-        <div>
-          <h4 className="font-medium text-gray-200 mb-3">
-            {t('chestSystem.openHistory')} ({openedChests.length} {language === 'vi' ? 'rương' : 'chests'})
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {groupedOpenedChests.map((group, index) => {
-              const chestImageUrl = getUserChestImageUrl(group.firstChest)
-              const firstRewardId = group.rewards.length > 0 ? group.rewards[0].item.id : 'no_item'
-              return (
-              <div
-                key={`${group.chestId}_${firstRewardId}_${index}`}
-                className="bg-slate-700/50 border border-slate-600 rounded-lg p-4"
-              >
-                {/* Hình ảnh rương */}
-                {chestImageUrl ? (
-                  <div className="mb-2 flex justify-center">
-                    <img
-                      src={chestImageUrl}
-                      alt={group.chestName}
-                      className="w-16 h-16 object-contain opacity-60"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement
-                        console.error(`[ChestSystem] Failed to load opened chest image: ${chestImageUrl}`, e)
-                        target.style.display = 'none'
-                        const parent = target.parentElement
-                        if (parent) {
-                          parent.innerHTML = '<div class="text-4xl mb-2 text-center">📦</div>'
-                        }
-                      }}
-                      onLoad={() => {
-                        console.log(`[ChestSystem] Successfully loaded opened chest image: ${chestImageUrl}`)
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="text-4xl mb-2 text-center">📦</div>
-                )}
-                <h5 className="font-semibold text-gray-100 mb-1 text-center">
-                  {group.chestName}
-                </h5>
-                {/* Hiển thị số lượng rương đã mở */}
-                <div className="text-center mb-2">
-                  <span className="inline-block bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                    {language === 'vi' ? `Đã mở: ${group.count}` : `Opened: ${group.count}`}
-                  </span>
-                </div>
-                {/* Hiển thị các phần thưởng đã nhận */}
-                {group.rewards.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {group.rewards.map((reward, idx) => (
-                      <div
-                        key={idx}
-                        className={`border-2 rounded-lg p-2 ${getRarityColor(reward.item.rarity)}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <p className="font-semibold text-sm">{reward.item.name}</p>
-                            <p className="text-xs mt-0.5">
-                              {reward.item.description || reward.item.type}
-                            </p>
-                            <p className="text-xs mt-0.5">
-                              {t('chestSystem.rarity')}: <span className="font-bold">{getRarityName(reward.item.rarity)}</span>
-                            </p>
-                          </div>
-                          {reward.count > 1 && (
-                            <span className="ml-2 text-xs font-bold bg-purple-500/30 px-2 py-1 rounded">
-                              x{reward.count}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Modal hiển thị video mở rương với phần thưởng overlay */}
+      {/* Opening Animation Modal */}
       {openingVideoUrl && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
-          <div className="relative w-full max-w-4xl mx-4">
-            {/* Video container */}
-            <div className="relative">
-              {openingVideoUrl.endsWith('.mp4') || openingVideoUrl.endsWith('.webm') || openingVideoUrl.includes('video') ? (
-                <video
-                  src={openingVideoUrl}
-                  autoPlay
-                  onEnded={handleVideoEnd}
-                  className="w-full h-auto rounded-lg"
-                  controls={false}
-                />
-              ) : (
-                <img
-                  src={openingVideoUrl}
-                  alt="Opening animation"
-                  className="w-full h-auto rounded-lg"
-                  onLoad={() => {
-                    // Nếu là ảnh, tự động đóng sau 3 giây
-                    setTimeout(() => {
-                      handleVideoEnd()
-                    }, 3000)
-                  }}
-                />
-              )}
+        <div className="fixed inset-0 bg-violet-950/95 flex items-center justify-center z-[100] p-6 backdrop-blur-xl">
+           <div className="relative w-full max-w-4xl animate-bounce-in">
+              <div className="aspect-video bg-black rounded-[3rem] overflow-hidden shadow-2xl border-8 border-violet-800/30">
+                 <video src={openingVideoUrl} autoPlay onEnded={handleVideoEnd} className="w-full h-full object-cover" />
+              </div>
               
-              {/* Phần thưởng overlay - hiển thị sau 2.5 giây khi video chạy */}
               {showResult && showRewardDelay && (
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-6 rounded-b-lg">
-                  <div className="text-center">
-                    <div className="text-4xl mb-2">🎉</div>
-                    <h3 className="text-xl font-bold text-white mb-3">{t('chestSystem.congratulations')}</h3>
-                    <div className={`border-2 rounded-lg p-4 mb-3 ${getRarityColor(showResult.rarity)} bg-slate-800/95`}>
-                      {/* Hình ảnh phần thưởng */}
-                      {showResult.image && (
-                        <div className="mb-3 flex justify-center">
-                          <img
-                            src={showResult.image}
-                            alt={showResult.name}
-                            className="w-24 h-24 object-contain"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.style.display = 'none'
-                            }}
-                          />
-                        </div>
-                      )}
-                      <p className="text-lg font-bold mb-1">{showResult.name}</p>
-                      <p className="text-xs mb-1">{showResult.description}</p>
-                      <p className="text-xs">
-                        {t('chestSystem.rarity')}: <span className="font-bold">{getRarityName(showResult.rarity)}</span>
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setOpeningVideoUrl(null)
-                        setShowResult(null)
-                        setShowRewardDelay(false)
-                        setOpening(null)
-                      }}
-                      className="px-6 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700"
-                    >
-                      {t('common.close')}
-                    </button>
-                  </div>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-violet-900/40 backdrop-blur-sm rounded-[3rem] p-10 animate-fade-in">
+                   <div className="mb-6 animate-bounce-slow text-8xl">💎</div>
+                   <h3 className="text-4xl font-black text-white mb-2 uppercase tracking-tight drop-shadow-lg text-center">{t('chestSystem.congratulations')}!</h3>
+                   <div className={`mt-4 p-8 rounded-[2.5rem] border-8 shadow-2xl bg-white max-w-sm w-full text-center transform scale-110 ${getRarityColor(showResult.rarity)}`}>
+                      {showResult.image && <img src={showResult.image} className="w-32 h-32 mx-auto mb-6 object-contain drop-shadow-xl" />}
+                      <p className="text-2xl font-black text-violet-900 uppercase tracking-tight mb-2">{showResult.name}</p>
+                      <p className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-6">{getRarityName(showResult.rarity)}</p>
+                      <button onClick={() => { setOpeningVideoUrl(null); setShowResult(null); setOpening(null); }} className="w-full py-4 bg-violet-600 text-white rounded-2xl font-black shadow-kid uppercase tracking-widest hover:bg-violet-700 border-b-4 border-violet-800">AMAZING!</button>
+                   </div>
                 </div>
               )}
-            </div>
-          </div>
+           </div>
         </div>
       )}
 
-      {/* Modal hiển thị kết quả */}
-      {showResult && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-slate-800/95 backdrop-blur-sm rounded-lg p-8 max-w-md w-full mx-4 border border-slate-600">
-            <div className="text-center">
-              <div className="text-6xl mb-4">🎉</div>
-              <h3 className="text-2xl font-bold text-gray-100 mb-4">{t('chestSystem.congratulations')}</h3>
-              <div
-                className={`border-4 rounded-lg p-6 mb-4 ${getRarityColor(showResult.rarity)}`}
-              >
-                {/* Hình ảnh phần thưởng */}
-                {showResult.image && (
-                  <div className="mb-4 flex justify-center">
-                    <img
-                      src={showResult.image}
-                      alt={showResult.name}
-                      className="w-32 h-32 object-contain"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement
-                        target.style.display = 'none'
-                      }}
-                    />
-                  </div>
-                )}
-                <p className="text-2xl font-bold mb-2">{showResult.name}</p>
-                <p className="text-sm mb-2">{showResult.description}</p>
-                <p className="text-xs">
-                  {t('chestSystem.rarity')}: <span className="font-bold">{getRarityName(showResult.rarity)}</span>
-                </p>
+      {/* Simple Result Modal */}
+      {showResult && !openingVideoUrl && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-6">
+           <div className={`kid-card p-12 max-w-sm w-full text-center bg-white shadow-kid border-8 animate-bounce-in ${getRarityColor(showResult.rarity)}`}>
+              <div className="text-7xl mb-6">🎁</div>
+              <h3 className="text-2xl font-black text-violet-900 mb-2 uppercase tracking-tight">WOW! YOU GOT:</h3>
+              <div className="my-8">
+                 {showResult.image && <img src={showResult.image} className="w-40 h-40 mx-auto object-contain drop-shadow-2xl animate-float" />}
+                 <p className="text-2xl font-black text-violet-900 uppercase tracking-tight mt-4">{showResult.name}</p>
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">{getRarityName(showResult.rarity)}</span>
               </div>
-              <button
-                onClick={() => {
-                  setShowResult(null)
-                  setShowRewardDelay(false)
-                }}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700"
-              >
-                {t('chestSystem.close')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {chests.length === 0 && userChests.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          {t('chestSystem.noChests')}
+              <button onClick={() => setShowResult(null)} className="w-full py-5 bg-violet-600 text-white rounded-[1.8rem] font-black shadow-kid uppercase tracking-widest hover:bg-violet-700 border-b-8 border-violet-800 active:translate-y-1 active:border-b-4">COLLECT REWARD</button>
+           </div>
         </div>
       )}
     </div>

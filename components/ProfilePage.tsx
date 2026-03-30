@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { UserProfile, updateProfile, resetXPAndProfession, getAllUsers, resetUserXPAndCoins, deleteUser } from '@/lib/firebase/profile'
 import { logout } from '@/lib/firebase/auth'
 import { useRouter } from 'next/navigation'
@@ -38,13 +38,7 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
     if (!profile.familyId) return
     setLoadingFamily(true)
     try {
-      console.log('[ProfilePage] Loading family info for familyId:', profile.familyId)
       const family = await getFamilyById(profile.familyId)
-      console.log('[ProfilePage] Family loaded:', {
-        id: family?.id,
-        code: family?.code,
-        rootCode: family?.rootCode,
-      })
       setFamilyInfo(family)
     } catch (error) {
       console.error('Error loading family info:', error)
@@ -54,7 +48,6 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
   }, [profile.familyId])
   
   useEffect(() => {
-    // Load family info cho tất cả users (không chỉ root) để hiển thị family name
     if (profile.familyId) {
       loadFamilyInfo()
     }
@@ -66,39 +59,17 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
 
     setUploading(true)
     try {
-      // Log thông tin file để debug
-      console.log('[Avatar Upload] Starting upload:', {
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        sizeInMB: (file.size / (1024 * 1024)).toFixed(2),
-      })
-
-      // Upload lên Cloudinary
       const url = await uploadImageToCloudinary(file, 'family-tasks/avatars')
-      
-      console.log('[Avatar Upload] Upload successful:', url)
-      
       setAvatar(url)
-      // Lưu URL vào profile
       await updateProfile(profile.id, { avatar: url })
       setToast({ show: true, message: t('errors.avatarUpdateSuccess'), type: 'success' })
     } catch (error: any) {
       console.error('[Avatar Upload] Error:', error)
-      
-      // Hiển thị thông báo lỗi chi tiết hơn
       const errorMessage = error.message || t('errors.avatarUpdateError')
-      setToast({ 
-        show: true, 
-        message: errorMessage, 
-        type: 'error' 
-      })
+      setToast({ show: true, message: errorMessage, type: 'error' })
     } finally {
       setUploading(false)
-      // Reset input để có thể chọn lại file cùng tên
-      if (avatarInputRef.current) {
-        avatarInputRef.current.value = ''
-      }
+      if (avatarInputRef.current) avatarInputRef.current.value = ''
     }
   }
 
@@ -108,39 +79,17 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
 
     setUploading(true)
     try {
-      // Log thông tin file để debug
-      console.log('[Image Upload] Starting upload:', {
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        sizeInMB: (file.size / (1024 * 1024)).toFixed(2),
-      })
-
-      // Upload lên Cloudinary
       const url = await uploadImageToCloudinary(file, 'family-tasks/images')
-      
-      console.log('[Image Upload] Upload successful:', url)
-      
       setImage(url)
-      // Lưu URL vào profile
       await updateProfile(profile.id, { image: url })
       setToast({ show: true, message: t('errors.imageUpdateSuccess'), type: 'success' })
     } catch (error: any) {
       console.error('[Image Upload] Error:', error)
-      
-      // Hiển thị thông báo lỗi chi tiết hơn
       const errorMessage = error.message || t('errors.imageUpdateError')
-      setToast({ 
-        show: true, 
-        message: errorMessage, 
-        type: 'error' 
-      })
+      setToast({ show: true, message: errorMessage, type: 'error' })
     } finally {
       setUploading(false)
-      // Reset input để có thể chọn lại file cùng tên
-      if (imageInputRef.current) {
-        imageInputRef.current.value = ''
-      }
+      if (imageInputRef.current) imageInputRef.current.value = ''
     }
   }
 
@@ -161,826 +110,386 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
   const handleLogout = async () => {
     try {
       await logout()
-      // Redirect to home page and force reload to ensure state is cleared
       window.location.href = '/'
     } catch (error: any) {
       console.error('Error logging out:', error)
-      // Logout error sẽ được xử lý tự động bởi redirect
     }
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-4">
+    <div className="max-w-4xl mx-auto p-4 lg:p-8 space-y-8">
       <Toast
         show={toast.show}
         message={toast.message}
         type={toast.type}
         onClose={() => setToast({ ...toast, show: false })}
       />
-      <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-6 border border-slate-700/50">
-        <h1 className="text-2xl font-bold text-gray-100 mb-6">{t('profile.title')}</h1>
+      
+      <div className="flex flex-col sm:flex-row items-center justify-between bg-violet-50 -mx-4 sm:-mx-6 -mt-6 lg:-mt-10 p-8 rounded-t-[3rem] border-b-4 border-violet-100 mb-8 gap-4">
+        <h1 className="text-3xl font-black text-violet-900 flex items-center gap-4">
+          <span className="text-4xl animate-bounce-slow">👤</span>
+          {t('profile.title')}
+        </h1>
+        <div className="flex gap-3">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-playful bg-violet-600 text-white px-6 py-3 rounded-2xl font-black shadow-kid hover:bg-violet-700 active:scale-95 transition-all text-sm"
+          >
+            {saving ? '...' : `✨ ${t('profile.saveChanges')}`}
+          </button>
+          <button
+            onClick={handleLogout}
+            className="btn-playful bg-white text-red-500 border-2 border-red-50 rounded-2xl px-6 py-3 font-black shadow-soft hover:bg-red-50 active:scale-95 transition-all text-sm"
+          >
+             🚪 {t('profile.logout')}
+          </button>
+        </div>
+      </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         <div className="space-y-6">
-          {/* Avatar */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              {t('profile.avatar')}
-            </label>
-            <div className="flex items-center space-x-4">
-              <div className="w-24 h-24 rounded-full bg-slate-700 overflow-hidden flex items-center justify-center">
-                {avatar ? (
-                  <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-3xl text-gray-400">
-                    {name.charAt(0).toUpperCase()}
-                  </span>
-                )}
-              </div>
-              <div>
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  className="hidden"
-                />
+          {/* Avatar & Basic Info Card */}
+          <div className="kid-card p-8 bg-white border-violet-100 shadow-kid relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-violet-50 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform" />
+            
+            <div className="relative z-10 flex flex-col items-center text-center">
+              <div className="relative mb-6">
+                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-violet-100 to-violet-50 p-1 shadow-soft ring-4 ring-white">
+                  <div className="w-full h-full rounded-full overflow-hidden bg-white flex items-center justify-center">
+                    {avatar ? (
+                      <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-5xl font-black text-violet-200">
+                        {name.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <button
                   onClick={() => avatarInputRef.current?.click()}
-                  disabled={uploading}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                  className="absolute bottom-0 right-0 w-10 h-10 bg-violet-600 text-white rounded-full border-4 border-white shadow-soft flex items-center justify-center hover:bg-violet-700 active:scale-90 transition-all"
                 >
-                  {uploading ? t('common.loading') : (t('profile.avatar') + ' - ' + t('common.add'))}
+                  ✏️
                 </button>
               </div>
+
+              <div className="w-full space-y-4 text-left">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-violet-400 uppercase tracking-widest ml-1">{t('profile.name')}</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-5 py-4 border-2 border-violet-100 rounded-2xl bg-violet-50/50 text-violet-900 font-black focus:border-violet-400 focus:bg-white outline-none transition-all text-lg shadow-inner"
+                    placeholder={t('profile.name')}
+                  />
+                </div>
+
+                <div className="space-y-1 opacity-70">
+                  <label className="text-[10px] font-black text-violet-400 uppercase tracking-widest ml-1">{t('profile.email')}</label>
+                  <div className="w-full px-5 py-4 border-2 border-transparent bg-slate-100 rounded-2xl text-slate-500 font-bold overflow-hidden text-ellipsis whitespace-nowrap">
+                    {profile.email}
+                  </div>
+                </div>
+              </div>
+
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
             </div>
           </div>
 
-          {/* Image */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              {t('profile.image')}
-            </label>
-            <div className="flex items-center space-x-4">
-              <div className="w-32 h-32 rounded-lg bg-slate-700 overflow-hidden flex items-center justify-center">
-                {image ? (
-                  <img src={image} alt="Image" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-gray-400">{t('common.loading')}</span>
-                )}
-              </div>
-              <div>
-                <input
-                  ref={imageInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <button
-                  onClick={() => imageInputRef.current?.click()}
-                  disabled={uploading}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
-                >
-                  {uploading ? t('common.loading') : (t('profile.image') + ' - ' + t('common.add'))}
-                </button>
-              </div>
+          {/* Stats Card */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="kid-card p-6 bg-gradient-to-br from-indigo-500 to-indigo-600 border-indigo-400 text-white shadow-kid transform transition-transform hover:scale-[1.02]">
+              <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{t('profile.xp')}</p>
+              <p className="text-3xl font-black drop-shadow-md flex items-center gap-2">
+                <span className="text-2xl">✨</span> {profile.xp}
+              </p>
+            </div>
+            <div className="kid-card p-6 bg-gradient-to-br from-amber-400 to-accent-600 border-accent-400 text-white shadow-kid transform transition-transform hover:scale-[1.02]">
+              <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{t('profile.coins')}</p>
+              <p className="text-3xl font-black drop-shadow-md flex items-center gap-2">
+                <span className="text-2xl">🪙</span> {profile.coins}
+              </p>
             </div>
           </div>
+        </div>
 
-          {/* Name */}
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
-              {t('profile.name')}
-            </label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-100 bg-slate-700/50 placeholder-gray-400"
-              placeholder={t('profile.name')}
-            />
-          </div>
+        <div className="space-y-8">
+          {/* Character Info Card */}
+          <div className="kid-card p-8 bg-white border-violet-100 shadow-kid min-h-full">
+            <div className="flex items-center justify-between mb-8">
+               <h3 className="text-xl font-black text-violet-900 uppercase tracking-tight">{t('profile.character')}</h3>
+               <div className="bg-violet-100 text-violet-600 px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">
+                 LEVEL {currentLevel}
+               </div>
+            </div>
+            
+            <div className="flex flex-col items-center">
+              <CharacterDisplay profile={profile} size="large" showLevelInfo={true} />
+            </div>
 
-          {/* Email (read-only) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              {t('profile.email')}
-            </label>
-            <input
-              type="email"
-              value={profile.email}
-              disabled
-              className="w-full px-4 py-2 border border-slate-600 rounded-lg bg-slate-700/30 text-gray-400"
-            />
-          </div>
-
-          {/* Character Base Selection - Ẩn nếu đã chọn nhân vật */}
-          {!profile.characterBase && (
-          <div className="border-t border-slate-600 pt-6">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              {t('profile.selectCharacter')}
-            </label>
-            <div className="grid grid-cols-4 gap-2 mb-4">
-              {(['nam1', 'nam2', 'nu1', 'nu2'] as const).map((base) => {
-                const currentLevel = calculateLevel(profile.xp)
-                const previewAssets = getCharacterAssets(
-                  currentLevel, 
-                  base,
-                  profile.gender, 
-                  profile.profession
-                )
-                const genderLabel = base.startsWith('nam') ? 'Nam' : 'Nữ'
-                const numLabel = base.endsWith('1') ? '1' : '2'
-                
-                return (
-                  <button
-                    key={base}
-                    onClick={async () => {
-                      try {
-                        // Tự động set gender từ characterBase
-                        const gender = base.startsWith('nam') ? 'nam' : 'nu'
-                        await updateProfile(profile.id, { 
-                          characterBase: base,
-                          gender: gender
-                        })
-                        onUpdate({ ...profile, characterBase: base, gender: gender })
-                        setToast({ show: true, message: `Đã chọn ${genderLabel} ${numLabel}!`, type: 'success' })
-                      } catch (error) {
-                        console.error('Error updating character base:', error)
-                        setToast({ show: true, message: 'Lỗi khi cập nhật nhân vật', type: 'error' })
-                      }
-                    }}
-                    className={`relative w-full aspect-square rounded-lg overflow-hidden border-2 ${
-                      profile.characterBase === base
-                        ? 'border-purple-600 ring-2 ring-purple-300'
-                        : 'border-slate-600 hover:border-purple-400'
-                    }`}
-                    title={`${genderLabel} ${numLabel}`}
-                  >
-                    <img
-                      src={previewAssets.character || `/pic-avatar/${base}.png`}
-                      alt={`${genderLabel} ${numLabel}`}
-                      className="relative w-full h-full object-contain z-10"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none'
-                        const parent = (e.target as HTMLImageElement).parentElement
-                        if (parent) {
-                          parent.innerHTML = `<div class="w-full h-full flex items-center justify-center text-gray-400 text-xs">${genderLabel} ${numLabel}</div>`
+            {/* Profession Selection - Chỉ hiển thị khi level >= 5 */}
+            {currentLevel >= 5 && (
+              <div className="mt-8 pt-8 border-t-2 border-violet-50">
+                <label className="block text-[10px] font-black text-violet-400 uppercase tracking-widest mb-4">
+                  🎓 {language === 'vi' ? 'Chọn Nghề Nghiệp' : 'Choose Profession'}
+                  {!profile.profession && (
+                    <span className="ml-2 text-accent-500">
+                      {language === 'vi' ? '(Chưa chọn)' : '(Not selected)'}
+                    </span>
+                  )}
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { code: 'bs', emoji: '👨‍⚕️', name: language === 'vi' ? 'Bác Sĩ' : 'Doctor' },
+                    { code: 'ch', emoji: '🚒', name: language === 'vi' ? 'Cứu Hỏa' : 'Firefighter' },
+                    { code: 'cs', emoji: '👮', name: language === 'vi' ? 'Cảnh Sát' : 'Police' },
+                  ].map((prof) => (
+                    <button
+                      key={prof.code}
+                      onClick={async () => {
+                        if (profile.profession) {
+                          setToast({ 
+                            show: true, 
+                            message: language === 'vi' 
+                              ? '⚠️ Bạn đã chọn nghề rồi, không thể thay đổi!' 
+                              : '⚠️ You have already chosen a profession, cannot change!', 
+                            type: 'error' 
+                          })
+                          return
+                        }
+                        
+                        try {
+                          await updateProfile(profile.id, { profession: prof.code })
+                          onUpdate({ ...profile, profession: prof.code })
+                          setToast({ 
+                            show: true, 
+                            message: language === 'vi' 
+                              ? `✅ Đã chọn nghề: ${prof.name}!` 
+                              : `✅ Selected profession: ${prof.name}!`, 
+                            type: 'success' 
+                          })
+                        } catch (error) {
+                          console.error('Error updating profession:', error)
+                          setToast({ show: true, message: 'Error', type: 'error' })
                         }
                       }}
-                    />
-                    {profile.characterBase === base && (
-                      <div className="absolute top-1 right-1 bg-purple-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs z-30">
-                        ✓
-                      </div>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-          )}
-
-          {/* Character Display */}
-          <div className="border-t border-slate-600 pt-6">
-            <h3 className="text-lg font-semibold text-gray-100 mb-4">{t('profile.character')}</h3>
-            <CharacterDisplay profile={profile} size="medium" showLevelInfo={true} />
-          </div>
-
-          {/* Profession Selection - Chỉ hiển thị khi level >= 5 */}
-          {currentLevel >= 5 && (
-            <div className="border-t border-slate-600 pt-6">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                {language === 'vi' ? '🎓 Chọn Nghề Nghiệp' : '🎓 Choose Profession'}
-                {!profile.profession && (
-                  <span className="ml-2 text-xs text-orange-600">
-                    {language === 'vi' ? '(Chưa chọn)' : '(Not selected)'}
-                  </span>
-                )}
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { code: 'bs', name: language === 'vi' ? '👨‍⚕️ Bác Sĩ' : '👨‍⚕️ Doctor', nameEn: 'Doctor' },
-                  { code: 'ch', name: language === 'vi' ? '🚒 Cứu Hỏa' : '🚒 Firefighter', nameEn: 'Firefighter' },
-                  { code: 'cs', name: language === 'vi' ? '👮 Cảnh Sát' : '👮 Police', nameEn: 'Police' },
-                ].map((prof) => (
-                  <button
-                    key={prof.code}
-                    onClick={async () => {
-                      // Nếu đã chọn nghề rồi, không cho thay đổi
-                      if (profile.profession) {
-                        setToast({ 
-                          show: true, 
-                          message: language === 'vi' 
-                            ? '⚠️ Bạn đã chọn nghề rồi, không thể thay đổi!' 
-                            : '⚠️ You have already chosen a profession, cannot change!', 
-                          type: 'error' 
-                        })
-                        return
-                      }
-                      
-                      try {
-                        await updateProfile(profile.id, { profession: prof.code })
-                        onUpdate({ ...profile, profession: prof.code })
-                        setToast({ 
-                          show: true, 
-                          message: language === 'vi' 
-                            ? `✅ Đã chọn nghề: ${prof.name}! (Không thể thay đổi)` 
-                            : `✅ Selected profession: ${prof.nameEn}! (Cannot change)`, 
-                          type: 'success' 
-                        })
-                      } catch (error) {
-                        console.error('Error updating profession:', error)
-                        setToast({ 
-                          show: true, 
-                          message: language === 'vi' ? 'Lỗi khi cập nhật nghề nghiệp' : 'Error updating profession', 
-                          type: 'error' 
-                        })
-                      }
-                    }}
-                    disabled={!!profile.profession}
-                    className={`relative px-4 py-3 rounded-lg border-2 transition-all ${
-                      profile.profession === prof.code
-                        ? 'border-purple-600 bg-purple-50 ring-2 ring-purple-300'
-                        : profile.profession
-                        ? 'border-slate-600 bg-slate-700/30 opacity-50 cursor-not-allowed'
-                        : 'border-slate-600 hover:border-purple-400 bg-slate-700/50'
-                    }`}
-                    title={profile.profession ? (language === 'vi' ? 'Đã chọn nghề, không thể thay đổi' : 'Profession already chosen, cannot change') : prof.name}
-                  >
-                    <div className="text-center">
-                      <div className="text-2xl mb-1">{prof.name.split(' ')[0]}</div>
-                      <div className="text-sm font-medium text-gray-200">{prof.name.split(' ').slice(1).join(' ')}</div>
-                    </div>
-                    {profile.profession === prof.code && (
-                      <div className="absolute top-1 right-1 bg-purple-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                        ✓
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-              {currentLevel >= 5 && !profile.profession && (
-                <p className="mt-2 text-xs text-gray-500">
-                  {language === 'vi' 
-                    ? '💡 Bạn đã đạt Level 5! Hãy chọn nghề nghiệp để nhân vật có trang phục đặc biệt.'
-                    : '💡 You reached Level 5! Choose a profession to unlock special outfits.'}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-primary-500/20 rounded-lg p-4 border border-primary-500/30">
-              <p className="text-sm text-gray-200">{t('profile.xp')}</p>
-              <p className="text-2xl font-bold text-primary-300">{profile.xp}</p>
-            </div>
-            <div className="bg-yellow-500/20 rounded-lg p-4 border border-yellow-500/30">
-              <p className="text-sm text-gray-200">{t('profile.coins')}</p>
-              <p className="text-2xl font-bold text-yellow-400">{profile.coins}</p>
-            </div>
-          </div>
-
-          {/* Test Level (Development Only) - Commented out for public version
-          <div className="border-t border-slate-600 pt-4">
-            <h4 className="text-sm font-medium text-gray-200 mb-2">{t('profile.testLevel')}</h4>
-            <div className="flex space-x-2">
-              <button
-                onClick={async () => {
-                  setTestingLevel(true)
-                  try {
-                    const newXP = profile.xp + 500
-                    await updateProfile(profile.id, { xp: newXP })
-                    const updatedProfile = { ...profile, xp: newXP }
-                    onUpdate(updatedProfile)
-                    setToast({ show: true, message: `Đã tăng XP! Level mới: ${calculateLevel(newXP)}`, type: 'success' })
-                  } catch (error) {
-                    console.error('Error updating XP:', error)
-                    setToast({ show: true, message: 'Lỗi khi tăng XP', type: 'error' })
-                  } finally {
-                    setTestingLevel(false)
-                  }
-                }}
-                disabled={testingLevel}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50"
-              >
-                {testingLevel ? 'Đang tăng...' : '+500 XP'}
-              </button>
-              <button
-                onClick={async () => {
-                  setTestingLevel(true)
-                  try {
-                    const newXP = profile.xp + 2000
-                    await updateProfile(profile.id, { xp: newXP })
-                    const updatedProfile = { ...profile, xp: newXP }
-                    onUpdate(updatedProfile)
-                    setToast({ show: true, message: `Đã tăng XP! Level mới: ${calculateLevel(newXP)}`, type: 'success' })
-                  } catch (error) {
-                    console.error('Error updating XP:', error)
-                    setToast({ show: true, message: 'Lỗi khi tăng XP', type: 'error' })
-                  } finally {
-                    setTestingLevel(false)
-                  }
-                }}
-                disabled={testingLevel}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
-              >
-                {testingLevel ? 'Đang tăng...' : '+2000 XP'}
-              </button>
-              <button
-                onClick={async () => {
-                  setTestingLevel(true)
-                  try {
-                    await resetXPAndProfession(profile.id)
-                    const updatedProfile = { ...profile, xp: 0, profession: undefined }
-                    onUpdate(updatedProfile)
-                    setToast({ 
-                      show: true, 
-                      message: language === 'vi' 
-                        ? '✅ Đã reset XP về 0! Level mới: 1. Nghề nghiệp đã được xóa, bạn có thể chọn lại khi lên Level 5.' 
-                        : '✅ Reset XP to 0! New level: 1. Profession cleared, you can choose again at Level 5.', 
-                      type: 'success' 
-                    })
-                  } catch (error) {
-                    console.error('Error resetting XP:', error)
-                    setToast({ show: true, message: 'Lỗi khi reset XP', type: 'error' })
-                  } finally {
-                    setTestingLevel(false)
-                  }
-                }}
-                disabled={testingLevel}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50"
-              >
-                {testingLevel ? 'Đang reset...' : '🔄 Reset XP về 0'}
-              </button>
-            </div>
-            <div className="mt-4">
-              <h4 className="text-sm font-semibold text-gray-200 mb-2">💰 Test Coins</h4>
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={async () => {
-                    setTestingLevel(true)
-                    try {
-                      const newCoins = profile.coins + 100
-                      await updateProfile(profile.id, { coins: newCoins })
-                      const updatedProfile = { ...profile, coins: newCoins }
-                      onUpdate(updatedProfile)
-                      setToast({ show: true, message: `✅ Đã thêm 100 Coins! Tổng: ${newCoins} Coins`, type: 'success' })
-                    } catch (error) {
-                      console.error('Error updating coins:', error)
-                      setToast({ show: true, message: 'Lỗi khi thêm Coins', type: 'error' })
-                    } finally {
-                      setTestingLevel(false)
-                    }
-                  }}
-                  disabled={testingLevel}
-                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm hover:bg-yellow-700 disabled:opacity-50"
-                >
-                  {testingLevel ? 'Đang thêm...' : '+100 Coins'}
-                </button>
-                <button
-                  onClick={async () => {
-                    setTestingLevel(true)
-                    try {
-                      const newCoins = profile.coins + 500
-                      await updateProfile(profile.id, { coins: newCoins })
-                      const updatedProfile = { ...profile, coins: newCoins }
-                      onUpdate(updatedProfile)
-                      setToast({ show: true, message: `✅ Đã thêm 500 Coins! Tổng: ${newCoins} Coins`, type: 'success' })
-                    } catch (error) {
-                      console.error('Error updating coins:', error)
-                      setToast({ show: true, message: 'Lỗi khi thêm Coins', type: 'error' })
-                    } finally {
-                      setTestingLevel(false)
-                    }
-                  }}
-                  disabled={testingLevel}
-                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm hover:bg-yellow-700 disabled:opacity-50"
-                >
-                  {testingLevel ? 'Đang thêm...' : '+500 Coins'}
-                </button>
-                <button
-                  onClick={async () => {
-                    setTestingLevel(true)
-                    try {
-                      const newCoins = profile.coins + 1000
-                      await updateProfile(profile.id, { coins: newCoins })
-                      const updatedProfile = { ...profile, coins: newCoins }
-                      onUpdate(updatedProfile)
-                      setToast({ show: true, message: `✅ Đã thêm 1000 Coins! Tổng: ${newCoins} Coins`, type: 'success' })
-                    } catch (error) {
-                      console.error('Error updating coins:', error)
-                      setToast({ show: true, message: 'Lỗi khi thêm Coins', type: 'error' })
-                    } finally {
-                      setTestingLevel(false)
-                    }
-                  }}
-                  disabled={testingLevel}
-                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm hover:bg-yellow-700 disabled:opacity-50"
-                >
-                  {testingLevel ? 'Đang thêm...' : '+1000 Coins'}
-                </button>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Level hiện tại: <span className="font-bold">{currentLevel}</span>
-            </p>
-          </div>
-          */}
-
-          {/* Root Management - Quản lý users */}
-          {profile.isRoot && (
-            <div className="border-t border-slate-600 pt-6 mb-6">
-              <h4 className="text-sm font-medium text-gray-200 mb-3">{t('profile.rootManagement')}</h4>
-              <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-3 mb-4">
-                <p className="text-sm text-gray-200 mb-2">
-                  <strong>{t('profile.rootStatus')}:</strong> {t('profile.rootStatusYes')}
-                </p>
-              </div>
-              
-              {/* Family Code and Root Code Section */}
-              {loadingFamily ? (
-                <div className="bg-slate-800/80 border border-slate-600 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-gray-400">{t('common.loading')}</p>
+                      disabled={!!profile.profession}
+                      className={`relative p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 group ${
+                        profile.profession === prof.code
+                          ? 'border-violet-600 bg-violet-50 shadow-soft'
+                          : profile.profession
+                          ? 'border-slate-100 opacity-40 grayscale cursor-not-allowed'
+                          : 'border-violet-100 hover:border-violet-300 hover:bg-violet-50 active:scale-95'
+                      }`}
+                    >
+                      <span className="text-3xl group-hover:scale-110 transition-transform">{prof.emoji}</span>
+                      <span className="text-[10px] font-black uppercase text-violet-900">{prof.name}</span>
+                      {profile.profession === prof.code && (
+                        <div className="absolute -top-2 -right-2 bg-violet-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-soft border-2 border-white">
+                          ✓
+                        </div>
+                      )}
+                    </button>
+                  ))}
                 </div>
-              ) : familyInfo ? (
-                <div className="bg-gradient-to-br from-slate-800/90 to-slate-700/90 border-2 border-slate-600 rounded-lg p-4 mb-4 space-y-4 shadow-lg">
-                  {/* Family Name */}
-                  <div className="bg-gradient-to-r from-primary-500/20 to-primary-600/20 p-4 rounded-lg border-2 border-primary-500/50">
-                    <label className="block text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2">
-                      <span className="text-lg">👨‍👩‍👧‍👦</span>
-                      {t('profile.familyName') || 'Family Name'}
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={familyInfo.name || ''}
-                        readOnly
-                        className="w-full min-w-0 bg-slate-950/80 border-2 border-primary-500/50 rounded-lg px-4 py-3 text-white font-bold text-lg overflow-hidden text-ellipsis"
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Family Code */}
-                  <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-600">
-                    <label className="block text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2">
-                      <span className="text-lg">📋</span>
-                      {t('profile.familyCode')}
-                    </label>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <input
-                        type="text"
-                        value={familyInfo.code}
-                        readOnly
-                        className="flex-1 min-w-0 bg-slate-950 border-2 border-slate-500 rounded-lg px-3 py-2.5 text-gray-100 font-mono text-base font-bold tracking-wider"
-                      />
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(familyInfo.code)
-                          setToast({ show: true, message: t('profile.codeCopied'), type: 'success' })
-                        }}
-                        className="px-4 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors shadow-md whitespace-nowrap flex-shrink-0"
-                      >
-                        {t('profile.copyCode')}
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-2">{t('profile.familyCodeDesc')}</p>
-                  </div>
-                  
-                  {/* Root Code */}
-                  <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-600">
-                    <label className="block text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2">
-                      <span className="text-lg">🔐</span>
-                      {t('profile.rootCode')}
-                    </label>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <input
-                        type="text"
-                        value={familyInfo.rootCode}
-                        readOnly
-                        className="flex-1 min-w-0 bg-slate-950 border-2 border-slate-500 rounded-lg px-3 py-2.5 text-gray-100 font-mono text-base font-bold tracking-wider"
-                      />
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(familyInfo.rootCode)
-                          setToast({ show: true, message: t('profile.codeCopied'), type: 'success' })
-                        }}
-                        className="px-4 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors shadow-md whitespace-nowrap flex-shrink-0"
-                      >
-                        {t('profile.copyCode')}
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-2">{t('profile.rootCodeDesc')}</p>
-                  </div>
-                </div>
-              ) : null}
-              
-              {/* User Management Section */}
-              <UserManagementSection currentUserId={profile.id} familyId={profile.familyId} />
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex space-x-4 border-t border-slate-600 pt-6">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 bg-primary-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50"
-            >
-              {saving ? t('common.loading') : t('profile.saveChanges')}
-            </button>
-            <button
-              onClick={handleLogout}
-              className="px-6 py-2 border border-red-500/50 text-red-400 rounded-lg font-medium hover:bg-red-500/20 transition-colors"
-            >
-              {t('profile.logout')}
-            </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Root Management */}
+      {profile.isRoot && (
+        <div className="kid-card p-8 bg-white border-violet-100 shadow-kid">
+          <div className="flex items-center gap-4 mb-8">
+             <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-2xl">🔐</div>
+             <div>
+                <h4 className="text-xl font-black text-violet-900 uppercase tracking-tight">{t('profile.rootManagement')}</h4>
+                <p className="text-xs text-violet-400 font-bold uppercase tracking-widest">{t('profile.rootStatusYes')}</p>
+             </div>
+          </div>
+          
+          {loadingFamily ? (
+            <div className="animate-pulse flex space-x-4">
+              <div className="flex-1 space-y-4 py-1">
+                <div className="h-4 bg-violet-50 rounded w-3/4"></div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-violet-50 rounded"></div>
+                  <div className="h-4 bg-violet-50 rounded w-5/6"></div>
+                </div>
+              </div>
+            </div>
+          ) : familyInfo ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-6 bg-violet-50 rounded-3xl border-2 border-violet-100 relative overflow-hidden group">
+                  <label className="block text-[10px] font-black text-violet-400 uppercase tracking-widest mb-2">📋 {t('profile.familyCode')}</label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-white border-2 border-violet-100 rounded-xl px-4 py-3 text-violet-900 font-mono font-black text-lg tracking-wider group-hover:border-violet-200 transition-colors">
+                      {familyInfo.code}
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(familyInfo.code)
+                        setToast({ show: true, message: t('profile.codeCopied'), type: 'success' })
+                      }}
+                      className="p-3 bg-violet-600 text-white rounded-xl shadow-soft hover:bg-violet-700 active:scale-90 transition-all"
+                    >
+                      📋
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6 bg-amber-50 rounded-3xl border-2 border-amber-100 relative overflow-hidden group">
+                  <label className="block text-[10px] font-black text-amber-400 uppercase tracking-widest mb-2">🔐 {t('profile.rootCode')}</label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-white border-2 border-amber-100 rounded-xl px-4 py-3 text-amber-900 font-mono font-black text-lg tracking-wider group-hover:border-amber-200 transition-colors">
+                      {familyInfo.rootCode}
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(familyInfo.rootCode)
+                        setToast({ show: true, message: t('profile.codeCopied'), type: 'success' })
+                      }}
+                      className="p-3 bg-amber-500 text-white rounded-xl shadow-soft hover:bg-amber-600 active:scale-90 transition-all"
+                    >
+                      📋
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-8">
+                <UserManagementSection currentUserId={profile.id} familyId={profile.familyId} />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   )
 }
 
-// Component quản lý users cho root
 function UserManagementSection({ currentUserId, familyId }: { currentUserId: string; familyId: string }) {
   const { t, language } = useI18n()
   const [users, setUsers] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(false)
   const [resetting, setResetting] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
-  const [deletingAuth, setDeletingAuth] = useState(false)
-  const [deleteEmail, setDeleteEmail] = useState('')
-  const [showDeleteAuthForm, setShowDeleteAuthForm] = useState(false)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
 
   const loadUsers = useCallback(async () => {
+    if (!familyId) return
     setLoading(true)
     try {
-      if (!familyId) {
-        console.error('FamilyId is not provided')
-        setLoading(false)
-        return
-      }
       const allUsers = await getAllUsers(familyId)
-      setUsers(allUsers.filter(u => u.id !== currentUserId)) // Không hiển thị chính mình
+      setUsers(allUsers.filter(u => u.id !== currentUserId))
     } catch (error) {
       console.error('Error loading users:', error)
-      setToast({ show: true, message: language === 'vi' ? 'Lỗi khi tải danh sách users' : 'Error loading users', type: 'error' })
     } finally {
       setLoading(false)
     }
-  }, [currentUserId, language, familyId])
+  }, [currentUserId, familyId])
 
   useEffect(() => {
     loadUsers()
   }, [loadUsers])
 
   const handleResetUser = async (targetUserId: string, userName: string) => {
-    if (!confirm(language === 'vi' 
-      ? `Bạn có chắc muốn reset XP và Coin của "${userName}" về 0?`
-      : `Are you sure you want to reset XP and Coins of "${userName}" to 0?`)) {
-      return
-    }
-
+    if (!confirm(`${t('common.confirm')}?`)) return
     setResetting(targetUserId)
     try {
       await resetUserXPAndCoins(targetUserId, currentUserId)
-      setToast({ 
-        show: true, 
-        message: language === 'vi' 
-          ? `✅ Đã reset XP và Coin của "${userName}" về 0!` 
-          : `✅ Reset XP and Coins of "${userName}" to 0!`, 
-        type: 'success' 
-      })
-      // Reload users để cập nhật
-      await loadUsers()
+      setToast({ show: true, message: 'Done!', type: 'success' })
+      loadUsers()
     } catch (error: any) {
-      console.error('Error resetting user:', error)
-      setToast({ 
-        show: true, 
-        message: error.message || (language === 'vi' ? 'Lỗi khi reset user' : 'Error resetting user'), 
-        type: 'error' 
-      })
+      setToast({ show: true, message: error.message, type: 'error' })
     } finally {
       setResetting(null)
     }
   }
 
   const handleDeleteUser = async (targetUserId: string, userName: string) => {
-    if (!confirm(language === 'vi' 
-      ? `⚠️ CẢNH BÁO: Bạn có chắc muốn XÓA VĨNH VIỄN user "${userName}"?\n\nTất cả dữ liệu sẽ bị xóa:\n- Profile\n- Tất cả tasks\n- Tất cả task templates\n- Firebase Authentication\n\nHành động này KHÔNG THỂ hoàn tác!`
-      : `⚠️ WARNING: Are you sure you want to PERMANENTLY DELETE user "${userName}"?\n\nAll data will be deleted:\n- Profile\n- All tasks\n- All task templates\n- Firebase Authentication\n\nThis action CANNOT be undone!`)) {
-      return
-    }
-
+    if (!confirm(`${t('common.confirm')}?`)) return
     setDeleting(targetUserId)
     try {
       await deleteUser(targetUserId, currentUserId)
-      setToast({ 
-        show: true, 
-        message: language === 'vi' 
-          ? `✅ Đã xóa user "${userName}" và tất cả dữ liệu liên quan (bao gồm Firebase Authentication)!` 
-          : `✅ Deleted user "${userName}" and all related data (including Firebase Authentication)!`, 
-        type: 'success' 
-      })
-      // Reload users để cập nhật
-      await loadUsers()
+      setToast({ show: true, message: 'Deleted!', type: 'success' })
+      loadUsers()
     } catch (error: any) {
-      console.error('Error deleting user:', error)
-      setToast({ 
-        show: true, 
-        message: error.message || (language === 'vi' ? 'Lỗi khi xóa user' : 'Error deleting user'), 
-        type: 'error' 
-      })
+      setToast({ show: true, message: error.message, type: 'error' })
     } finally {
       setDeleting(null)
     }
   }
 
-  const handleDeleteAuthUser = async () => {
-    if (!deleteEmail.trim()) {
-      setToast({ 
-        show: true, 
-        message: language === 'vi' ? 'Vui lòng nhập email' : 'Please enter email', 
-        type: 'error' 
-      })
-      return
-    }
-
-    if (!confirm(language === 'vi' 
-      ? `⚠️ Bạn có chắc muốn xóa user với email "${deleteEmail}" khỏi Firebase Authentication?\n\nUser này sẽ không thể đăng nhập nữa và có thể đăng ký lại với email này.`
-      : `⚠️ Are you sure you want to delete user with email "${deleteEmail}" from Firebase Authentication?\n\nThis user will not be able to login and can register again with this email.`)) {
-      return
-    }
-
-    setDeletingAuth(true)
-    try {
-      const response = await fetch('/api/delete-auth-user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: deleteEmail.trim(),
-          deleterUserId: currentUserId,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to delete user from Auth')
-      }
-
-      setToast({ 
-        show: true, 
-        message: language === 'vi' 
-          ? `✅ Đã xóa user "${deleteEmail}" khỏi Firebase Authentication! Bây giờ có thể đăng ký lại với email này.` 
-          : `✅ Deleted user "${deleteEmail}" from Firebase Authentication! Can now register again with this email.`, 
-        type: 'success' 
-      })
-      setDeleteEmail('')
-      setShowDeleteAuthForm(false)
-    } catch (error: any) {
-      console.error('Error deleting auth user:', error)
-      setToast({ 
-        show: true, 
-        message: error.message || (language === 'vi' ? 'Lỗi khi xóa user khỏi Authentication' : 'Error deleting user from Authentication'), 
-        type: 'error' 
-      })
-    } finally {
-      setDeletingAuth(false)
-    }
-  }
-
   return (
-    <div>
-      <div className="flex justify-between items-center mb-3">
-        <h5 className="text-sm font-semibold text-gray-200">
-          {language === 'vi' ? '👥 Quản lý Users' : '👥 User Management'}
+    <div className="space-y-4">
+      <div className="flex justify-between items-center mb-6">
+        <h5 className="text-sm font-black text-violet-900 uppercase tracking-widest">
+           👥 {language === 'vi' ? 'Quản lý thành viên' : 'Member Management'}
         </h5>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setShowDeleteAuthForm(!showDeleteAuthForm)}
-            className="px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700"
-          >
-            {showDeleteAuthForm ? (language === 'vi' ? '✖️ Hủy' : '✖️ Cancel') : (language === 'vi' ? '🗑️ Xóa Auth User' : '🗑️ Delete Auth User')}
-          </button>
-          <button
-            onClick={loadUsers}
-            disabled={loading}
-            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? (language === 'vi' ? 'Đang tải...' : 'Loading...') : '🔄 Refresh'}
-          </button>
-        </div>
+        <button
+          onClick={loadUsers}
+          disabled={loading}
+          className="p-3 bg-violet-50 text-violet-600 rounded-xl hover:bg-violet-100 active:scale-90 transition-all border border-violet-100"
+        >
+          🔄
+        </button>
       </div>
 
-      {/* Form xóa user khỏi Firebase Authentication bằng email */}
-      {showDeleteAuthForm && (
-        <div className="mb-4 p-3 bg-purple-500/20 border border-purple-500/50 rounded-lg">
-          <h6 className="text-sm font-medium text-gray-200 mb-2">
-            {language === 'vi' ? '🗑️ Xóa User khỏi Firebase Authentication' : '🗑️ Delete User from Firebase Authentication'}
-          </h6>
-          <p className="text-xs text-gray-400 mb-2">
-            {language === 'vi' 
-              ? 'Nhập email của user cần xóa. User sẽ không thể đăng nhập nữa và có thể đăng ký lại với email này.'
-              : 'Enter the email of the user to delete. User will not be able to login and can register again with this email.'}
-          </p>
-          <div className="flex space-x-2">
-            <input
-              type="email"
-              value={deleteEmail}
-              onChange={(e) => setDeleteEmail(e.target.value)}
-              placeholder={language === 'vi' ? 'Nhập email...' : 'Enter email...'}
-              className="flex-1 px-3 py-2 border border-slate-600 rounded-lg bg-slate-700/50 text-gray-100 placeholder-gray-400 text-sm"
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleDeleteAuthUser()
-                }
-              }}
-            />
-            <button
-              onClick={handleDeleteAuthUser}
-              disabled={deletingAuth || !deleteEmail.trim()}
-              className="px-4 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50"
-            >
-              {deletingAuth 
-                ? (language === 'vi' ? 'Đang xóa...' : 'Deleting...')
-                : (language === 'vi' ? 'Xóa' : 'Delete')
-              }
-            </button>
-          </div>
-        </div>
-      )}
-      
-      {loading && users.length === 0 ? (
-        <div className="text-center py-4 text-gray-400">
-          {language === 'vi' ? 'Đang tải...' : 'Loading...'}
-        </div>
-      ) : users.length === 0 ? (
-        <div className="text-center py-4 text-gray-400">
-          {language === 'vi' ? 'Không có users nào' : 'No users found'}
-        </div>
-      ) : (
-        <div className="max-h-96 overflow-y-auto space-y-2">
-          {users.map(user => (
-            <div
-              key={user.id}
-              className="bg-slate-800/80 backdrop-blur-sm border border-slate-600 rounded-lg p-3 flex justify-between items-center"
-            >
-              <div className="flex-1">
-                <p className="font-medium text-gray-100">{user.name}</p>
-                <p className="text-xs text-gray-400">{user.email}</p>
-                <div className="flex gap-4 mt-1 text-xs">
-                  <span className="text-primary-300 font-medium">XP: {user.xp}</span>
-                  <span className="text-yellow-400">Coins: {user.coins}</span>
-                  {user.isRoot && (
-                    <span className="text-purple-400 font-bold">🔐 Root</span>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {users.map(user => (
+          <div key={user.id} className="p-4 bg-violet-50/50 rounded-2xl border-2 border-violet-100 flex items-center justify-between group hover:border-violet-200 transition-all">
+            <div className="flex items-center gap-4">
+               <div className="w-12 h-12 rounded-xl bg-white border-2 border-violet-100 flex items-center justify-center overflow-hidden">
+                  {user.avatar ? (
+                    <img src={user.avatar} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="font-black text-violet-300">{user.name.charAt(0)}</span>
                   )}
-                </div>
-              </div>
-              {user.id !== currentUserId && (
-                <div className="flex space-x-2 ml-3">
-                  <button
-                    onClick={() => handleResetUser(user.id, user.name)}
-                    disabled={resetting === user.id || deleting === user.id}
-                    className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 disabled:opacity-50"
-                  >
-                    {resetting === user.id 
-                      ? (language === 'vi' ? 'Đang reset...' : 'Resetting...')
-                      : (language === 'vi' ? '🔄 Reset XP/Coin' : '🔄 Reset XP/Coin')
-                    }
-                  </button>
-                  <button
-                    onClick={() => handleDeleteUser(user.id, user.name)}
-                    disabled={resetting === user.id || deleting === user.id}
-                    className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
-                  >
-                    {deleting === user.id 
-                      ? (language === 'vi' ? 'Đang xóa...' : 'Deleting...')
-                      : (language === 'vi' ? '🗑️ Xóa User' : '🗑️ Delete User')
-                    }
-                  </button>
-                </div>
-              )}
+               </div>
+               <div>
+                  <p className="font-black text-violet-900 leading-none mb-1">{user.name}</p>
+                  <p className="text-[10px] text-violet-400 font-bold uppercase tracking-widest">XP: {user.xp} • 🪙 {user.coins}</p>
+               </div>
             </div>
-          ))}
-        </div>
-      )}
+            
+            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => handleResetUser(user.id, user.name)}
+                disabled={!!resetting || !!deleting}
+                className="p-2 bg-white text-orange-500 rounded-lg shadow-soft border border-orange-100 hover:bg-orange-50 active:scale-90"
+                title="Reset Stats"
+              >
+                🔄
+              </button>
+              <button
+                onClick={() => handleDeleteUser(user.id, user.name)}
+                disabled={!!resetting || !!deleting}
+                className="p-2 bg-white text-red-500 rounded-lg shadow-soft border border-red-100 hover:bg-red-50 active:scale-90"
+                title="Delete User"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
       
       {toast.show && (
-        <Toast
-          show={toast.show}
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast({ ...toast, show: false })}
-        />
+        <div className="fixed bottom-4 right-4 z-[100]">
+           <Toast show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
+        </div>
       )}
     </div>
   )
 }
-

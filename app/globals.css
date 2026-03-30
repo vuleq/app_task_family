@@ -1,48 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Comic+Neue:wght@300;400;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
+  --foreground-rgb: 76, 29, 149; /* Deep Purple (#4C1D95) */
+  --background-start-rgb: 250, 245, 255; /* Purple White (#FAF5FF) */
   --background-end-rgb: 255, 255, 255;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background: white;
+  min-height: 100vh;
+  font-family: 'Comic Neue', sans-serif;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Baloo 2', cursive;
+  font-weight: 800;
+}
+
+@layer components {
+  .kid-card {
+    @apply bg-white rounded-[2.5rem] shadow-soft border-4 border-violet-50 p-8 transition-all duration-500 hover:shadow-kid hover:-translate-y-1 hover:border-violet-100 cursor-pointer;
+  }
+  
+  .btn-playful {
+    @apply px-8 py-4 rounded-[1.5rem] font-black transition-all duration-300 active:scale-95 shadow-soft hover:shadow-kid disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-widest text-xs;
+  }
+  
+  .shadow-soft {
+    box-shadow: 0 10px 30px -10px rgba(139, 92, 246, 0.1);
+  }
+
+  .shadow-kid {
+    box-shadow: 0 20px 50px -15px rgba(139, 92, 246, 0.2);
+  }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .animate-bounce-slow {
+    animation: bounce 3s infinite;
   }
-}
+  
+  .animate-pulse-slow {
+    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
 
-@keyframes slide-in {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
   }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
 
-.animate-slide-in {
-  animation: slide-in 0.3s ease-out;
+  .animate-bounce-in {
+    animation: bounce-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-15px); }
+  }
+
+  @keyframes bounce-in {
+    0% { transform: scale(0.3); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
 }

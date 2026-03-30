@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { UserProfile } from '@/lib/firebase/profile'
 import { logout } from '@/lib/firebase/auth'
 import { useRouter } from 'next/navigation'
@@ -44,59 +44,62 @@ export default function Header({ profile }: HeaderProps) {
   }
 
   return (
-    <header className="bg-slate-800/95 backdrop-blur-sm shadow-lg sticky top-0 z-50 border-b border-slate-700/50">
-      <div className="max-w-7xl mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
-          {/* Thông tin cá nhân bên trái */}
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 overflow-hidden flex items-center justify-center flex-shrink-0">
+    <header className="bg-white/95 backdrop-blur-md sticky top-0 z-50 border-b-4 border-indigo-50 shadow-soft">
+      <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-4">
+          {/* User Info Left */}
+          <div className="flex items-center gap-4 bg-indigo-50/50 p-2 pr-6 rounded-full border-2 border-white shadow-soft transition-transform hover:scale-[1.02]">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 overflow-hidden flex items-center justify-center flex-shrink-0 border-4 border-white shadow-soft relative group">
               {profile.avatar ? (
                 <img
                   src={profile.avatar}
                   alt={profile.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                 />
               ) : (
-                <span className="text-lg text-white font-bold">
+                <span className="text-xl text-white font-black">
                   {profile.name.charAt(0).toUpperCase()}
                 </span>
               )}
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-100">{profile.name}</h2>
-              <div className="flex items-center space-x-3 text-sm">
-                <span className="text-primary-300 font-medium">XP: {profile.xp}</span>
-                <span className="text-yellow-400 font-medium">Coins: {profile.coins}</span>
+            <div className="hidden sm:block">
+              <h2 className="text-sm font-black text-indigo-900 leading-none mb-1 uppercase tracking-tight">{profile.name}</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] bg-white text-indigo-600 px-2 py-0.5 rounded-full font-black border border-indigo-100">✨ {profile.xp}</span>
+                <span className="text-[10px] bg-white text-amber-600 px-2 py-0.5 rounded-full font-black border border-amber-100">🪙 {profile.coins}</span>
               </div>
             </div>
           </div>
 
-          {/* Logo/Title ở giữa */}
-          <div className="flex-1 text-center">
-            <h1 className="text-xl font-bold text-gray-100">{t('login.title')}</h1>
+          <div className="flex-1 flex flex-col items-center">
+             <div className="flex items-center gap-2 mb-0.5">
+               <span className="text-2xl animate-bounce-slow">🚀</span>
+               <h1 className="text-xl sm:text-2xl font-black text-indigo-900 tracking-tight uppercase">{t('login.title')}</h1>
+             </div>
             {familyInfo && (
-              <p className="text-sm text-primary-300 mt-1">👨‍👩‍👧‍👦 {familyInfo.name}</p>
+              <div className="flex items-center gap-2">
+                 <span className="w-1 h-1 rounded-full bg-indigo-200" />
+                 <p className="text-[10px] text-indigo-300 font-black tracking-[0.2em] uppercase">{t('profile.familyName') || 'FAMILY'}: {familyInfo.name}</p>
+                 <span className="w-1 h-1 rounded-full bg-indigo-200" />
+              </div>
             )}
           </div>
 
-          {/* Nút chuyển đổi ngôn ngữ và đăng xuất bên phải */}
-          <div className="flex items-center space-x-3">
-            {/* Language Toggle */}
+          {/* Right Actions */}
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setLanguage(language === 'vi' ? 'en' : 'vi')}
-              className="px-3 py-1.5 text-sm border border-slate-600 text-gray-200 rounded-lg font-medium hover:bg-slate-700/50 transition-colors flex items-center justify-center space-x-1.5 min-w-[70px]"
+              className="btn-playful hidden sm:flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-indigo-50 text-indigo-600 rounded-2xl font-black text-xs shadow-soft hover:bg-indigo-50 active:scale-95 transition-all"
               title={language === 'vi' ? 'Switch to English' : 'Chuyển sang Tiếng Việt'}
             >
-              <span className="text-base leading-none">{language === 'vi' ? '🇻🇳' : '🇺🇸'}</span>
-              <span className="leading-none">{language === 'vi' ? 'VI' : 'EN'}</span>
+              <span>{language === 'vi' ? '🇻🇳 VI' : '🇺🇸 EN'}</span>
             </button>
             
-            {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="px-4 py-2 text-sm border border-red-500/50 text-red-400 rounded-lg font-medium hover:bg-red-500/20 transition-colors"
+              className="btn-playful px-5 py-2.5 bg-red-50 text-red-500 rounded-2xl font-black text-xs hover:bg-red-100 active:scale-95 transition-all border-2 border-red-100 shadow-soft"
             >
-              {t('header.logout')}
+              🚪 {t('header.logout')}
             </button>
           </div>
         </div>

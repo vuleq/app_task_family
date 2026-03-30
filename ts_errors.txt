@@ -1,0 +1,5 @@
+﻿components/tasks/TaskCompletionProgress.tsx(71,34): error TS2304: Cannot find name 'language'.
+components/tasks/TaskCompletionProgress.tsx(122,34): error TS2304: Cannot find name 'language'.
+components/tasks/TaskCompletionProgress.tsx(173,34): error TS2304: Cannot find name 'language'.
+components/tasks/TaskItem.tsx(32,11): error TS7022: 'statusConfig' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+components/tasks/TaskItem.tsx(32,26): error TS7053: Element implicitly has an 'any' type because expression of type 'string | number | symbol' can't be used to index type '{ pending: { label: any; color: string; bg: string; dot: string; }; in_progress: { label: any; color: string; bg: string; dot: string; }; completed: { label: any; color: string; bg: string; dot: string; }; approved: { ...; }; }'.

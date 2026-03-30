@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { collection, query, where, getDocs, updateDoc, doc, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/config'
 import { updateProfile, getProfile } from '@/lib/firebase/profile'
@@ -25,13 +25,13 @@ interface Task {
   createdBy: string
   createdByName?: string
   status: string
-  type: 'daily' | 'weekly' | 'monthly' // Thêm type để check limits
+  type: 'daily' | 'weekly' | 'monthly'
   xpReward: number
   coinReward: number
   evidence?: string
   parentTaskId?: string
   groupKey?: string
-  completedDate?: string // Thêm completedDate để check limits
+  completedDate?: string
 }
 
 interface TaskApprovalProps {
@@ -62,15 +62,12 @@ export default function TaskApproval({ currentUserId, currentUserRole, familyId,
         ...doc.data()
       })) as Task[]
 
-      // Lọc chỉ những nhiệm vụ mà user hiện tại có quyền phê duyệt
-      // Quyền phê duyệt: Người tạo nhiệm vụ HOẶC người có role 'parent'
       tasksData = tasksData.filter(task => {
         const isCreator = task.createdBy === currentUserId
         const isParent = currentUserRole === 'parent'
         return isCreator || isParent
       })
 
-      // Lấy tên người tạo cho mỗi task
       for (const task of tasksData) {
         if (!task.createdByName && task.createdBy) {
           try {
@@ -98,7 +95,6 @@ export default function TaskApproval({ currentUserId, currentUserRole, familyId,
 
   const handleApprove = async (task: Task) => {
     try {
-      // Kiểm tra giới hạn nhiệm vụ và coin trước khi approve
       const { canCompleteTask } = await import('@/lib/firebase/taskLimits')
       const limitCheck = await canCompleteTask(task.assignedTo, task.type, task.coinReward, familyId)
       
@@ -111,15 +107,13 @@ export default function TaskApproval({ currentUserId, currentUserRole, familyId,
         return
       }
 
-      // Lấy ngày hiện tại (YYYY-MM-DD) nếu chưa có completedDate
       let completedDate = task.completedDate
       if (!completedDate) {
         const now = new Date()
-        const vietnamTime = new Date(now.getTime() + 7 * 60 * 60 * 1000) // UTC+7
+        const vietnamTime = new Date(now.getTime() + 7 * 60 * 60 * 1000)
         completedDate = `${vietnamTime.getUTCFullYear()}-${String(vietnamTime.getUTCMonth() + 1).padStart(2, '0')}-${String(vietnamTime.getUTCDate()).padStart(2, '0')}`
       }
 
-      // Cập nhật trạng thái task
       if (!db) {
         setToast({ show: true, message: t('errors.firestoreNotInitialized'), type: 'error' })
         return
@@ -127,10 +121,9 @@ export default function TaskApproval({ currentUserId, currentUserRole, familyId,
       await updateDoc(doc(db, 'tasks', task.id), {
         status: 'approved',
         approvedAt: Timestamp.now(),
-        completedDate: completedDate // Đảm bảo có completedDate
+        completedDate: completedDate
       })
 
-      // Cập nhật XP và Coins cho người làm
       const userProfile = await getProfile(task.assignedTo)
       if (userProfile) {
         await updateProfile(task.assignedTo, {
@@ -139,7 +132,6 @@ export default function TaskApproval({ currentUserId, currentUserRole, familyId,
         })
       }
 
-      // Nếu là nhiệm vụ ngày thuộc nhiệm vụ tuần/tháng, kiểm tra tiến độ
       let message = `Đã phê duyệt! ${task.assignedToName} nhận được ${task.xpReward} XP và ${task.coinReward} Coins.`
       if (task.parentTaskId && task.groupKey) {
         const isParentCompleted = await checkAndUpdateParentTask(task.parentTaskId, task.groupKey)
@@ -148,14 +140,12 @@ export default function TaskApproval({ currentUserId, currentUserRole, familyId,
         }
       }
 
-      // Kiểm tra completion rewards nếu là daily task
       if (task.type === 'daily') {
         const dailyResult = await checkDailyCompletion(task.assignedTo, familyId, completedDate)
         if (dailyResult.rewarded && dailyResult.message) {
           message = `${dailyResult.message}\n\n${message}`
         }
 
-        // Sau khi check daily, check weekly và monthly
         const weeklyResult = await checkWeeklyCompletion(task.assignedTo, familyId)
         if (weeklyResult.rewarded && weeklyResult.message) {
           message = `${weeklyResult.message}\n\n${message}`
@@ -194,68 +184,127 @@ export default function TaskApproval({ currentUserId, currentUserRole, familyId,
   }
 
   if (loading) {
-    return <div className="text-center py-4">{t('common.loading')}</div>
+    return (
+      <div className="text-center py-20 bg-white/50 rounded-[2rem] border-4 border-dashed border-violet-100">
+        <div className="w-16 h-16 border-4 border-violet-100 border-t-violet-600 rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-violet-600 font-black uppercase tracking-widest text-sm animate-pulse">{t('common.loading')}...</p>
+      </div>
+    )
   }
 
   if (pendingTasks.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
-        {t('approval.noPendingTasks')}
+      <div className="text-center py-20 bg-white/50 rounded-[2.5rem] border-4 border-dashed border-violet-100 group">
+        <div className="text-7xl mb-6 grayscale opacity-30 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500 hover:scale-110">😴</div>
+        <p className="text-violet-400 font-black text-xl uppercase tracking-widest italic">
+          {t('approval.noPendingTasks')}
+        </p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Toast
         show={toast.show}
         message={toast.message}
         type={toast.type}
         onClose={() => setToast({ ...toast, show: false })}
       />
-      <h3 className="text-lg font-semibold text-gray-100">✅ {t('approval.title')}</h3>
-      <div className="space-y-3">
+      <div className="flex items-center gap-3 mb-6">
+         <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-2xl shadow-soft">✅</div>
+         <h3 className="text-2xl font-black text-violet-900 uppercase tracking-tight">{t('approval.title')}</h3>
+         <span className="bg-violet-100 px-3 py-1 rounded-full text-xs font-black text-violet-600 border border-violet-200 uppercase tracking-widest shadow-soft">
+            {pendingTasks.length}
+         </span>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
         {pendingTasks.map(task => (
-          <div key={task.id} className="bg-slate-800/80 backdrop-blur-sm border border-slate-600 rounded-lg p-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <h5 className="font-medium text-gray-100">{getTranslatedTaskTitle(task.title, language)}</h5>
-                <div className="text-sm text-gray-300 mt-1 space-y-1">
-                  <p>{t('approval.assignedTo')}: <span className="font-medium">{task.assignedToName}</span></p>
-                  <p>{t('approval.createdBy')}: <span className="font-medium">{task.createdByName || 'N/A'}</span></p>
-                  {task.createdBy === currentUserId && (
-                    <p className="text-xs text-blue-400">✨ Bạn là người tạo nhiệm vụ này</p>
-                  )}
-                  {currentUserRole === 'parent' && task.createdBy !== currentUserId && (
-                    <p className="text-xs text-green-400">👨‍👩‍👧‍👦 Bạn có quyền phê duyệt (Parent)</p>
-                  )}
+          <div key={task.id} className="kid-card p-8 bg-white border-violet-100 shadow-kid hover:border-violet-300 transition-all group relative overflow-hidden">
+            {/* Background Decoration */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-violet-50 rounded-full -mr-16 -mt-16 opacity-30 group-hover:scale-110 transition-transform" />
+            
+            <div className="flex flex-col lg:flex-row justify-between items-start gap-8 relative z-10">
+              <div className="flex-1 space-y-4">
+                <div className="flex items-center gap-4 flex-wrap">
+                  <h5 className="text-2xl font-black text-violet-900 leading-tight uppercase tracking-tight">{getTranslatedTaskTitle(task.title, language)}</h5>
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border-2 shadow-soft ${
+                      task.type === 'daily' ? 'bg-blue-50 text-blue-500 border-blue-100' :
+                      task.type === 'weekly' ? 'bg-violet-50 text-violet-500 border-violet-100' :
+                      'bg-orange-50 text-orange-500 border-orange-100'
+                  }`}>
+                    {task.type === 'daily' ? t('tasks.taskTypeDaily') :
+                        task.type === 'weekly' ? t('tasks.taskTypeWeekly') :
+                            t('tasks.taskTypeMonthly')}
+                  </span>
                 </div>
-                <div className="flex items-center space-x-4 mt-2 text-sm">
-                  <span className="text-primary-400">XP: {task.xpReward}</span>
-                  <span className="text-yellow-400">Coins: {task.coinReward}</span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                   <div className="bg-violet-50/50 p-4 rounded-2xl border-2 border-violet-50 shadow-inner flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-white shadow-soft flex items-center justify-center text-lg">👤</div>
+                      <div>
+                         <p className="text-[9px] font-black text-violet-300 uppercase tracking-[0.2em] mb-1">{t('approval.assignedTo')}</p>
+                         <p className="text-sm font-black text-violet-900 uppercase tracking-tight">{task.assignedToName}</p>
+                      </div>
+                   </div>
+                   <div className="bg-indigo-50/50 p-4 rounded-2xl border-2 border-indigo-50 shadow-inner flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-white shadow-soft flex items-center justify-center text-lg">✏️</div>
+                      <div>
+                         <p className="text-[9px] font-black text-indigo-300 uppercase tracking-[0.2em] mb-1">{t('approval.createdBy')}</p>
+                         <p className="text-sm font-black text-indigo-900 uppercase tracking-tight">{task.createdByName || 'N/A'}</p>
+                      </div>
+                   </div>
                 </div>
+
+                <div className="flex items-center gap-6 pt-2">
+                   <div className="flex items-center gap-2">
+                       <span className="text-2xl">⚡</span>
+                       <div>
+                          <p className="text-[8px] font-black text-violet-300 uppercase tracking-widest">XP Reward</p>
+                          <p className="text-xl font-black text-violet-600 leading-none">{task.xpReward}</p>
+                       </div>
+                   </div>
+                   <div className="flex items-center gap-2">
+                       <span className="text-2xl">🪙</span>
+                       <div>
+                          <p className="text-[8px] font-black text-amber-300 uppercase tracking-widest">Coin Reward</p>
+                          <p className="text-xl font-black text-amber-600 leading-none">{task.coinReward}</p>
+                       </div>
+                   </div>
+                   {task.createdBy === currentUserId && (
+                      <div className="ml-auto bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 flex items-center gap-2 shadow-soft animate-pulse">
+                         <span className="text-xs">✨</span>
+                         <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">You created this</span>
+                      </div>
+                   )}
+                </div>
+
                 {task.evidence && (
-                  <div className="mt-3">
+                  <div className="mt-6 p-4 bg-violet-50/30 rounded-3xl border-4 border-white shadow-inner">
+                    <p className="text-[10px] font-black text-violet-300 uppercase tracking-[0.2em] mb-3 ml-2">Evidence Photo</p>
                     <img
                       src={task.evidence}
                       alt="Evidence"
-                      className="w-full max-w-xs rounded-lg border border-gray-200"
+                      className="w-full max-w-sm rounded-[1.5rem] border-4 border-white shadow-soft hover:scale-[1.02] transition-transform cursor-pointer"
+                      onClick={() => window.open(task.evidence, '_blank')}
                     />
                   </div>
                 )}
               </div>
-              <div className="flex space-x-2 ml-4">
+
+              <div className="flex flex-row lg:flex-col gap-4 w-full lg:w-auto shrink-0 pt-4 lg:pt-0">
                 <button
                   onClick={() => handleApprove(task)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                  className="flex-1 btn-playful bg-emerald-500 text-white px-8 py-4 rounded-[1.5rem] text-sm font-black shadow-kid hover:bg-emerald-600 uppercase tracking-widest border-b-4 border-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
-                  {t('approval.approve')}
+                  <span className="text-xl">✅</span> {t('approval.approve')}
                 </button>
                 <button
                   onClick={() => handleReject(task)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+                  className="flex-1 btn-playful bg-white text-red-500 px-8 py-4 rounded-[1.5rem] text-sm font-black shadow-soft hover:bg-red-50 uppercase tracking-widest border-2 border-red-100 active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
-                  {t('approval.reject')}
+                  <span className="text-xl">❌</span> {t('approval.reject')}
                 </button>
               </div>
             </div>
@@ -265,4 +314,3 @@ export default function TaskApproval({ currentUserId, currentUserRole, familyId,
     </div>
   )
 }
-

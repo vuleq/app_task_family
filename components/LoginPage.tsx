@@ -1,45 +1,83 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { loginWithEmail, signupWithEmail, loginWithGoogle } from '@/lib/firebase/auth'
+import React, { useState, useEffect } from 'react'
+import { loginWithEmail, signupWithEmail, loginWithGoogle, sendVerificationEmail, logout, sendResetPasswordEmail } from '@/lib/firebase/auth'
 import { createFamily, joinFamilyByCode, getFamilyByRootCode } from '@/lib/firebase/family'
 import { getAllUsers } from '@/lib/firebase/profile'
 import { useI18n } from '@/lib/i18n/context'
 import Toast from './Toast'
 
-// Super root code để tạo super root user (quản lý tất cả families)
-// Lấy từ environment variable, fallback về default
-const SUPER_ROOT_CODE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SUPER_ROOT_CODE) || 'SUPERADMIN2024'
+// Map Firebase error codes to friendly messages
+const getFirebaseErrorMessage = (err: any, language: string): string => {
+  const code = err?.code || ''
+  const vi: Record<string, string> = {
+    'auth/user-not-found':       'Email này chưa có tài khoản. Vui lòng đăng ký trước.',
+    'auth/wrong-password':       'Mật khẩu không đúng. Vui lòng thử lại.',
+    'auth/invalid-credential':   'Email hoặc mật khẩu không đúng.',
+    'auth/invalid-email':        'Địa chỉ email không hợp lệ.',
+    'auth/email-already-in-use': 'Email này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác.',
+    'auth/weak-password':        'Mật khẩu quá yếu. Vui lòng dùng ít nhất 6 ký tự.',
+    'auth/too-many-requests':    'Quá nhiều lần thử. Vui lòng đợi vài phút rồi thử lại.',
+    'auth/network-request-failed': 'Lỗi kết nối mạng. Vui lòng kiểm tra internet.',
+    'auth/popup-closed-by-user': 'Đăng nhập bị hủy. Vui lòng thử lại.',
+  }
+  const en: Record<string, string> = {
+    'auth/user-not-found':       'No account found with this email. Please sign up first.',
+    'auth/wrong-password':       'Incorrect password. Please try again.',
+    'auth/invalid-credential':   'Incorrect email or password.',
+    'auth/invalid-email':        'Invalid email address.',
+    'auth/email-already-in-use': 'This email is already in use. Please log in or use another email.',
+    'auth/weak-password':        'Password is too weak. Please use at least 6 characters.',
+    'auth/too-many-requests':    'Too many attempts. Please wait a few minutes and try again.',
+    'auth/network-request-failed': 'Network error. Please check your internet connection.',
+    'auth/popup-closed-by-user': 'Sign-in cancelled. Please try again.',
+  }
+  const map = language === 'vi' ? vi : en
+  return map[code] || (language === 'vi' ? 'Đã có lỗi xảy ra. Vui lòng thử lại.' : 'An error occurred. Please try again.')
+}
+
+// Verify super root code via server-side API (code is never exposed to client)
+const verifySuperRootCode = async (code: string): Promise<boolean> => {
+  try {
+    const res = await fetch('/api/verify-super-root', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    })
+    const data = await res.json()
+    return data.valid === true
+  } catch {
+    return false
+  }
+}
 
 export default function LoginPage() {
   const { t, language } = useI18n()
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [isForgotPassword, setIsForgotPassword] = useState(false)
+  const [resetEmailSent, setResetEmailSent] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [wantRoot, setWantRoot] = useState(false) // Checkbox muốn tạo root
-  const [wantSuperRoot, setWantSuperRoot] = useState(false) // Checkbox muốn tạo super root
-  const [rootAction, setRootAction] = useState<'create' | 'join'>('create') // Tạo mới hoặc join family đã có
-  const [rootCode, setRootCode] = useState('') // Input root code (để join family đã có)
-  const [superRootCode, setSuperRootCode] = useState('') // Input super root code
-  const [familyCode, setFamilyCode] = useState('') // Code để join family (end user)
-  const [familyName, setFamilyName] = useState('') // Tên family khi tạo mới
-  const [customFamilyCode, setCustomFamilyCode] = useState('') // Mã gia đình tùy chỉnh
-  const [customRootCode, setCustomRootCode] = useState('') // Mã root tùy chỉnh
-  const [useCustomCodes, setUseCustomCodes] = useState(false) // Checkbox để sử dụng mã tùy chỉnh
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
+  const [wantRoot, setWantRoot] = useState(false) 
+  const [wantSuperRoot, setWantSuperRoot] = useState(false) 
+  const [rootAction, setRootAction] = useState<'create' | 'join'>('create') 
+  const [rootCode, setRootCode] = useState('') 
+  const [superRootCode, setSuperRootCode] = useState('') 
+  const [familyCode, setFamilyCode] = useState('') 
+  const [familyName, setFamilyName] = useState('') 
+  const [customFamilyCode, setCustomFamilyCode] = useState('') 
+  const [customRootCode, setCustomRootCode] = useState('') 
+  const [useCustomCodes, setUseCustomCodes] = useState(false) 
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null)
-  
-  // Random background image
+
   useEffect(() => {
     const backgrounds: string[] = []
-    if (process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_1) {
-      backgrounds.push(process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_1)
-    }
-    if (process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_2) {
-      backgrounds.push(process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_2)
-    }
-    
+    if (process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_1) backgrounds.push(process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_1)
+    if (process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_2) backgrounds.push(process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_2)
+
     if (backgrounds.length > 0) {
       const randomIndex = Math.floor(Math.random() * backgrounds.length)
       setBackgroundImage(backgrounds[randomIndex])
@@ -53,281 +91,130 @@ export default function LoginPage() {
 
     try {
       if (isLogin) {
-        await loginWithEmail(email, password)
+        const userCredential = await loginWithEmail(email, password)
+        if (!userCredential.user.emailVerified) {
+          await logout()
+          setError(language === 'vi'
+            ? 'Email của bạn chưa được xác thực. Vui lòng kiểm tra hộp thư đến và bấm vào link xác thực.'
+            : 'Your email is not verified. Please check your inbox and click the verification link.')
+          setLoading(false)
+          return
+        }
       } else {
-        // Kiểm tra super root code trước (ưu tiên cao nhất)
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+        if (!emailRegex.test(email.trim())) {
+          setError(language === 'vi'
+            ? 'Vui lòng nhập định dạng email hợp lệ (ví dụ: user@example.com)'
+            : 'Please enter a valid email format (e.g., user@example.com)')
+          setLoading(false)
+          return
+        }
+
         let isSuperRoot = false
         if (wantSuperRoot) {
-          if (superRootCode.trim() !== SUPER_ROOT_CODE) {
-            setError(language === 'vi' 
-              ? 'Mã Super Root không đúng. Vui lòng kiểm tra lại.'
-              : 'Super Root code is incorrect. Please check again.')
+          const isValidSuperRoot = await verifySuperRootCode(superRootCode)
+          if (!isValidSuperRoot) {
+            setError(language === 'vi' ? 'Mã Super Root không đúng.' : 'Super Root code is incorrect.')
             setLoading(false)
             return
           }
           isSuperRoot = true
         }
-        
-        // Xử lý root user (chỉ nếu không phải super root)
+
         let isRoot = false
         let familyId: string | undefined
-        
+
         if (wantRoot && !isSuperRoot) {
           isRoot = true
-          
-          if (rootAction === 'create') {
-            // Tạo family mới - không cần root code
-            // Sẽ tạo family và root code tự động
-          } else if (rootAction === 'join') {
-            // Trở thành root của family đã có - cần root code
+          if (rootAction === 'join') {
             if (!rootCode.trim()) {
-              setError(language === 'vi' 
-                ? 'Vui lòng nhập mã Root của gia đình'
-                : 'Please enter family root code')
+              setError(language === 'vi' ? 'Vui lòng nhập mã Root' : 'Please enter root code')
               setLoading(false)
               return
             }
-            
-            // Kiểm tra root code
             const family = await getFamilyByRootCode(rootCode.trim().toUpperCase())
             if (!family) {
-              setError(language === 'vi' 
-                ? 'Mã Root không đúng hoặc không tồn tại'
-                : 'Root code is incorrect or does not exist')
+              setError(language === 'vi' ? 'Mã Root không đúng' : 'Root code is incorrect')
               setLoading(false)
               return
             }
-            
-            // Kiểm tra family đã có root user chưa
             const familyMembers = await getAllUsers(family.id)
-            const hasRoot = familyMembers.some(u => u.isRoot && !u.isSuperRoot)
-            if (hasRoot) {
-              setError(language === 'vi' 
-                ? 'Gia đình này đã có root user rồi'
-                : 'This family already has a root user')
+            if (familyMembers.some(u => u.isRoot && !u.isSuperRoot)) {
+              setError(language === 'vi' ? 'Gia đình này đã có root user rồi' : 'This family already has a root user')
               setLoading(false)
               return
             }
-            
             familyId = family.id
           }
         }
-        
-        // Tạo user account trước
+
         const userCredential = await signupWithEmail(email, password, isRoot)
         const userId = userCredential.user.uid
-        
-        // Xử lý family: tạo mới (nếu root) hoặc join (nếu có code) - skip nếu super root
+
+        try {
+          await sendVerificationEmail()
+        } catch (verifyErr) {
+          console.error('[Signup] Error sending verification email:', verifyErr)
+        }
+
         if (isSuperRoot) {
-          // Super root không cần family
           familyId = undefined
         } else if (isRoot && rootAction === 'create') {
-          // Root user: tạo family mới
           const name = familyName.trim() || email.split('@')[0] || 'Family'
-          // Validate custom codes nếu có
           if (useCustomCodes) {
             if (customFamilyCode.trim().length !== 6) {
-              setError(language === 'vi' 
-                ? 'Mã gia đình phải có đúng 6 ký tự'
-                : 'Family code must be exactly 6 characters')
-              setLoading(false)
-              return
-            }
-            // Root code là optional, nhưng nếu nhập thì phải đúng 6 ký tự
-            if (customRootCode.trim().length > 0 && customRootCode.trim().length !== 6) {
-              setError(language === 'vi' 
-                ? 'Mã Root phải có đúng 6 ký tự hoặc để trống'
-                : 'Root code must be exactly 6 characters or leave empty')
-              setLoading(false)
-              return
-            }
-            // Cảnh báo nếu root code giống family code
-            if (customRootCode.trim().toUpperCase() === customFamilyCode.trim().toUpperCase() && customRootCode.trim().length > 0) {
-              setError(language === 'vi' 
-                ? '⚠️ Không nên dùng Root Code giống Family Code. Vui lòng chọn mã khác hoặc để trống để tự tạo.'
-                : '⚠️ Do not use same Root Code as Family Code. Please choose different code or leave empty to auto-generate.')
+              setError(language === 'vi' ? 'Mã gia đình phải có 6 ký tự' : 'Family code must be 6 characters')
               setLoading(false)
               return
             }
           }
-          try {
-            console.log('[Signup] Creating family with:', {
-              useCustomCodes,
-              customFamilyCode: useCustomCodes ? customFamilyCode.trim() : undefined,
-              customRootCode: useCustomCodes ? customRootCode.trim() : undefined,
-            })
-            const result = await createFamily(
-              name, 
-              userId,
-              useCustomCodes ? customFamilyCode.trim() : undefined,
-              useCustomCodes ? customRootCode.trim() : undefined
-            )
-            console.log('[Signup] Family created with codes:', {
-              familyCode: result.familyCode,
-              rootCode: result.rootCode,
-              familyId: result.familyId,
-            })
-            familyId = result.familyId
-            
-            // ⚠️ CRITICAL: Đảm bảo familyId được set
-            if (!familyId) {
-              console.error('[Signup] ⚠️ CRITICAL ERROR: familyId is undefined after createFamily!')
-              setError(language === 'vi' ? 'Lỗi: Không thể tạo gia đình. Vui lòng thử lại.' : 'Error: Cannot create family. Please try again.')
-              setLoading(false)
-              return
-            }
-            
-            // Lưu cả family code, root code và familyId vào localStorage để hiển thị sau
-            if (typeof window !== 'undefined') {
-              try {
-                localStorage.setItem(`signup_familyCode_${userId}`, result.familyCode)
-                localStorage.setItem(`signup_rootCode_${userId}`, result.rootCode)
-                localStorage.setItem(`signup_familyId_${userId}`, result.familyId)
-                
-                // Verify ngay lập tức
-                const verifyFamilyId = localStorage.getItem(`signup_familyId_${userId}`)
-                const verifyFamilyCode = localStorage.getItem(`signup_familyCode_${userId}`)
-                const verifyRootCode = localStorage.getItem(`signup_rootCode_${userId}`)
-                
-                console.log('[Signup] Saved to localStorage:', {
-                  familyCode: result.familyCode,
-                  rootCode: result.rootCode,
-                  familyId: result.familyId,
-                  verified: {
-                    familyId: verifyFamilyId,
-                    familyCode: verifyFamilyCode,
-                    rootCode: verifyRootCode,
-                  },
-                })
-                
-                if (verifyFamilyId !== result.familyId) {
-                  console.error('[Signup] ⚠️ CRITICAL: localStorage verification failed for familyId!', {
-                    expected: result.familyId,
-                    actual: verifyFamilyId,
-                  })
-                }
-              } catch (e) {
-                console.error('[Signup] ⚠️ CRITICAL: Error saving to localStorage:', e)
-                setError(language === 'vi' ? 'Lỗi: Không thể lưu thông tin. Vui lòng thử lại.' : 'Error: Cannot save information. Please try again.')
-                setLoading(false)
-                return
-              }
-            }
-          } catch (err: any) {
-            // Xử lý lỗi từ createFamily (ví dụ: mã đã tồn tại)
-            setError(err.message || (language === 'vi' ? 'Lỗi khi tạo gia đình' : 'Error creating family'))
-            setLoading(false)
-            return
+          const result = await createFamily(
+            name,
+            userId,
+            useCustomCodes ? customFamilyCode.trim() : undefined,
+            useCustomCodes ? customRootCode.trim() : undefined
+          )
+          familyId = result.familyId
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(`signup_familyCode_${userId}`, result.familyCode)
+            localStorage.setItem(`signup_rootCode_${userId}`, result.rootCode)
           }
         } else if (!isRoot && familyCode.trim()) {
-          // End user: Join family bằng code
-          try {
-            const result = await joinFamilyByCode(familyCode.trim().toUpperCase(), userId)
-            if (!result.success) {
-              setError(result.error || (language === 'vi' ? 'Không thể tham gia gia đình' : 'Cannot join family'))
-              setLoading(false)
-              return
-            }
-            familyId = result.familyId
-          } catch (err: any) {
-            setError(err.message || (language === 'vi' ? 'Lỗi khi tham gia gia đình' : 'Error joining family'))
+          const result = await joinFamilyByCode(familyCode.trim().toUpperCase(), userId)
+          if (!result.success) {
+            setError(result.error || (language === 'vi' ? 'Lỗi khi tham gia' : 'Error joining'))
             setLoading(false)
             return
           }
+          familyId = result.familyId
         } else if (!isRoot && !familyCode.trim()) {
-          setError(language === 'vi' 
-            ? 'Vui lòng nhập mã gia đình để tham gia'
-            : 'Please enter family code to join')
+          setError(language === 'vi' ? 'Vui lòng nhập mã gia đình' : 'Please enter family code')
           setLoading(false)
           return
         }
-        
-        // Lưu flags vào localStorage để dùng khi tạo profile
-        // Note: familyId đã được lưu ở trên (line 174) nếu tạo family mới
-        // Chỉ cần lưu lại nếu chưa có (trường hợp join family)
+
         if (typeof window !== 'undefined') {
-          if (isSuperRoot) {
-            localStorage.setItem(`signup_isSuperRoot_${userId}`, 'true')
-          }
-          if (isRoot) {
-            localStorage.setItem(`signup_isRoot_${userId}`, 'true')
-          }
-          // Chỉ lưu familyId nếu chưa có (tránh overwrite)
-          if (familyId && !localStorage.getItem(`signup_familyId_${userId}`)) {
-            localStorage.setItem(`signup_familyId_${userId}`, familyId)
-            console.log('[Signup] Saved familyId to localStorage (second time):', {
-              userId,
-              familyId,
-            })
-          } else if (familyId) {
-            console.log('[Signup] familyId already saved to localStorage:', {
-              userId,
-              familyId,
-              existing: localStorage.getItem(`signup_familyId_${userId}`),
-            })
-          } else {
-            console.warn('[Signup] familyId is undefined! Not saving to localStorage.')
-          }
+          if (isSuperRoot) localStorage.setItem(`signup_isSuperRoot_${userId}`, 'true')
+          if (isRoot) localStorage.setItem(`signup_isRoot_${userId}`, 'true')
+          if (familyId) localStorage.setItem(`signup_familyId_${userId}`, familyId)
         }
-        
-        // Đợi một chút để đảm bảo Firebase Auth state đã được cập nhật
-        // Và đảm bảo localStorage đã được lưu SYNCHRONOUSLY
-        // Force sync localStorage bằng cách đọc lại ngay sau khi ghi
-        if (typeof window !== 'undefined' && familyId) {
-          // Đảm bảo localStorage được sync bằng cách force write và read
-          localStorage.setItem(`signup_familyId_${userId}`, familyId)
-          // Force sync bằng cách trigger storage event
-          const verifyFamilyId = localStorage.getItem(`signup_familyId_${userId}`)
-          if (verifyFamilyId !== familyId) {
-            console.error('[Signup] ⚠️ CRITICAL: localStorage write failed!', {
-              expected: familyId,
-              actual: verifyFamilyId,
-            })
-            // Thử lại với JSON stringify (một số browser cần format đặc biệt)
-            try {
-              localStorage.setItem(`signup_familyId_${userId}`, String(familyId))
-              const retryVerify = localStorage.getItem(`signup_familyId_${userId}`)
-              if (retryVerify !== familyId) {
-                console.error('[Signup] ⚠️ CRITICAL: localStorage retry also failed!')
-              } else {
-                console.log('[Signup] ✅ localStorage write succeeded after retry')
-              }
-            } catch (e) {
-              console.error('[Signup] ⚠️ CRITICAL: localStorage write error:', e)
-            }
-          } else {
-            console.log('[Signup] ✅ Verified: familyId correctly saved to localStorage (synchronous check)')
-          }
-        }
-        
-        // Đợi thêm một chút để đảm bảo tất cả operations đã hoàn tất
-        await new Promise(resolve => setTimeout(resolve, 800))
-        
-        // Final verification trước khi reload
-        if (typeof window !== 'undefined' && familyId) {
-          const finalCheck = localStorage.getItem(`signup_familyId_${userId}`)
-          if (finalCheck !== familyId) {
-            console.error('[Signup] ⚠️ FINAL CHECK FAILED: familyId mismatch before reload!', {
-              expected: familyId,
-              actual: finalCheck,
-            })
-            // Force save one more time
-            localStorage.setItem(`signup_familyId_${userId}`, familyId)
-            console.log('[Signup] Force saved familyId one more time before reload')
-          } else {
-            console.log('[Signup] ✅ Final check passed: familyId is correct before reload')
-          }
-        }
-        
-        // Reload page để trigger onAuthStateChanged và load profile
-        // Điều này đảm bảo Firebase hoàn toàn sẵn sàng
-        if (typeof window !== 'undefined') {
-          console.log('[Signup] Reloading page now...')
-          window.location.reload()
-        }
+
+        // Logout ngay sau khi đăng ký để user phải xác thực email trước khi login
+        await logout()
+
+        // Hiện thông báo rõ ràng thay vì reload im lặng
+        setToast({
+          show: true,
+          message: language === 'vi'
+            ? '🎉 Đăng ký thành công! Vui lòng kiểm tra email và bấm link xác thực trước khi đăng nhập.'
+            : '🎉 Account created! Please check your email and click the verification link before logging in.',
+          type: 'success'
+        })
+        setIsLogin(true)
+        setLoading(false)
       }
     } catch (err: any) {
-      setError(err.message || t('login.errorOccurred'))
+      setError(getFirebaseErrorMessage(err, language))
       setLoading(false)
     }
   }
@@ -335,9 +222,46 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     setError('')
     setLoading(true)
-
     try {
       await loginWithGoogle()
+      // popup tự xử lý, onAuthStateChanged trong page.tsx sẽ bắt kết quả
+    } catch (err: any) {
+      setError(getFirebaseErrorMessage(err, language))
+      setLoading(false)
+    }
+  }
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email) {
+      setError(language === 'vi' ? 'Vui lòng nhập email' : 'Please enter email')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      await sendResetPasswordEmail(email)
+      setResetEmailSent(true)
+    } catch (err: any) {
+      setError(err.message || t('login.errorOccurred'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResendVerification = async () => {
+    if (!email || !password) return
+    setLoading(true)
+    setError('')
+    try {
+      await loginWithEmail(email, password)
+      await sendVerificationEmail()
+      await logout()
+      setToast({
+        show: true,
+        message: language === 'vi' ? 'Link xác thực đã được gửi lại!' : 'Verification link has been resent!',
+        type: 'success'
+      })
     } catch (err: any) {
       setError(err.message || t('login.errorOccurred'))
     } finally {
@@ -346,387 +270,201 @@ export default function LoginPage() {
   }
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center p-4"
+    <div
+      className="min-h-screen flex items-center justify-center p-6 bg-purple- white relative overflow-hidden"
       style={backgroundImage ? {
         backgroundImage: `url(${backgroundImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
         backgroundAttachment: 'fixed',
-      } : {
-        background: 'linear-gradient(to bottom right, rgb(15 23 42), rgb(30 41 59), rgb(15 23 42))',
-      }}
+      } : {}}
     >
-      <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-xl p-8 w-full max-w-md border border-slate-700/50">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-100 mb-2">
-            {t('login.title')}
+      {/* Dynamic Animated Circles */}
+      <div className="absolute top-10 left-10 w-64 h-64 bg-violet-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" />
+      <div className="absolute bottom-10 right-10 w-64 h-64 bg-amber-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse-slow" />
+
+      <div className="kid-card p-10 w-full max-w-lg bg-white border-violet-100 shadow-kid relative z-10 animate-bounce-in">
+        <div className="text-center mb-10">
+          <div className="w-20 h-20 bg-violet-100 rounded-[2rem] flex items-center justify-center text-4xl mx-auto mb-6 shadow-soft group hover:scale-110 transition-transform">
+             <span className="animate-bounce-slow">🚀</span>
+          </div>
+          <h1 className="text-4xl font-black text-violet-900 mb-3 uppercase tracking-tight">
+            {isForgotPassword ? (language === 'vi' ? 'Quên mật khẩu' : 'Forgot Password') : (isLogin ? t('login.title') : t('login.createNewAccount'))}
           </h1>
-          <p className="text-gray-300">
-            {isLogin ? t('login.loginToAccount') : t('login.createNewAccount')}
+          <p className="text-violet-400 font-bold uppercase tracking-widest text-xs">
+            {isForgotPassword ? (language === 'vi' ? 'Nhập email để nhận link' : 'Enter email to receive link') : (isLogin ? t('login.loginToAccount') : t('login.createNewAccount'))}
           </p>
         </div>
 
-        {error && (
-          <div className="bg-red-900/30 border border-red-500/50 text-red-300 px-4 py-3 rounded mb-4">
-            {error}
+        {resetEmailSent && (
+          <div className="bg-emerald-50 border-4 border-emerald-100 text-emerald-600 px-6 py-4 rounded-3xl mb-6 font-black text-sm text-center shadow-soft">
+            {language === 'vi' ? 'Link đã được gửi! Kiểm tra email nhé!' : 'Link sent! Check your email!'}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-semibold text-gray-100 mb-1">
+        {error && (
+          <div className="bg-red-50 border-4 border-red-100 text-red-500 px-6 py-4 rounded-3xl mb-6 font-black text-sm shadow-soft text-center leading-relaxed">
+            {error}
+            {(error.includes('xác thực') || error.includes('verified')) && (
+              <button onClick={handleResendVerification} className="block mt-2 w-full text-xs font-black underline hover:text-red-600 uppercase tracking-widest">
+                {language === 'vi' ? 'Gửi lại mã xác thực' : 'Resend link'}
+              </button>
+            )}
+          </div>
+        )}
+
+        <form onSubmit={isForgotPassword ? handleForgotPassword : handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="block text-[10px] font-black text-violet-300 uppercase tracking-[0.2em] ml-2">
               {t('login.email')}
             </label>
             <input
-              id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-white bg-slate-700/50 placeholder-gray-300"
-              placeholder="your@email.com"
+              className="w-full px-6 py-4 border-4 border-violet-50 rounded-[1.5rem] bg-violet-50/30 text-violet-900 font-black focus:outline-none focus:border-violet-200 transition-all shadow-inner placeholder-violet-200"
+              placeholder="example@email.com"
             />
           </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-semibold text-gray-100 mb-1">
-              {t('login.password')}
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              className="w-full px-4 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-white bg-slate-700/50 placeholder-gray-300"
-              placeholder="••••••••"
-            />
-          </div>
+          {!isForgotPassword && (
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black text-violet-300 uppercase tracking-[0.2em] ml-2">
+                {t('login.password')}
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                className="w-full px-6 py-4 border-4 border-violet-50 rounded-[1.5rem] bg-violet-50/30 text-violet-900 font-black focus:outline-none focus:border-violet-200 transition-all shadow-inner placeholder-violet-200"
+                placeholder="••••••••"
+              />
+            </div>
+          )}
 
-          {/* Family & Root Account Option - Chỉ hiện khi đăng ký */}
-          {!isLogin && (
-            <div className="space-y-3">
-              {/* Super Root Account Option */}
-              <div className="bg-purple-600/90 border-2 border-purple-400 rounded-lg p-4 space-y-3 shadow-xl">
-                <div className="flex items-center space-x-3">
+          {isLogin && !isForgotPassword && (
+            <div className="flex justify-end pr-2">
+              <button
+                type="button"
+                onClick={() => setIsForgotPassword(true)}
+                className="text-[10px] font-black text-violet-400 hover:text-violet-600 uppercase tracking-widest"
+              >
+                {language === 'vi' ? 'Quên mật khẩu?' : 'Forgot password?'}
+              </button>
+            </div>
+          )}
+
+          {!isLogin && !isForgotPassword && (
+            <div className="space-y-4">
+              {/* Super Root UI */}
+              <div className={`p-6 rounded-[2rem] border-4 transition-all ${wantSuperRoot ? 'bg-indigo-600 border-indigo-400 text-white shadow-kid' : 'bg-indigo-50/30 border-indigo-100 text-indigo-400'}`}>
+                <div className="flex items-center gap-4">
                   <input
                     type="checkbox"
-                    id="wantSuperRoot"
                     checked={wantSuperRoot}
                     onChange={(e) => {
                       setWantSuperRoot(e.target.checked)
-                      if (e.target.checked) {
-                        // Disable các option khác khi chọn super root
-                        setWantRoot(false)
-                        setRootCode('')
-                        setFamilyCode('')
-                        setFamilyName('')
-                      }
+                      if (e.target.checked) setWantRoot(false)
                     }}
-                    className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 cursor-pointer"
+                    className="w-6 h-6 rounded-lg text-indigo-600 focus:ring-indigo-500 border-2 border-indigo-200"
                   />
-                  <label htmlFor="wantSuperRoot" className="text-base font-bold text-white cursor-pointer flex items-center gap-2">
-                    <span className="text-yellow-300 text-xl">👑</span>
-                    <span className="bg-white/20 px-3 py-1 rounded">
-                      {language === 'vi' ? 'Tạo tài khoản Super Root (Quản lý tất cả gia đình)' : 'Create Super Root account (Manage all families)'}
-                    </span>
-                  </label>
+                  <span className="text-xs font-black uppercase tracking-widest">
+                    👑 Super Admin Account
+                  </span>
                 </div>
                 {wantSuperRoot && (
-                  <div className="bg-purple-900/50 p-3 rounded-lg border border-purple-400">
-                    <label htmlFor="superRootCode" className="block text-sm font-bold text-white mb-2">
-                      {language === 'vi' ? 'Mã Super Root:' : 'Super Root Code:'}
-                      <span className="ml-2 text-yellow-300 font-mono text-sm font-bold bg-black/30 px-2 py-1 rounded">({SUPER_ROOT_CODE})</span>
-                    </label>
-                    <input
-                      id="superRootCode"
-                      type="text"
-                      value={superRootCode}
-                      onChange={(e) => setSuperRootCode(e.target.value)}
-                      placeholder={language === 'vi' ? `Nhập mã Super Root: ${SUPER_ROOT_CODE}` : `Enter super root code: ${SUPER_ROOT_CODE}`}
-                      className="w-full px-4 py-3 border-2 border-purple-400 rounded-lg focus:ring-2 focus:ring-purple-300 focus:border-purple-300 text-white bg-black/50 placeholder-gray-400 text-sm font-bold"
-                    />
-                    <div className="bg-yellow-500/90 border-2 border-yellow-400 rounded p-2 mt-3">
-                      <p className="text-sm text-white font-bold">
-                        {language === 'vi' 
-                          ? `💡 Super Root có quyền quản lý tất cả families và root users trong hệ thống. Mã mặc định: ${SUPER_ROOT_CODE}`
-                          : `💡 Super Root has permission to manage all families and root users in the system. Default code: ${SUPER_ROOT_CODE}`}
-                      </p>
-                    </div>
-                  </div>
+                  <input
+                    type="text"
+                    value={superRootCode}
+                    onChange={(e) => setSuperRootCode(e.target.value)}
+                    placeholder="Enter Admin Code"
+                    className="mt-4 w-full px-5 py-3 rounded-2xl bg-black/20 text-white placeholder-indigo-200 border-2 border-indigo-300 font-bold focus:outline-none"
+                  />
                 )}
               </div>
 
-              {/* Root Account Option */}
-              <div className="bg-blue-600/90 border-2 border-blue-400 rounded-lg p-4 space-y-3 shadow-xl">
-                <div className="flex items-center space-x-3">
+              {/* Root / Parent UI */}
+              <div className={`p-6 rounded-[2rem] border-4 transition-all ${wantRoot ? 'bg-violet-600 border-violet-400 text-white shadow-kid' : 'bg-violet-50/30 border-violet-100 text-violet-400'}`}>
+                <div className="flex items-center gap-4">
                   <input
                     type="checkbox"
-                    id="wantRoot"
                     checked={wantRoot}
                     onChange={(e) => {
                       setWantRoot(e.target.checked)
-                      if (!e.target.checked) {
-                        setRootCode('')
-                        setFamilyName('')
-                        setRootAction('create')
-                      } else {
-                        setFamilyCode('')
-                        setWantSuperRoot(false) // Disable super root khi chọn root
-                        setSuperRootCode('')
-                      }
+                      if (e.target.checked) setWantSuperRoot(false)
                     }}
-                    disabled={wantSuperRoot} // Disable nếu đã chọn super root
-                    className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
+                    className="w-6 h-6 rounded-lg text-violet-600 focus:ring-violet-500 border-2 border-violet-200"
                   />
-                  <label htmlFor="wantRoot" className="text-base font-bold text-white cursor-pointer flex items-center gap-2">
-                    <span className="text-yellow-300 text-xl">🔐</span>
-                    <span className="bg-white/20 px-3 py-1 rounded">
-                      {language === 'vi' ? 'Tạo tài khoản quản trị (Root)' : 'Create admin account (Root)'}
-                    </span>
-                  </label>
+                  <span className="text-xs font-black uppercase tracking-widest">
+                    👨‍👩‍👧‍👦 I'm a Parent (Root)
+                  </span>
                 </div>
                 {wantRoot && (
-                  <div className="space-y-3 bg-blue-900/50 p-3 rounded-lg border border-blue-400">
-                    {/* Chọn hành động: Tạo mới hoặc Join family đã có */}
-                    <div>
-                      <label className="block text-sm font-bold text-white mb-3">
-                        {language === 'vi' ? 'Bạn muốn:' : 'You want to:'}
-                      </label>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRootAction('create')
-                            setRootCode('')
-                          }}
-                          className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                            rootAction === 'create'
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                          }`}
-                        >
-                          {language === 'vi' ? '✨ Tạo gia đình mới' : '✨ Create new family'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRootAction('join')
-                            setFamilyName('')
-                          }}
-                          className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                            rootAction === 'join'
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                          }`}
-                        >
-                          {language === 'vi' ? '🔑 Trở thành Root của gia đình đã có' : '🔑 Become Root of existing family'}
-                        </button>
-                      </div>
+                  <div className="mt-4 space-y-4">
+                    <div className="flex gap-2">
+                       <button 
+                        type="button" 
+                        onClick={() => setRootAction('create')}
+                        className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-tight transition-all ${rootAction === 'create' ? 'bg-white text-violet-600 shadow-soft' : 'bg-violet-700/50 text-violet-200'}`}
+                       >
+                         Create New
+                       </button>
+                       <button 
+                        type="button" 
+                        onClick={() => setRootAction('join')}
+                        className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-tight transition-all ${rootAction === 'join' ? 'bg-white text-violet-600 shadow-soft' : 'bg-violet-700/50 text-violet-200'}`}
+                       >
+                         Join Existing
+                       </button>
                     </div>
-
-                    {/* Form tạo family mới */}
-                    {rootAction === 'create' && (
-                      <div className="space-y-3">
-                        <div>
-                          <label htmlFor="familyName" className="block text-sm font-bold text-white mb-2">
-                            {language === 'vi' ? 'Tên gia đình (tùy chọn):' : 'Family name (optional):'}
-                          </label>
+                    {rootAction === 'create' ? (
+                       <div className="space-y-3">
                           <input
-                            id="familyName"
                             type="text"
                             value={familyName}
                             onChange={(e) => setFamilyName(e.target.value)}
-                            placeholder={language === 'vi' ? 'Tên gia đình của bạn' : 'Your family name'}
-                            className="w-full px-4 py-3 border-2 border-blue-400 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-300 text-white bg-black/50 placeholder-gray-400 text-sm font-bold"
+                            placeholder="Family Name (Optional)"
+                            className="w-full px-5 py-3 rounded-2xl bg-white/10 text-white border-2 border-violet-400 placeholder-white/50 text-sm font-bold"
                           />
-                        </div>
-
-                        {/* Option để tự tạo mã code */}
-                        <div className="bg-blue-600/90 border-2 border-blue-400 rounded-lg p-4 mb-3 shadow-xl">
-                          <div className="flex items-center space-x-3 mb-3">
-                            <input
-                              type="checkbox"
-                              id="useCustomCodes"
-                              checked={useCustomCodes}
-                              onChange={(e) => {
-                                setUseCustomCodes(e.target.checked)
-                                if (!e.target.checked) {
-                                  setCustomFamilyCode('')
-                                  setCustomRootCode('')
-                                }
-                              }}
-                              className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                            />
-                            <label htmlFor="useCustomCodes" className="text-base font-bold text-white cursor-pointer flex items-center gap-2">
-                              <span className="text-yellow-300 text-xl">✨</span>
-                              <span className="bg-white/20 px-3 py-1 rounded">
-                                {language === 'vi' ? 'Tự tạo mã code riêng (BẮT BUỘC nếu muốn dùng mã tùy chỉnh)' : 'Create custom codes (REQUIRED if you want custom codes)'}
-                              </span>
-                            </label>
+                          <div className="flex items-center gap-3 ml-2">
+                             <input type="checkbox" checked={useCustomCodes} onChange={e => setUseCustomCodes(e.target.checked)} className="rounded" />
+                             <span className="text-[10px] font-black uppercase">Custom Codes</span>
                           </div>
-                          {!useCustomCodes && (
-                            <div className="bg-yellow-500/90 border-2 border-yellow-400 rounded p-3 ml-8">
-                              <p className="text-sm text-white font-bold">
-                                {language === 'vi' 
-                                  ? '⚠️ Nếu bạn KHÔNG check ô này, hệ thống sẽ tự động tạo mã ngẫu nhiên (không phải mã bạn nhập)'
-                                  : '⚠️ If you DO NOT check this, system will auto-generate random codes (not your input)'}
-                              </p>
+                          {useCustomCodes && (
+                            <div className="grid grid-cols-2 gap-3">
+                               <input type="text" value={customFamilyCode} onChange={e => setCustomFamilyCode(e.target.value.toUpperCase())} maxLength={6} placeholder="Family Code" className="px-4 py-3 rounded-2xl bg-white/20 border-2 border-violet-400 text-xs text-white font-mono" />
+                               <input type="text" value={customRootCode} onChange={e => setCustomRootCode(e.target.value.toUpperCase())} maxLength={6} placeholder="Root Code" className="px-4 py-3 rounded-2xl bg-white/20 border-2 border-violet-400 text-xs text-white font-mono" />
                             </div>
                           )}
-                        </div>
-
-                        {/* Input cho custom codes */}
-                        {useCustomCodes && (
-                          <div className="space-y-4 bg-gradient-to-br from-green-600/95 to-emerald-600/95 p-5 rounded-lg border-2 border-green-400 shadow-2xl">
-                            <div className="flex items-center gap-2 mb-4 bg-white/20 px-4 py-2 rounded-lg">
-                              <span className="text-white text-2xl">✨</span>
-                              <h4 className="text-lg font-bold text-white">
-                                {language === 'vi' ? '📝 Mã Code Tùy Chỉnh (Custom Codes)' : '📝 Custom Codes'}
-                              </h4>
-                            </div>
-                            
-                            <div className="bg-slate-900/95 p-4 rounded-lg border-2 border-green-400 shadow-inner">
-                              <label htmlFor="customFamilyCode" className="block text-base font-bold text-white mb-3 flex items-center gap-2">
-                                <span className="bg-green-500 px-3 py-1 rounded text-white text-xs font-bold shadow-lg">CUSTOM</span>
-                                <span className="text-white bg-black/30 px-2 py-1 rounded">
-                                  {language === 'vi' ? 'Mã gia đình (6 ký tự):' : 'Family code (6 characters):'}
-                                </span>
-                              </label>
-                              <input
-                                id="customFamilyCode"
-                                type="text"
-                                value={customFamilyCode}
-                                onChange={(e) => setCustomFamilyCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
-                                placeholder={language === 'vi' ? 'VD: ABC123' : 'E.g: ABC123'}
-                                maxLength={6}
-                                className="w-full px-4 py-3 border-2 border-green-400 rounded-lg focus:ring-2 focus:ring-green-300 focus:border-green-300 text-white bg-black/50 placeholder-gray-400 text-base font-mono font-bold tracking-wider shadow-inner"
-                              />
-                              {customFamilyCode.length === 6 && (
-                                <p className="text-sm text-green-200 mt-2 flex items-center gap-2 font-bold bg-green-600/30 px-2 py-1 rounded">
-                                  <span className="text-green-300 text-lg">✓</span> 
-                                  <span className="text-white">{language === 'vi' ? 'Mã hợp lệ!' : 'Valid code!'}</span>
-                                </p>
-                              )}
-                            </div>
-                            
-                            <div className="bg-slate-900/95 p-4 rounded-lg border-2 border-green-400 shadow-inner">
-                              <label htmlFor="customRootCode" className="block text-base font-bold text-white mb-3 flex items-center gap-2 flex-wrap">
-                                <span className="bg-green-500 px-3 py-1 rounded text-white text-xs font-bold shadow-lg">CUSTOM</span>
-                                <span className="text-white bg-black/30 px-2 py-1 rounded">
-                                  {language === 'vi' ? 'Mã Root (6 ký tự, tùy chọn):' : 'Root code (6 characters, optional):'}
-                                </span>
-                                <span className="text-white bg-slate-700/80 px-2 py-1 rounded text-xs font-normal">
-                                  {language === 'vi' ? '(để trống = tự tạo)' : '(leave empty = auto-generate)'}
-                                </span>
-                              </label>
-                              <input
-                                id="customRootCode"
-                                type="text"
-                                value={customRootCode}
-                                onChange={(e) => setCustomRootCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
-                                placeholder={language === 'vi' ? 'VD: ROOT01 (hoặc để trống)' : 'E.g: ROOT01 (or leave empty)'}
-                                maxLength={6}
-                                className="w-full px-4 py-3 border-2 border-green-400 rounded-lg focus:ring-2 focus:ring-green-300 focus:border-green-300 text-white bg-black/50 placeholder-gray-400 text-base font-mono font-bold tracking-wider shadow-inner"
-                              />
-                              {customRootCode.length === 6 && (
-                                <p className="text-sm text-green-200 mt-2 flex items-center gap-2 font-bold bg-green-600/30 px-2 py-1 rounded">
-                                  <span className="text-green-300 text-lg">✓</span>
-                                  <span className="text-white">{language === 'vi' ? 'Mã hợp lệ!' : 'Valid code!'}</span>
-                                </p>
-                              )}
-                              {customRootCode.length > 0 && customRootCode.length < 6 && (
-                                <p className="text-sm text-yellow-200 mt-2 font-bold bg-yellow-600/30 px-2 py-1 rounded">
-                                  {language === 'vi' ? `Còn thiếu ${6 - customRootCode.length} ký tự` : `${6 - customRootCode.length} characters remaining`}
-                                </p>
-                              )}
-                              <div className="bg-yellow-600/90 border-2 border-yellow-400 rounded p-3 mt-3">
-                                <p className="text-sm text-white font-bold">
-                                  {language === 'vi' 
-                                    ? '⚠️ Khuyến nghị: KHÔNG nên dùng Root Code giống Family Code (vì lý do bảo mật)'
-                                    : '⚠️ Recommendation: Do NOT use same Root Code as Family Code (for security)'}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            <div className="bg-blue-600/90 border-2 border-blue-400 rounded p-3">
-                              <p className="text-sm text-white font-bold">
-                                {language === 'vi' 
-                                  ? '💡 Lưu ý: Mã code phải là duy nhất. Nếu mã đã tồn tại, hệ thống sẽ báo lỗi.'
-                                  : '💡 Note: Codes must be unique. If code already exists, system will show an error.'}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {!useCustomCodes && (
-                          <div className="bg-blue-600/90 border-2 border-blue-400 rounded-lg p-3">
-                            <p className="text-sm text-white font-bold">
-                              {language === 'vi' 
-                                ? '💡 Hệ thống sẽ tự động tạo mã gia đình và mã Root riêng cho bạn'
-                                : '💡 System will automatically create unique family code and root code for you'}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Form join family đã có */}
-                    {rootAction === 'join' && (
-                      <div className="bg-blue-900/50 p-3 rounded-lg border border-blue-400">
-                        <label htmlFor="rootCode" className="block text-sm font-bold text-white mb-2">
-                          {language === 'vi' ? 'Mã Root của gia đình:' : 'Family Root Code:'}
-                        </label>
-                        <input
-                          id="rootCode"
-                          type="text"
-                          value={rootCode}
-                          onChange={(e) => setRootCode(e.target.value.toUpperCase())}
-                          placeholder={language === 'vi' ? 'Nhập mã Root (6 ký tự)' : 'Enter root code (6 characters)'}
-                          className="w-full px-4 py-3 border-2 border-blue-400 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-300 text-white bg-black/50 placeholder-gray-400 text-sm font-bold"
-                          maxLength={6}
-                        />
-                        <div className="bg-yellow-500/90 border-2 border-yellow-400 rounded p-2 mt-3">
-                          <p className="text-sm text-white font-bold">
-                            {language === 'vi' 
-                              ? '💡 Nhập mã Root mà root user hiện tại của gia đình đã cung cấp cho bạn'
-                              : '💡 Enter the root code provided by the current root user of the family'}
-                          </p>
-                        </div>
-                      </div>
+                       </div>
+                    ) : (
+                       <input
+                        type="text"
+                        value={rootCode}
+                        onChange={(e) => setRootCode(e.target.value.toUpperCase())}
+                        placeholder="6-Char Root Code"
+                        maxLength={6}
+                        className="w-full px-5 py-3 rounded-2xl bg-white/10 text-white border-2 border-violet-400 placeholder-white/50 text-sm font-bold font-mono"
+                       />
                     )}
                   </div>
                 )}
               </div>
 
-              {/* Join Family Option */}
-              {!wantRoot && (
-                <div className="bg-green-600/90 border-2 border-green-400 rounded-lg p-4 shadow-xl">
-                  <label htmlFor="familyCode" className="block text-base font-bold text-white mb-3 flex items-center gap-2">
-                    <span className="text-yellow-300 text-xl">👨‍👩‍👧‍👦</span>
-                    <span className="bg-white/20 px-3 py-1 rounded">
-                      {language === 'vi' ? 'Mã gia đình (để tham gia):' : 'Family code (to join):'}
-                    </span>
-                  </label>
-                  <input
-                    id="familyCode"
+              {!wantRoot && !wantSuperRoot && (
+                <div className="p-6 rounded-[2rem] bg-emerald-50/50 border-4 border-emerald-100 text-emerald-600 shadow-inner">
+                   <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-4">Enter Family Code to Join:</p>
+                   <input
                     type="text"
                     value={familyCode}
                     onChange={(e) => setFamilyCode(e.target.value.toUpperCase())}
-                    placeholder={language === 'vi' ? 'Nhập mã gia đình (6 ký tự)' : 'Enter family code (6 characters)'}
-                    className="w-full px-4 py-3 border-2 border-green-400 rounded-lg focus:ring-2 focus:ring-green-300 focus:border-green-300 text-white bg-black/50 placeholder-gray-400 text-sm font-bold"
+                    placeholder="ABC123"
                     maxLength={6}
-                  />
-                  <div className="bg-yellow-500/90 border-2 border-yellow-400 rounded p-2 mt-3">
-                    <p className="text-sm text-white font-bold">
-                      {language === 'vi' 
-                        ? '💡 Nhập mã gia đình mà người quản trị (Root) đã cung cấp cho bạn'
-                        : '💡 Enter the family code provided by your family admin (Root)'}
-                    </p>
-                  </div>
+                    className="w-full px-6 py-4 border-4 border-white rounded-2xl bg-white text-emerald-600 font-black text-2xl text-center focus:outline-none focus:border-emerald-200 transition-all shadow-soft uppercase placeholder-emerald-100 font-mono tracking-widest"
+                   />
                 </div>
               )}
             </div>
@@ -735,70 +473,59 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full btn-playful bg-violet-600 text-white py-5 px-6 rounded-[1.8rem] text-lg font-black shadow-kid hover:bg-violet-700 transition-all disabled:opacity-50 uppercase tracking-widest border-b-8 border-violet-800 active:translate-y-1 active:border-b-4 flex items-center justify-center gap-3 group"
           >
-            {loading ? t('login.processing') : isLogin ? t('login.login') : t('login.signup')}
+            {loading ? <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin" /> : 
+              <> {isLogin ? 'Login Now!' : 'Join the Fun!'} <span className="group-hover:translate-x-2 transition-transform">➡️</span> </>}
           </button>
         </form>
 
-        <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-600"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-slate-800/90 text-gray-400">{t('login.or')}</span>
-              </div>
-            </div>
-
-          <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="mt-4 w-full flex items-center justify-center px-4 py-2 border border-slate-600 rounded-lg shadow-sm bg-slate-700/50 text-sm font-medium text-gray-200 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-              />
-            </svg>
-            {t('login.loginWithGoogle')}
-          </button>
+        <div className="mt-10 relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t-4 border-violet-50"></div>
+          </div>
+          <div className="relative flex justify-center">
+            <span className="px-6 bg-white text-violet-200 text-xs font-black uppercase tracking-widest">Or Sign In with</span>
+          </div>
         </div>
 
-        <div className="mt-6 text-center">
+        <button
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="mt-8 w-full btn-playful bg-white border-4 border-violet-50 text-violet-900 py-4 px-6 rounded-[1.5rem] font-black shadow-soft hover:bg-violet-50 transition-all flex items-center justify-center gap-4 uppercase tracking-widest text-xs active:translate-y-1"
+        >
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6" alt="Google" />
+          {t('login.loginWithGoogle')}
+        </button>
+
+        <div className="mt-10 text-center">
           <button
             onClick={() => {
               setIsLogin(!isLogin)
+              setIsForgotPassword(false)
               setError('')
               setWantRoot(false)
               setWantSuperRoot(false)
-              setRootCode('')
-              setSuperRootCode('')
               setFamilyCode('')
-              setFamilyName('')
             }}
-            className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+            className="text-xs font-black text-violet-400 hover:text-violet-600 uppercase tracking-widest transition-colors flex items-center justify-center gap-2 mx-auto decoration-2 underline-offset-4"
           >
-            {isLogin
-              ? t('login.noAccount')
-              : t('login.hasAccount')}
+            {isLogin ? (
+              <> New here? <span className="text-violet-600 underline">Create an Account</span> </>
+            ) : (
+              <> Already have an account? <span className="text-violet-600 underline">Log in</span> </>
+            )}
+            {isForgotPassword && <span className="text-violet-600 underline">Back to Login</span>}
           </button>
         </div>
       </div>
+      
+      <Toast
+        show={toast.show}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ ...toast, show: false })}
+      />
     </div>
   )
 }
-

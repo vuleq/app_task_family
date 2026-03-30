@@ -6,6 +6,10 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  sendEmailVerification,
+  sendPasswordResetEmail,
 } from 'firebase/auth'
 import { auth } from './config'
 
@@ -29,9 +33,31 @@ export const signupWithEmail = async (email: string, password: string, isRoot: b
   return userCredential
 }
 
+export const sendVerificationEmail = async () => {
+  const user = checkAuth().currentUser
+  if (user) {
+    await sendEmailVerification(user)
+  }
+}
+
+export const sendResetPasswordEmail = async (email: string) => {
+  return await sendPasswordResetEmail(checkAuth(), email)
+}
+
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider()
   return await signInWithPopup(checkAuth(), provider)
+}
+
+export const loginWithGoogleRedirect = async () => {
+  const provider = new GoogleAuthProvider()
+  return await signInWithRedirect(checkAuth(), provider)
+}
+
+export const getRedirectResultSafe = async () => {
+  const a = checkAuth()
+  if (!a) return null
+  return await getRedirectResult(a)
 }
 
 export const logout = async () => {
@@ -57,7 +83,7 @@ export const onAuthStateChangedSafe = (callback: (user: User | null) => void) =>
     console.warn('Firebase Auth is not initialized')
     // Gọi callback ngay lập tức với null để app không bị stuck ở loading
     setTimeout(() => callback(null), 0)
-    return () => {}
+    return () => { }
   }
   return onAuthStateChanged(auth, callback)
 }
