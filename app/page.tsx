@@ -80,13 +80,17 @@ export default function Home() {
       if (!firebaseUser.emailVerified && !isGoogleUser) {
         const { logout } = await import('@/lib/firebase/auth')
         await logout()
+        // Lưu thông báo vào sessionStorage để LoginPage hiển thị
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('auth_notice',
+            language === 'vi'
+              ? 'Email của bạn chưa được xác thực. Vui lòng kiểm tra hộp thư và bấm link xác thực, sau đó đăng nhập lại.'
+              : 'Your email is not verified. Please check your inbox and click the verification link, then log in again.'
+          )
+        }
         setUser(null)
         setProfile(null)
-        setError(
-          language === 'vi'
-            ? 'Email của bạn chưa được xác thực. Vui lòng kiểm tra hộp thư và bấm link xác thực, sau đó đăng nhập lại.'
-            : 'Your email is not verified. Please check your inbox and click the verification link, then log in again.'
-        )
+        setError(null)
         setLoading(false)
         clearTimeout(timeoutId)
         return

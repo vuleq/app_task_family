@@ -59,6 +59,17 @@ export default function LoginPage() {
   const [isForgotPassword, setIsForgotPassword] = useState(false)
   const [resetEmailSent, setResetEmailSent] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    // Hiển thị thông báo từ page.tsx (ví dụ: email chưa xác thực)
+    if (typeof window !== 'undefined') {
+      const notice = sessionStorage.getItem('auth_notice')
+      if (notice) {
+        setError(notice)
+        sessionStorage.removeItem('auth_notice')
+      }
+    }
+  }, [])
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
   const [wantRoot, setWantRoot] = useState(false) 
