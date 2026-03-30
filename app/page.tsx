@@ -20,6 +20,7 @@ import BackgroundMusic from '@/components/BackgroundMusic'
 import Statistics from '@/components/Statistics'
 import TaskMonitoring from '@/components/TaskMonitoring'
 import RootMemberDashboard from '@/components/RootMemberDashboard'
+import MemberTasksView from '@/components/MemberTasksView'
 import { recordDailyLogin } from '@/lib/firebase/loginHistory'
 import SuperRootDashboard from '@/components/SuperRootDashboard'
 import CharacterCreation from '@/components/CharacterCreation'
@@ -346,6 +347,13 @@ export default function Home() {
                     familyId={profile.familyId}
                     profile={profile}
                   />
+                </div>
+              )}
+
+              {/* Member Tasks View - chỉ hiển thị cho root user */}
+              {profile.isRoot && !profile.isSuperRoot && (
+                <div id="member-tasks-section">
+                  <MemberTasksView currentUserId={user.uid} familyId={profile.familyId} />
                 </div>
               )}
 
