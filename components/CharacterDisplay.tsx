@@ -38,9 +38,9 @@ export default function CharacterDisplay({
   })
   
   const sizeClasses = {
-    small: 'w-32 h-32',
-    medium: 'w-64 h-64',
-    large: 'w-96 h-96',
+    small: 'w-24 h-24 sm:w-32 sm:h-32',
+    medium: 'w-48 h-48 sm:w-64 sm:h-64 max-w-full',
+    large: 'w-64 h-64 sm:w-80 sm:h-80 lg:w-96 lg:h-96 max-w-full',
   }
   
   return (
@@ -195,23 +195,23 @@ export default function CharacterDisplay({
       {showLevelInfo && (
         <div className="w-full max-w-xs space-y-2">
           <div className="text-center">
-            <p className="text-lg font-semibold text-gray-100">Level {level}</p>
-            <p className="text-sm text-primary-300 font-medium">{profile.xp} XP</p>
+            <p className="text-lg font-semibold text-violet-800">Level {level}</p>
+            <p className="text-sm text-violet-600 font-medium">{profile.xp} XP</p>
           </div>
-          
+
           {/* XP Progress Bar */}
           <div className="space-y-1">
-            <div className="flex justify-between text-xs text-gray-200">
+            <div className="flex justify-between text-xs text-gray-600">
               <span className="font-medium">{xpProgress.current} / {xpProgress.next} XP</span>
-              <span className="font-medium text-primary-300">{Math.round(xpProgress.percentage)}%</span>
+              <span className="font-medium text-violet-600">{Math.round(xpProgress.percentage)}%</span>
             </div>
-            <div className="w-full bg-slate-700 rounded-full h-2.5">
+            <div className="w-full bg-violet-100 rounded-full h-2.5">
               <div
                 className="bg-gradient-to-r from-primary-400 to-primary-500 h-2.5 rounded-full transition-all duration-300 shadow-lg shadow-primary-500/50"
                 style={{ width: `${Math.min(100, xpProgress.percentage)}%` }}
               ></div>
             </div>
-            <p className="text-xs text-center text-gray-300">
+            <p className="text-xs text-center text-gray-500">
               Cần {xpProgress.next - xpProgress.current} XP để lên Level {level + 1}
             </p>
           </div>

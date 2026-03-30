@@ -125,32 +125,32 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
         onClose={() => setToast({ ...toast, show: false })}
       />
       
-      <div className="flex flex-col sm:flex-row items-center justify-between bg-violet-50 -mx-4 sm:-mx-6 -mt-6 lg:-mt-10 p-8 rounded-t-[3rem] border-b-4 border-violet-100 mb-8 gap-4">
-        <h1 className="text-3xl font-black text-violet-900 flex items-center gap-4">
-          <span className="text-4xl animate-bounce-slow">👤</span>
+      <div className="flex flex-wrap items-center justify-between bg-violet-50 -mx-4 sm:-mx-6 -mt-6 lg:-mt-10 px-6 py-5 rounded-t-[3rem] border-b-4 border-violet-100 mb-8 gap-3">
+        <h1 className="text-xl sm:text-2xl font-black text-violet-900 flex items-center gap-3">
+          <span className="text-2xl">👤</span>
           {t('profile.title')}
         </h1>
-        <div className="flex gap-3">
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={handleSave}
             disabled={saving}
-            className="btn-playful bg-violet-600 text-white px-6 py-3 rounded-2xl font-black shadow-kid hover:bg-violet-700 active:scale-95 transition-all text-sm"
+            className="btn-playful bg-violet-600 text-white px-4 py-2.5 rounded-2xl font-black shadow-kid hover:bg-violet-700 active:scale-95 transition-all text-xs"
           >
             {saving ? '...' : `✨ ${t('profile.saveChanges')}`}
           </button>
           <button
             onClick={handleLogout}
-            className="btn-playful bg-white text-red-500 border-2 border-red-50 rounded-2xl px-6 py-3 font-black shadow-soft hover:bg-red-50 active:scale-95 transition-all text-sm"
+            className="btn-playful bg-white text-red-500 border-2 border-red-50 rounded-2xl px-4 py-2.5 font-black shadow-soft hover:bg-red-50 active:scale-95 transition-all text-xs"
           >
-             🚪 {t('profile.logout')}
+            🚪 {t('profile.logout')}
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+      <div className="grid grid-cols-1 gap-6 items-start">
         <div className="space-y-6">
           {/* Avatar & Basic Info Card */}
-          <div className="kid-card p-8 bg-white border-violet-100 shadow-kid relative overflow-hidden group">
+          <div className="kid-card p-6 bg-white border-violet-100 shadow-kid relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-violet-50 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform" />
             
             <div className="relative z-10 flex flex-col items-center text-center">
@@ -158,7 +158,22 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
                 <div className="w-32 h-32 rounded-full bg-gradient-to-br from-violet-100 to-violet-50 p-1 shadow-soft ring-4 ring-white">
                   <div className="w-full h-full rounded-full overflow-hidden bg-white flex items-center justify-center">
                     {avatar ? (
-                      <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+                      <img
+                        src={avatar}
+                        alt="Avatar"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.style.display = 'none'
+                          const parent = target.parentElement
+                          if (parent) {
+                            const span = document.createElement('span')
+                            span.className = 'text-5xl font-black text-violet-200'
+                            span.textContent = name.charAt(0).toUpperCase()
+                            parent.appendChild(span)
+                          }
+                        }}
+                      />
                     ) : (
                       <span className="text-5xl font-black text-violet-200">
                         {name.charAt(0).toUpperCase()}
@@ -206,16 +221,18 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
 
           {/* Stats Card */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="kid-card p-6 bg-gradient-to-br from-indigo-500 to-indigo-600 border-indigo-400 text-white shadow-kid transform transition-transform hover:scale-[1.02]">
-              <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{t('profile.xp')}</p>
-              <p className="text-3xl font-black drop-shadow-md flex items-center gap-2">
-                <span className="text-2xl">✨</span> {profile.xp}
+            <div className="kid-card p-4 bg-gradient-to-br from-indigo-500 to-indigo-600 border-indigo-400 text-white shadow-kid transform transition-transform hover:scale-[1.02] overflow-hidden">
+              <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">{t('profile.xp')}</p>
+              <p className="text-2xl font-black drop-shadow-md flex items-center gap-1.5 min-w-0">
+                <span className="text-xl flex-shrink-0">✨</span>
+                <span className="truncate">{profile.xp}</span>
               </p>
             </div>
-            <div className="kid-card p-6 bg-gradient-to-br from-amber-400 to-accent-600 border-accent-400 text-white shadow-kid transform transition-transform hover:scale-[1.02]">
-              <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{t('profile.coins')}</p>
-              <p className="text-3xl font-black drop-shadow-md flex items-center gap-2">
-                <span className="text-2xl">🪙</span> {profile.coins}
+            <div className="kid-card p-4 bg-gradient-to-br from-amber-400 to-accent-600 border-accent-400 text-white shadow-kid transform transition-transform hover:scale-[1.02] overflow-hidden">
+              <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">{t('profile.coins')}</p>
+              <p className="text-2xl font-black drop-shadow-md flex items-center gap-1.5 min-w-0">
+                <span className="text-xl flex-shrink-0">🪙</span>
+                <span className="truncate">{profile.coins}</span>
               </p>
             </div>
           </div>
@@ -223,16 +240,16 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
 
         <div className="space-y-8">
           {/* Character Info Card */}
-          <div className="kid-card p-8 bg-white border-violet-100 shadow-kid min-h-full">
-            <div className="flex items-center justify-between mb-8">
+          <div className="kid-card p-6 bg-white border-violet-100 shadow-kid">
+            <div className="flex items-center justify-between mb-6">
                <h3 className="text-xl font-black text-violet-900 uppercase tracking-tight">{t('profile.character')}</h3>
                <div className="bg-violet-100 text-violet-600 px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">
                  LEVEL {currentLevel}
                </div>
             </div>
-            
+
             <div className="flex flex-col items-center">
-              <CharacterDisplay profile={profile} size="large" showLevelInfo={true} />
+              <CharacterDisplay profile={profile} size="medium" showLevelInfo={true} />
             </div>
 
             {/* Profession Selection - Chỉ hiển thị khi level >= 5 */}
@@ -248,9 +265,12 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
                 </label>
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { code: 'bs', emoji: '👨‍⚕️', name: language === 'vi' ? 'Bác Sĩ' : 'Doctor' },
-                    { code: 'ch', emoji: '🚒', name: language === 'vi' ? 'Cứu Hỏa' : 'Firefighter' },
-                    { code: 'cs', emoji: '👮', name: language === 'vi' ? 'Cảnh Sát' : 'Police' },
+                    { code: 'bs',  emoji: '👨‍⚕️', name: language === 'vi' ? 'Bác Sĩ'        : 'Doctor'      },
+                    { code: 'ch',  emoji: '🚒',   name: language === 'vi' ? 'Cứu Hỏa'      : 'Firefighter' },
+                    { code: 'cs',  emoji: '👮',   name: language === 'vi' ? 'Cảnh Sát'     : 'Police'      },
+                    { code: 'phi', emoji: '👨‍🚀',  name: language === 'vi' ? 'Phi Hành Gia' : 'Astronaut'   },
+                    { code: 'hk',  emoji: '⚔️',   name: language === 'vi' ? 'Hiệp Sĩ'      : 'Knight'      },
+                    { code: 'it',  emoji: '💻',   name: language === 'vi' ? 'Nhân Viên IT' : 'IT Staff'    },
                   ].map((prof) => (
                     <button
                       key={prof.code}
@@ -329,11 +349,11 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
             </div>
           ) : familyInfo ? (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-6 bg-violet-50 rounded-3xl border-2 border-violet-100 relative overflow-hidden group">
-                  <label className="block text-[10px] font-black text-violet-400 uppercase tracking-widest mb-2">📋 {t('profile.familyCode')}</label>
+              <div className="flex flex-col gap-4">
+                <div className="p-5 bg-violet-50 rounded-3xl border-2 border-violet-100 group">
+                  <label className="block text-[10px] font-black text-violet-400 uppercase mb-2">📋 {t('profile.familyCode')}</label>
                   <div className="flex items-center gap-2">
-                    <code className="flex-1 bg-white border-2 border-violet-100 rounded-xl px-4 py-3 text-violet-900 font-mono font-black text-lg tracking-wider group-hover:border-violet-200 transition-colors">
+                    <code className="flex-1 min-w-0 bg-white border-2 border-violet-100 rounded-xl px-4 py-3 text-violet-900 font-mono font-black text-base overflow-x-auto whitespace-nowrap group-hover:border-violet-200 transition-colors">
                       {familyInfo.code}
                     </code>
                     <button
@@ -341,17 +361,17 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
                         navigator.clipboard.writeText(familyInfo.code)
                         setToast({ show: true, message: t('profile.codeCopied'), type: 'success' })
                       }}
-                      className="p-3 bg-violet-600 text-white rounded-xl shadow-soft hover:bg-violet-700 active:scale-90 transition-all"
+                      className="flex-shrink-0 p-3 bg-violet-600 text-white rounded-xl shadow-soft hover:bg-violet-700 active:scale-90 transition-all"
                     >
                       📋
                     </button>
                   </div>
                 </div>
 
-                <div className="p-6 bg-amber-50 rounded-3xl border-2 border-amber-100 relative overflow-hidden group">
-                  <label className="block text-[10px] font-black text-amber-400 uppercase tracking-widest mb-2">🔐 {t('profile.rootCode')}</label>
+                <div className="p-5 bg-amber-50 rounded-3xl border-2 border-amber-100 group">
+                  <label className="block text-[10px] font-black text-amber-400 uppercase mb-2">🔐 {t('profile.rootCode')}</label>
                   <div className="flex items-center gap-2">
-                    <code className="flex-1 bg-white border-2 border-amber-100 rounded-xl px-4 py-3 text-amber-900 font-mono font-black text-lg tracking-wider group-hover:border-amber-200 transition-colors">
+                    <code className="flex-1 min-w-0 bg-white border-2 border-amber-100 rounded-xl px-4 py-3 text-amber-900 font-mono font-black text-base overflow-x-auto whitespace-nowrap group-hover:border-amber-200 transition-colors">
                       {familyInfo.rootCode}
                     </code>
                     <button
@@ -359,7 +379,7 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
                         navigator.clipboard.writeText(familyInfo.rootCode)
                         setToast({ show: true, message: t('profile.codeCopied'), type: 'success' })
                       }}
-                      className="p-3 bg-amber-500 text-white rounded-xl shadow-soft hover:bg-amber-600 active:scale-90 transition-all"
+                      className="flex-shrink-0 p-3 bg-amber-500 text-white rounded-xl shadow-soft hover:bg-amber-600 active:scale-90 transition-all"
                     >
                       📋
                     </button>

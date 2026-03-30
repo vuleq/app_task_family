@@ -18,10 +18,22 @@ const cleanEnv = (value: string | undefined): string | undefined => {
 const firebaseConfig = {
   apiKey: cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_API_KEY),
   authDomain: cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN),
-  projectId: cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID),
+  projectId: cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) || 
+             cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN)?.split('.')[0] || 
+             'apptaskfamily',
   storageBucket: cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET),
   messagingSenderId: cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID),
   appId: cleanEnv(process.env.NEXT_PUBLIC_FIREBASE_APP_ID),
+}
+
+// Log resolved config for debugging
+if (typeof window !== 'undefined') {
+  console.log('[config.ts] 🛠️ Resolved Firebase Config:', {
+    apiKey: firebaseConfig.apiKey ? '***' + firebaseConfig.apiKey.slice(-5) : undefined,
+    authDomain: firebaseConfig.authDomain,
+    projectId: firebaseConfig.projectId,
+    appId: firebaseConfig.appId,
+  })
 }
 
 // Check if Firebase config is valid

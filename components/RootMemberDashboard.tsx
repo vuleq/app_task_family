@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getAllUsers, UserProfile } from '@/lib/firebase/profile'
 import { getMemberStats, MemberStats } from '@/lib/firebase/loginHistory'
+import { getFamilyById, Family } from '@/lib/firebase/family'
 import { useI18n } from '@/lib/i18n/context'
 import Toast from './Toast'
 
@@ -30,13 +31,26 @@ export default function RootMemberDashboard({ currentUserId, familyId }: RootMem
   const [memberStats, setMemberStats] = useState<MemberWithStats[]>([])
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' })
+  const [family, setFamily] = useState<Family | null>(null)
+  const [copiedCode, setCopiedCode] = useState<'family' | 'root' | null>(null)
+
+  const copyToClipboard = (text: string, type: 'family' | 'root') => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedCode(type)
+      setTimeout(() => setCopiedCode(null), 2000)
+    })
+  }
 
   const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true)
-      const allUsers = await getAllUsers(familyId)
+      const [allUsers, familyData] = await Promise.all([
+        getAllUsers(familyId),
+        getFamilyById(familyId),
+      ])
+      setFamily(familyData)
       const results = await Promise.all(
-        allUsers.map(async (member) => {
+        allUsers.map(async (member: UserProfile) => {
           const stats = await getMemberStats(member.id, familyId)
           return { member, stats }
         })
@@ -111,6 +125,49 @@ export default function RootMemberDashboard({ currentUserId, familyId }: RootMem
         type={toast.type}
         onClose={() => setToast(prev => ({ ...prev, show: false }))}
       />
+
+      {/* Family Codes */}
+      {family && (
+        <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-4 border border-slate-700/50">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+            🏠 {family.name} — {language === 'vi' ? 'Mã mời thành viên' : 'Invite Codes'}
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Family Code */}
+            <div className="bg-slate-900/60 rounded-xl p-3 border border-blue-500/30">
+              <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest mb-1">
+                👥 {language === 'vi' ? 'Mã gia đình' : 'Family Code'}
+              </p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-xl font-black text-white tracking-widest">{family.code}</span>
+                <button
+                  onClick={() => copyToClipboard(family.code, 'family')}
+                  className="text-[10px] px-2 py-1 rounded bg-blue-600/40 hover:bg-blue-500/60 text-blue-200 font-bold transition-colors"
+                >
+                  {copiedCode === 'family' ? '✓' : language === 'vi' ? 'Sao chép' : 'Copy'}
+                </button>
+              </div>
+              <p className="text-[9px] text-slate-500 mt-1">{language === 'vi' ? 'Cho thành viên thường' : 'For regular members'}</p>
+            </div>
+            {/* Root Code */}
+            <div className="bg-slate-900/60 rounded-xl p-3 border border-amber-500/30">
+              <p className="text-[10px] text-amber-300 font-bold uppercase tracking-widest mb-1">
+                👑 {language === 'vi' ? 'Mã Root' : 'Root Code'}
+              </p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-xl font-black text-white tracking-widest">{family.rootCode}</span>
+                <button
+                  onClick={() => copyToClipboard(family.rootCode, 'root')}
+                  className="text-[10px] px-2 py-1 rounded bg-amber-600/40 hover:bg-amber-500/60 text-amber-200 font-bold transition-colors"
+                >
+                  {copiedCode === 'root' ? '✓' : language === 'vi' ? 'Sao chép' : 'Copy'}
+                </button>
+              </div>
+              <p className="text-[9px] text-slate-500 mt-1">{language === 'vi' ? 'Chỉ dùng cho phụ huynh' : 'Parents/admins only'}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg shadow-lg p-4 border border-slate-700/50">

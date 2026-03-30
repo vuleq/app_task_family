@@ -183,89 +183,111 @@ export default function RewardsShop({ currentUserId, profile, onPurchaseComplete
         )}
       </div>
 
-      {/* Forms Section */}
-      {(showAddForm || editingReward) && (
-        <div className="kid-card p-10 bg-white border-violet-100 shadow-kid animate-bounce-in relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 opacity-30" />
-          <h4 className="text-xl font-black text-violet-900 mb-8 uppercase tracking-tight flex items-center gap-3">
-             <span className="text-2xl">✨</span>
-             {editingReward ? 'Edit Reward' : t('rewardsShop.addReward')}
-          </h4>
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-violet-300 uppercase tracking-widest ml-2">Reward Name</label>
-              <input 
-                type="text" 
-                value={editingReward ? editingReward.name : newReward.name} 
-                onChange={(e) => editingReward ? setEditingReward({...editingReward, name: e.target.value}) : setNewReward({...newReward, name: e.target.value})}
-                className="w-full px-6 py-4 border-4 border-violet-50 rounded-2xl bg-violet-50/30 font-black text-violet-900 focus:outline-none focus:border-violet-200"
-                placeholder="E.g: Bedtime story"
-              />
+      {/* Rewards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Add new reward inline card */}
+        {showAddForm && (
+          <div className="kid-card p-5 flex flex-col border-4 border-emerald-300 bg-emerald-50/60 animate-bounce-in">
+            <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-3">✨ {t('rewardsShop.addReward')}</p>
+            <div className="space-y-2 flex-1">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-violet-300 uppercase tracking-widest ml-1">Name</label>
+                <input type="text" value={newReward.name}
+                  onChange={e => setNewReward({...newReward, name: e.target.value})}
+                  placeholder="E.g: Bedtime story"
+                  className="w-full px-3 py-2 border-2 border-emerald-100 rounded-xl bg-white font-black text-violet-900 focus:outline-none focus:border-emerald-300 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-violet-300 uppercase tracking-widest ml-1">Description</label>
+                <input type="text" value={newReward.description}
+                  onChange={e => setNewReward({...newReward, description: e.target.value})}
+                  className="w-full px-3 py-2 border-2 border-emerald-100 rounded-xl bg-white font-black text-violet-900 focus:outline-none focus:border-emerald-300 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-violet-300 uppercase tracking-widest ml-1">Cost 🪙</label>
+                <input type="number" value={newReward.coinCost}
+                  onChange={e => setNewReward({...newReward, coinCost: parseInt(e.target.value)})}
+                  className="w-full px-3 py-2 border-2 border-emerald-100 rounded-xl bg-white font-black text-violet-900 focus:outline-none focus:border-emerald-300 text-sm"
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               <div className="space-y-2">
-                  <label className="text-[10px] font-black text-violet-300 uppercase tracking-widest ml-2">Description</label>
-                  <input 
-                    type="text" 
-                    value={editingReward ? editingReward.description : newReward.description} 
-                    onChange={(e) => editingReward ? setEditingReward({...editingReward, description: e.target.value}) : setNewReward({...newReward, description: e.target.value})}
-                    className="w-full px-6 py-4 border-4 border-violet-50 rounded-2xl bg-violet-50/30 font-black text-violet-900 focus:outline-none focus:border-violet-200"
-                  />
-               </div>
-               <div className="space-y-2">
-                  <label className="text-[10px] font-black text-violet-300 uppercase tracking-widest ml-2">Cost (Coins)</label>
-                  <input 
-                    type="number" 
-                    value={editingReward ? editingReward.coinCost : newReward.coinCost} 
-                    onChange={(e) => editingReward ? setEditingReward({...editingReward, coinCost: parseInt(e.target.value)}) : setNewReward({...newReward, coinCost: parseInt(e.target.value)})}
-                    className="w-full px-6 py-4 border-4 border-violet-50 rounded-2xl bg-violet-50/30 font-black text-violet-900 focus:outline-none focus:border-violet-200"
-                  />
-               </div>
-            </div>
-            <div className="mt-8 flex gap-4">
-               <button onClick={editingReward ? handleUpdateReward : handleAddReward} className="flex-1 btn-playful bg-emerald-500 text-white py-4 rounded-2xl font-black shadow-kid border-b-4 border-emerald-700 uppercase tracking-widest">SAVE REWARD</button>
-               <button onClick={() => { setShowAddForm(false); setEditingReward(null); }} className="flex-1 btn-playful bg-white text-red-500 border-4 border-red-50 py-4 rounded-2xl font-black shadow-soft uppercase tracking-widest">CANCEL</button>
+            <div className="mt-3 flex flex-col gap-2">
+              <button onClick={handleAddReward} className="w-full py-2 bg-emerald-500 text-white rounded-xl font-black shadow-soft border-b-4 border-emerald-700 text-xs uppercase tracking-widest hover:bg-emerald-600">SAVE</button>
+              <button onClick={() => setShowAddForm(false)} className="w-full py-2 bg-white text-red-400 border-2 border-red-100 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-50">CANCEL</button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Rewards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
-        {rewards.map(reward => (
-          <div key={reward.id} className="kid-card p-0 flex flex-col group relative overflow-hidden bg-white border-violet-100 shadow-soft hover:shadow-kid transition-all">
-            <div className="aspect-video bg-gradient-to-br from-violet-50 to-emerald-50 flex items-center justify-center p-8 group-hover:from-violet-100 group-hover:to-emerald-100 transition-colors">
-               <span className="text-6xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500">🎁</span>
+        {rewards.map(reward => {
+          const isEditing = editingReward?.id === reward.id
+          if (isEditing && editingReward) {
+            return (
+              <div key={reward.id} className="kid-card p-5 flex flex-col border-4 border-emerald-300 bg-emerald-50/60 animate-bounce-in">
+                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-3">✏️ Edit Reward</p>
+                <div className="space-y-2 flex-1">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-violet-300 uppercase tracking-widest ml-1">Name</label>
+                    <input type="text" value={editingReward.name}
+                      onChange={e => setEditingReward({...editingReward, name: e.target.value})}
+                      className="w-full px-3 py-2 border-2 border-emerald-100 rounded-xl bg-white font-black text-violet-900 focus:outline-none focus:border-emerald-300 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-violet-300 uppercase tracking-widest ml-1">Description</label>
+                    <input type="text" value={editingReward.description}
+                      onChange={e => setEditingReward({...editingReward, description: e.target.value})}
+                      className="w-full px-3 py-2 border-2 border-emerald-100 rounded-xl bg-white font-black text-violet-900 focus:outline-none focus:border-emerald-300 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-violet-300 uppercase tracking-widest ml-1">Cost 🪙</label>
+                    <input type="number" value={editingReward.coinCost}
+                      onChange={e => setEditingReward({...editingReward, coinCost: parseInt(e.target.value)})}
+                      className="w-full px-3 py-2 border-2 border-emerald-100 rounded-xl bg-white font-black text-violet-900 focus:outline-none focus:border-emerald-300 text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-col gap-2">
+                  <button onClick={handleUpdateReward} className="w-full py-2 bg-emerald-500 text-white rounded-xl font-black shadow-soft border-b-4 border-emerald-700 text-xs uppercase tracking-widest hover:bg-emerald-600">SAVE</button>
+                  <button onClick={() => setEditingReward(null)} className="w-full py-2 bg-white text-violet-400 border-2 border-violet-100 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-violet-50">CANCEL</button>
+                  <button onClick={() => handleDeleteReward(reward.id)} className="w-full py-2 bg-white text-red-400 border-2 border-red-100 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-50">🗑️ DELETE</button>
+                </div>
+              </div>
+            )
+          }
+          return (
+          <div key={reward.id} className="kid-card p-5 flex flex-col group relative overflow-hidden bg-white border-violet-100 shadow-soft hover:shadow-kid transition-all">
+            <div className="flex items-center justify-between mb-3">
+               <span className="text-4xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">🎁</span>
                {profile.isRoot && (
-                 <div className="absolute top-4 right-4 flex gap-2">
-                    <button onClick={() => handleEditReward(reward)} className="w-10 h-10 bg-white/80 backdrop-blur-sm rounded-xl shadow-soft flex items-center justify-center text-sm hover:scale-110 active:scale-95 transition-all">✏️</button>
-                    <button onClick={() => handleDeleteReward(reward.id)} className="w-10 h-10 bg-white/80 backdrop-blur-sm rounded-xl shadow-soft flex items-center justify-center text-sm hover:scale-110 active:scale-95 text-red-500 transition-all">🗑️</button>
+                 <div className="flex gap-1">
+                    <button onClick={() => handleEditReward(reward)} className="w-8 h-8 bg-violet-50 rounded-xl flex items-center justify-center text-sm hover:scale-110 active:scale-95 transition-all">✏️</button>
+                    <button onClick={() => handleDeleteReward(reward.id)} className="w-8 h-8 bg-red-50 rounded-xl flex items-center justify-center text-sm hover:scale-110 active:scale-95 transition-all">🗑️</button>
                  </div>
                )}
             </div>
-            
-            <div className="p-8 flex-1 flex flex-col">
-               <h5 className="text-2xl font-black text-violet-900 uppercase tracking-tight mb-2 leading-none">{reward.name}</h5>
-               <p className="text-sm font-bold text-violet-300 line-clamp-2 mb-8">{reward.description || 'No description provided.'}</p>
-               
-               <div className="mt-auto space-y-4">
-                  <div className="bg-emerald-50 p-4 rounded-2xl border-4 border-emerald-100 flex items-center justify-center gap-3">
-                     <span className="text-2xl">🪙</span>
-                     <span className="text-2xl font-black text-emerald-600">{reward.coinCost}</span>
-                  </div>
-                  <button 
-                    onClick={() => handlePurchase(reward)}
-                    disabled={profile.coins < reward.coinCost}
-                    className={`w-full py-5 rounded-[1.8rem] text-sm font-black shadow-kid border-b-8 transition-all active:translate-y-1 active:border-b-4 ${
-                      profile.coins >= reward.coinCost ? 'bg-emerald-500 text-white border-emerald-700 hover:bg-emerald-600' : 'bg-slate-100 text-slate-400 border-slate-200 pointer-events-none grayscale'
-                    }`}
-                  >
-                    {profile.coins >= reward.coinCost ? 'GET REWARD!' : 'NEED MORE COINS'}
-                  </button>
+            <h5 className="text-lg font-black text-violet-900 uppercase tracking-tight mb-1 leading-none">{reward.name}</h5>
+            <p className="text-xs font-bold text-violet-300 line-clamp-2 mb-4">{reward.description || ''}</p>
+            <div className="mt-auto space-y-3">
+               <div className="bg-emerald-50 p-3 rounded-2xl border-2 border-emerald-100 flex items-center justify-center gap-2">
+                  <span className="text-lg">🪙</span>
+                  <span className="text-xl font-black text-emerald-600">{reward.coinCost}</span>
                </div>
+               <button
+                 onClick={() => handlePurchase(reward)}
+                 disabled={profile.coins < reward.coinCost}
+                 className={`w-full py-3 rounded-[1.5rem] text-sm font-black shadow-kid border-b-4 transition-all active:translate-y-0.5 active:border-b-2 ${
+                   profile.coins >= reward.coinCost ? 'bg-emerald-500 text-white border-emerald-700 hover:bg-emerald-600' : 'bg-slate-100 text-slate-400 border-slate-200 pointer-events-none grayscale'
+                 }`}
+               >
+                 {profile.coins >= reward.coinCost ? 'GET!' : 'NOT ENOUGH'}
+               </button>
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Empty State */}

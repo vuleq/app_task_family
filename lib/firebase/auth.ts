@@ -10,6 +10,7 @@ import {
   getRedirectResult,
   sendEmailVerification,
   sendPasswordResetEmail,
+  fetchSignInMethodsForEmail,
 } from 'firebase/auth'
 import { auth } from './config'
 
@@ -46,6 +47,7 @@ export const sendResetPasswordEmail = async (email: string) => {
 
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider()
+  provider.setCustomParameters({ prompt: 'select_account' })
   return await signInWithPopup(checkAuth(), provider)
 }
 
@@ -53,6 +55,7 @@ export const loginWithGoogleRedirect = async () => {
   const provider = new GoogleAuthProvider()
   return await signInWithRedirect(checkAuth(), provider)
 }
+
 
 export const getRedirectResultSafe = async () => {
   const a = checkAuth()
@@ -80,13 +83,20 @@ export const getCurrentUser = (): Promise<User | null> => {
 // Wrapper for onAuthStateChanged that handles undefined auth
 export const onAuthStateChangedSafe = (callback: (user: User | null) => void) => {
   if (!auth) {
-    console.warn('Firebase Auth is not initialized')
-    // Gọi callback ngay lập tức với null để app không bị stuck ở loading
-    setTimeout(() => callback(null), 0)
+    console.warn('[auth.ts] ⚠️ Firebase Auth not yet initialized when observer attached.')
     return () => { }
   }
   return onAuthStateChanged(auth, callback)
 }
 
 export { auth }
+
+export const getSignInMethodsForEmail = async (email: string): Promise<string[]> => {
+  const a = checkAuth()
+  try {
+    return await fetchSignInMethodsForEmail(a, email)
+  } catch {
+    return []
+  }
+}
 

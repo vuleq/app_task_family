@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { onAuthStateChangedSafe } from '@/lib/firebase/auth'
-import { getProfile, createDefaultProfile, updateProfile, UserProfile } from '@/lib/firebase/profile'
-import { db as firestoreDb, auth as firebaseAuth } from '@/lib/firebase/config'
+import { getProfileWithRetry, createDefaultProfile, updateProfile, UserProfile } from '@/lib/firebase/profile'
+import { auth as firebaseAuth, db as firestoreDb } from '@/lib/firebase/config'
 import { User } from 'firebase/auth'
 import LoginPage from '@/components/LoginPage'
 import JoinFamilyFlow from '@/components/JoinFamilyFlow'
@@ -22,36 +22,28 @@ import TaskMonitoring from '@/components/TaskMonitoring'
 import RootMemberDashboard from '@/components/RootMemberDashboard'
 import { recordDailyLogin } from '@/lib/firebase/loginHistory'
 import SuperRootDashboard from '@/components/SuperRootDashboard'
+import CharacterCreation from '@/components/CharacterCreation'
 import { useI18n } from '@/lib/i18n/context'
+import { THEMES, ThemeId, getThemeById } from '@/lib/theme'
 
 export default function Home() {
   const { t, language } = useI18n()
+  const [themeId, setThemeId] = useState<ThemeId>('classic')
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [verificationError, setVerificationError] = useState<string | null>(null)
   const router = useRouter()
   // Flag để tránh tạo profile nhiều lần
   const creatingProfileRef = useRef(false)
+  const currentAuthUidRef = useRef<string | null>(null)
 
-  // Random background image
-  const [backgroundImage, setBackgroundImage] = useState<string | null>(null)
-
+  // Load saved theme from localStorage on mount
   useEffect(() => {
-    // Lấy danh sách background images từ environment variables
-    const backgrounds: string[] = []
-    if (process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_1) {
-      backgrounds.push(process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_1)
-    }
-    if (process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_2) {
-      backgrounds.push(process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_2)
-    }
-
-    // Random chọn 1 background
-    if (backgrounds.length > 0) {
-      const randomIndex = Math.floor(Math.random() * backgrounds.length)
-      setBackgroundImage(backgrounds[randomIndex])
-    }
+    const saved = localStorage.getItem('app_theme') as ThemeId | null
+    if (saved && THEMES.some(t => t.id === saved)) setThemeId(saved)
   }, [])
 
   useEffect(() => {
@@ -62,6 +54,12 @@ export default function Home() {
     }, 10000)
 
     const unsubscribe = onAuthStateChangedSafe(async (firebaseUser) => {
+      // 1. Cập nhật ID hiện tại ngay lập tức để chặn các callback cũ
+      const currentUid = firebaseUser?.uid || null
+      currentAuthUidRef.current = currentUid
+
+      const isMostRecent = () => currentAuthUidRef.current === currentUid
+
       if (!firebaseUser) {
         setUser(null)
         setProfile(null)
@@ -71,9 +69,26 @@ export default function Home() {
         return
       }
 
-      // 1. Set user state ngay lập tức
+      // Check email verification (except for test accounts)
+      const isTestAccount = firebaseUser.email?.includes('agent_test_2326')
+      if (!firebaseUser.emailVerified && !isTestAccount) {
+        console.warn('[page.tsx] 📧 Email not verified for:', firebaseUser.email)
+        setVerificationError(
+          language === 'vi'
+            ? 'Email của bạn chưa được xác thực. Vui lòng kiểm tra hộp thư đến và bấm vào link xác thực.'
+            : 'Your email is not verified. Please check your inbox and click the verification link.'
+        )
+        import('@/lib/firebase/auth').then(({ logout }) => logout())
+        setLoading(false)
+        clearTimeout(timeoutId)
+        return
+      } else {
+        setVerificationError(null)
+      }
+
+      // 2. Cập nhật user state ngay lập tức
       setUser(firebaseUser)
-      console.log('[page.tsx] 🔐 User authenticated:', firebaseUser.email)
+      console.log('[page.tsx] 🔐 User identified:', firebaseUser.email, '(Checking if most recent...)')
 
       // 1b. Kiểm tra email đã xác thực chưa (bỏ qua Google vì Google đã xác thực sẵn)
       const isGoogleUser = firebaseUser.providerData?.some(p => p.providerId === 'google.com')
@@ -97,60 +112,28 @@ export default function Home() {
       }
 
       try {
-        // 2. Chờ Firebase initialized (với retry logic nhẹ nhàng hơn)
-        let dbInstance = null
-        let retries = 0
-        const maxRetries = 5
-
-        while (!dbInstance && retries < maxRetries) {
-          const { db } = await import('@/lib/firebase/config')
-          if (db) {
-            dbInstance = db
-            break
-          }
-          await new Promise(resolve => setTimeout(resolve, 500))
-          retries++
-        }
-
-        if (!dbInstance) {
-          throw new Error('Firebase Firestore could not be initialized. Please check your .env.local file.')
-        }
-
-        // 3. Handle Google Redirect state if exists
-        if (typeof window !== 'undefined') {
-          const pendingStateStr = localStorage.getItem('pending_google_auth_state')
-          if (pendingStateStr) {
-            try {
-              const pendingState = JSON.parse(pendingStateStr)
-              if (Date.now() - pendingState.timestamp < 30 * 60 * 1000) {
-                console.log('[page.tsx] 🔄 Migrating pending Google state to UID:', firebaseUser.uid)
-                if (pendingState.wantRoot) localStorage.setItem(`signup_isRoot_${firebaseUser.uid}`, 'true')
-                if (pendingState.wantSuperRoot) localStorage.setItem(`signup_isSuperRoot_${firebaseUser.uid}`, 'true')
-                if (pendingState.familyId) localStorage.setItem(`signup_familyId_${firebaseUser.uid}`, pendingState.familyId)
-                localStorage.setItem(`is_google_signup_${firebaseUser.uid}`, 'true')
-              }
-              localStorage.removeItem('pending_google_auth_state')
-            } catch (e) {
-              console.error('[page.tsx] Error parsing pending state:', e)
-            }
-          }
-        }
-
-        // 4. Load or Create Profile
+        // 3. Kiểm tra profile
         console.log('[page.tsx] 👤 Loading profile for:', firebaseUser.uid)
-        let userProfile = await getProfile(firebaseUser.uid)
+        let userProfile = await getProfileWithRetry(firebaseUser.uid)
+
+        // Kiểm tra xem đây có còn là session mới nhất không trước khi sset state
+        if (!isMostRecent()) {
+          console.warn('[page.tsx] ⚠️ Overlapping auth session detected, aborting profile load for:', firebaseUser.uid)
+          return
+        }
 
         if (!userProfile) {
           if (creatingProfileRef.current) return
-          
           creatingProfileRef.current = true
           try {
-            console.log('[page.tsx] ✨ Creating new profile...')
+            console.log('[page.tsx] ✨ Creating new profile for UID:', firebaseUser.uid)
             const isRootFromSignup = typeof window !== 'undefined' && localStorage.getItem(`signup_isRoot_${firebaseUser.uid}`) === 'true'
             const isSuperRootFromSignup = typeof window !== 'undefined' && localStorage.getItem(`signup_isSuperRoot_${firebaseUser.uid}`) === 'true'
             const familyIdFromSignup = typeof window !== 'undefined' ? localStorage.getItem(`signup_familyId_${firebaseUser.uid}`) || undefined : undefined
 
             userProfile = await createDefaultProfile(firebaseUser, isRootFromSignup, familyIdFromSignup, isSuperRootFromSignup)
+            
+            if (!isMostRecent()) return // Double check after async creation
             
             // Cleanup signup flags
             if (typeof window !== 'undefined') {
@@ -163,36 +146,63 @@ export default function Home() {
           }
         }
 
-        // 5. Finalize status
-        if (userProfile) {
-          // Migration cho user cũ
-          if (!userProfile.familyId && !userProfile.isSuperRoot) {
-            if (userProfile.isRoot) {
-              try {
-                const { createFamily } = await import('@/lib/firebase/family')
-                const result = await createFamily(userProfile.name || 'Family', firebaseUser.uid)
-                await updateProfile(userProfile.id, { familyId: result.familyId })
-                userProfile = { ...userProfile, familyId: result.familyId }
-              } catch (migrationErr: any) {
-                console.error('[Migration] Lỗi khi tạo family cho user cũ:', migrationErr)
-                console.warn('[Migration] Bỏ qua migration, tiếp tục với profile hiện tại')
-              }
+        // 4. Hoàn tất cập nhật profile
+        if (userProfile && typeof userProfile === 'object' && isMostRecent()) {
+          // Sync Google avatar URL nếu user đăng nhập bằng Google và avatar chưa phải ảnh custom
+          const isGoogleUser = firebaseUser.providerData.some(p => p.providerId === 'google.com')
+          const isDefaultOrGoogleAvatar = !userProfile.avatar ||
+            userProfile.avatar === '/icons/icon-192x192.png' ||
+            userProfile.avatar.includes('lh3.googleusercontent.com') ||
+            userProfile.avatar.includes('googleusercontent.com')
+          if (isGoogleUser && firebaseUser.photoURL && isDefaultOrGoogleAvatar && userProfile.avatar !== firebaseUser.photoURL) {
+            try {
+              await updateProfile(userProfile.id, { avatar: firebaseUser.photoURL })
+              userProfile = { ...userProfile, avatar: firebaseUser.photoURL }
+              console.log('[page.tsx] ✅ Synced Google avatar URL')
+            } catch (syncErr) {
+              console.warn('[page.tsx] ⚠️ Could not sync Google avatar:', syncErr)
             }
           }
 
-          setProfile(userProfile)
-          if (userProfile.familyId) {
-            recordDailyLogin(userProfile.id, userProfile.familyId).catch(console.error)
+
+          // Verify family still exists — orphaned familyId causes empty dashboard
+          if (userProfile.familyId && !userProfile.isSuperRoot) {
+            try {
+              const { getFamilyById } = await import('@/lib/firebase/family')
+              const family = await getFamilyById(userProfile.familyId)
+              if (!family) {
+                // Family document deleted or never created → clear so JoinFamilyFlow shows
+                console.warn('[page.tsx] ⚠️ familyId points to non-existent family, clearing...')
+                await updateProfile(userProfile.id, { familyId: '' })
+                userProfile = { ...userProfile, familyId: '' }
+              }
+            } catch (verifyErr) {
+              console.warn('[page.tsx] Could not verify family:', verifyErr)
+            }
           }
-          setError(null)
+
+          if (isMostRecent()) {
+            setProfile(userProfile)
+            if (userProfile.familyId) {
+              recordDailyLogin(userProfile.id, userProfile.familyId).catch(console.error)
+            }
+            setError(null)
+          }
+        } else if (userProfile && isMostRecent()) {
+          console.error('[page.tsx] Invalid profile found (not an object):', userProfile)
+          setError('Profile found but data is corrupted. Please try logging out.')
         }
       } catch (err: any) {
-        console.error('[page.tsx] ❌ Error in auth flow:', err)
-        const errorDetail = err?.message || err?.code || String(err)
-        setError(`${t('errors.cannotLoadUser')}\n\n🔍 Chi tiết: ${errorDetail}`)
+        if (isMostRecent()) {
+          console.error('[page.tsx] ❌ AUTH INITIALIZATION ERROR:', err)
+          const errorDetail = err?.message || err?.code || String(err)
+          setError(`Lỗi hệ thống: ${errorDetail}`)
+        }
       } finally {
-        setLoading(false)
-        clearTimeout(timeoutId)
+        if (isMostRecent()) {
+          setLoading(false)
+          clearTimeout(timeoutId)
+        }
       }
     })
 
@@ -200,23 +210,18 @@ export default function Home() {
       unsubscribe()
       clearTimeout(timeoutId)
     }
-  }, [language, t])
+  }, []) // Remove [language, t] to prevent resubscription on i18n changes
+
+
 
   if (loading) {
     return <LoadingSpinner />
   }
 
   if (error) {
-    const errorBackgroundStyle = backgroundImage
-      ? {
-        backgroundImage: `url(${backgroundImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-      }
-      : {
-        background: 'linear-gradient(to bottom right, rgb(15 23 42), rgb(30 41 59), rgb(15 23 42))',
-      }
+    const errorBackgroundStyle = {
+      background: 'linear-gradient(to bottom right, rgb(15 23 42), rgb(30 41 59), rgb(15 23 42))',
+    }
 
     return (
       <div
@@ -237,13 +242,23 @@ export default function Home() {
             </ul>
           </div>
 
-          <div className="bg-accent-50 border-2 border-accent-100 rounded-2xl p-6 text-left shadow-kid">
-            <p className="text-base text-accent-700 mb-3 font-black">🌟 {t('errors.toFix')}</p>
-            <ol className="text-sm text-accent-600 list-decimal list-inside space-y-2 font-bold">
-              <li>{t('errors.createEnvFile')}</li>
-              <li>{t('errors.addFirebaseInfo')}</li>
-              <li>{t('errors.restartServer')}</li>
-            </ol>
+          <div className="flex flex-col gap-3 mt-6">
+            <button
+               onClick={() => window.location.reload()}
+               className="w-full py-4 bg-primary-600 text-white rounded-2xl font-black shadow-kid hover:bg-primary-700 active:scale-95 transition-all uppercase tracking-tight"
+            >
+              🔄 {t('errors.tryAgain') || 'Thử lại'}
+            </button>
+            <button
+               onClick={async () => {
+                 const { logout } = await import('@/lib/firebase/auth');
+                 await logout();
+                 window.location.href = '/';
+               }}
+               className="w-full py-4 bg-white text-red-500 border-2 border-red-100 rounded-2xl font-black shadow-soft hover:bg-red-50 active:scale-95 transition-all uppercase tracking-tight"
+            >
+              🚪 {t('header.logout') || 'Đăng xuất'}
+            </button>
           </div>
         </div>
       </div>
@@ -251,12 +266,17 @@ export default function Home() {
   }
 
   if (!user) {
-    return <LoginPage />
+    return (
+      <LoginPage 
+        externalError={verificationError} 
+        onClearExternalError={() => setVerificationError(null)} 
+      />
+    )
   }
 
   const handleProfileUpdate = async () => {
     if (user) {
-      const updatedProfile = await getProfile(user.uid)
+      const updatedProfile = await getProfileWithRetry(user.uid)
       if (updatedProfile) {
         setProfile(updatedProfile)
       }
@@ -264,40 +284,35 @@ export default function Home() {
   }
 
   // Nếu đã login nhưng chưa có profile hoặc chưa có familyId (ngoại trừ super root)
-  if (!profile || (profile.familyId === '' && !profile.isSuperRoot)) {
+  // Dùng !profile.familyId để bắt cả undefined, null và '' (không chỉ '')
+  if (!profile || (!profile.familyId && !profile.isSuperRoot)) {
     return (
       <JoinFamilyFlow
         user={user}
         profile={profile}
         onUpdated={handleProfileUpdate}
-        backgroundImage={backgroundImage}
+        backgroundImage={null}
       />
     )
   }
 
-  // Style cho background image
-  const backgroundStyle = backgroundImage
-    ? {
-      backgroundImage: `url(${backgroundImage})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat',
-      backgroundAttachment: 'fixed',
-    }
-    : {
-      background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
-    }
+  const handleThemeChange = (id: ThemeId) => {
+    setThemeId(id)
+    localStorage.setItem('app_theme', id)
+  }
+
+  const backgroundStyle = { background: getThemeById(themeId).background }
 
   // Super Root Dashboard - hiển thị riêng cho super root
   if (profile.isSuperRoot) {
     return (
-      <div className="flex min-h-screen">
-        <Sidebar profile={profile} />
-        <div className="flex-1 lg:ml-80 transition-all duration-300">
+      <div className="flex min-h-screen" data-theme={themeId} style={backgroundStyle}>
+        <Sidebar profile={profile} onThemeChange={handleThemeChange} />
+        <div className="flex-1 lg:ml-72 transition-all duration-300">
           <BackgroundMusic isLoggedIn={!!user && !!profile} />
           <main className="max-w-7xl mx-auto px-4 py-6">
             <div id="dashboard-section">
-              <SuperRootDashboard currentUserId={user.uid} />
+              <SuperRootDashboard currentUserId={user.uid} profile={profile} />
             </div>
           </main>
         </div>
@@ -306,11 +321,18 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-screen" style={backgroundStyle}>
-      <Sidebar profile={profile} onUpdate={handleProfileUpdate} />
+    <div className="flex min-h-screen" data-theme={themeId} style={backgroundStyle}>
+      <Sidebar profile={profile} onUpdate={handleProfileUpdate} onThemeChange={handleThemeChange} />
 
       <div className="flex-1 lg:ml-72 transition-all duration-300">
         <BackgroundMusic isLoggedIn={!!user && !!profile} />
+        
+        {profile && !profile.gender && (
+          <CharacterCreation 
+            profile={profile}
+            onComplete={handleProfileUpdate}
+          />
+        )}
 
         <main className="max-w-7xl mx-auto px-4 py-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -383,7 +405,7 @@ export default function Home() {
               <div id="profile-section" className="kid-card">
                 <ProfilePage
                   profile={profile}
-                  onUpdate={(updatedProfile) => {
+                  onUpdate={(updatedProfile: UserProfile) => {
                     setProfile(updatedProfile)
                   }}
                 />

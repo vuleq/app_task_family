@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { loginWithEmail, signupWithEmail, loginWithGoogle, sendVerificationEmail, logout, sendResetPasswordEmail } from '@/lib/firebase/auth'
+import { loginWithEmail, signupWithEmail, loginWithGoogle, sendVerificationEmail, logout, sendResetPasswordEmail, getSignInMethodsForEmail } from '@/lib/firebase/auth'
 import { createFamily, joinFamilyByCode, getFamilyByRootCode } from '@/lib/firebase/family'
 import { getAllUsers } from '@/lib/firebase/profile'
 import { useI18n } from '@/lib/i18n/context'
@@ -11,26 +11,26 @@ import Toast from './Toast'
 const getFirebaseErrorMessage = (err: any, language: string): string => {
   const code = err?.code || ''
   const vi: Record<string, string> = {
-    'auth/user-not-found':       'Email này chưa có tài khoản. Vui lòng đăng ký trước.',
-    'auth/wrong-password':       'Mật khẩu không đúng. Vui lòng thử lại.',
-    'auth/invalid-credential':   'Email hoặc mật khẩu không đúng.',
-    'auth/invalid-email':        'Địa chỉ email không hợp lệ.',
-    'auth/email-already-in-use': 'Email này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác.',
-    'auth/weak-password':        'Mật khẩu quá yếu. Vui lòng dùng ít nhất 6 ký tự.',
-    'auth/too-many-requests':    'Quá nhiều lần thử. Vui lòng đợi vài phút rồi thử lại.',
+    'auth/user-not-found':         'Email này chưa có tài khoản. Vui lòng đăng ký trước.',
+    'auth/wrong-password':         'Mật khẩu không đúng. Vui lòng thử lại.',
+    'auth/invalid-credential':     'Email hoặc mật khẩu không đúng.',
+    'auth/invalid-email':          'Địa chỉ email không hợp lệ.',
+    'auth/email-already-in-use':   'Email này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác.',
+    'auth/weak-password':          'Mật khẩu quá yếu. Vui lòng dùng ít nhất 6 ký tự.',
+    'auth/too-many-requests':      'Quá nhiều lần thử. Vui lòng đợi vài phút rồi thử lại.',
     'auth/network-request-failed': 'Lỗi kết nối mạng. Vui lòng kiểm tra internet.',
-    'auth/popup-closed-by-user': 'Đăng nhập bị hủy. Vui lòng thử lại.',
+    'auth/popup-closed-by-user':   'Đăng nhập bị hủy. Vui lòng thử lại.',
   }
   const en: Record<string, string> = {
-    'auth/user-not-found':       'No account found with this email. Please sign up first.',
-    'auth/wrong-password':       'Incorrect password. Please try again.',
-    'auth/invalid-credential':   'Incorrect email or password.',
-    'auth/invalid-email':        'Invalid email address.',
-    'auth/email-already-in-use': 'This email is already in use. Please log in or use another email.',
-    'auth/weak-password':        'Password is too weak. Please use at least 6 characters.',
-    'auth/too-many-requests':    'Too many attempts. Please wait a few minutes and try again.',
+    'auth/user-not-found':         'No account found with this email. Please sign up first.',
+    'auth/wrong-password':         'Incorrect password. Please try again.',
+    'auth/invalid-credential':     'Incorrect email or password.',
+    'auth/invalid-email':          'Invalid email address.',
+    'auth/email-already-in-use':   'This email is already in use. Please log in or use another email.',
+    'auth/weak-password':          'Password is too weak. Please use at least 6 characters.',
+    'auth/too-many-requests':      'Too many attempts. Please wait a few minutes and try again.',
     'auth/network-request-failed': 'Network error. Please check your internet connection.',
-    'auth/popup-closed-by-user': 'Sign-in cancelled. Please try again.',
+    'auth/popup-closed-by-user':   'Sign-in cancelled. Please try again.',
   }
   const map = language === 'vi' ? vi : en
   return map[code] || (language === 'vi' ? 'Đã có lỗi xảy ra. Vui lòng thử lại.' : 'An error occurred. Please try again.')
@@ -51,7 +51,12 @@ const verifySuperRootCode = async (code: string): Promise<boolean> => {
   }
 }
 
-export default function LoginPage() {
+interface LoginPageProps {
+  externalError?: string | null;
+  onClearExternalError?: () => void;
+}
+
+export default function LoginPage({ externalError, onClearExternalError }: LoginPageProps) {
   const { t, language } = useI18n()
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
@@ -95,6 +100,13 @@ export default function LoginPage() {
     }
   }, [])
 
+  // Đồng bộ externalError vào local error state
+  useEffect(() => {
+    if (externalError) {
+      setError(externalError);
+    }
+  }, [externalError]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -102,15 +114,8 @@ export default function LoginPage() {
 
     try {
       if (isLogin) {
-        const userCredential = await loginWithEmail(email, password)
-        if (!userCredential.user.emailVerified) {
-          await logout()
-          setError(language === 'vi'
-            ? 'Email của bạn chưa được xác thực. Vui lòng kiểm tra hộp thư đến và bấm vào link xác thực.'
-            : 'Your email is not verified. Please check your inbox and click the verification link.')
-          setLoading(false)
-          return
-        }
+        await loginWithEmail(email, password)
+        // Note: Verification check moved to parent (app/page.tsx) to prevent state loss on logout
       } else {
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
         if (!emailRegex.test(email.trim())) {
@@ -213,7 +218,6 @@ export default function LoginPage() {
         // Logout ngay sau khi đăng ký để user phải xác thực email trước khi login
         await logout()
 
-        // Hiện thông báo rõ ràng thay vì reload im lặng
         setToast({
           show: true,
           message: language === 'vi'
@@ -225,6 +229,23 @@ export default function LoginPage() {
         setLoading(false)
       }
     } catch (err: any) {
+      // Check if this is a Google-linked account trying to use email/password
+      if (isLogin && (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found')) {
+        try {
+          const methods = await getSignInMethodsForEmail(email.trim())
+          if (methods.includes('google.com')) {
+            setError(
+              language === 'vi'
+                ? '📧 Email này đã được đăng ký bằng Google. Vui lòng dùng nút "Đăng nhập với Google" bên dưới.'
+                : '📧 This email was registered with Google. Please use the "Sign in with Google" button below.'
+            )
+            setLoading(false)
+            return
+          }
+        } catch {
+          // fallthrough to generic error
+        }
+      }
       setError(getFirebaseErrorMessage(err, language))
       setLoading(false)
     }
@@ -235,12 +256,12 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await loginWithGoogle()
-      // popup tự xử lý, onAuthStateChanged trong page.tsx sẽ bắt kết quả
     } catch (err: any) {
       setError(getFirebaseErrorMessage(err, language))
       setLoading(false)
     }
   }
+
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -509,12 +530,14 @@ export default function LoginPage() {
           {t('login.loginWithGoogle')}
         </button>
 
+
         <div className="mt-10 text-center">
           <button
             onClick={() => {
               setIsLogin(!isLogin)
               setIsForgotPassword(false)
               setError('')
+              if (onClearExternalError) onClearExternalError()
               setWantRoot(false)
               setWantSuperRoot(false)
               setFamilyCode('')

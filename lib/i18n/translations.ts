@@ -219,6 +219,12 @@ export const translations = {
       title: 'Bằng chứng ảnh',
       comingSoon: 'Sắp ra mắt',
     },
+    // Nav aliases (sidebar labels)
+    chests: { title: 'Rương Báu' },
+    shop: { title: 'Cửa hàng' },
+    statistics: { title: 'Thống kê' },
+    monitoring: { title: 'Giám sát' },
+    dashboard: { title: 'Bảng điều khiển' },
     // Common Errors
     errors: {
       firebaseNotConfigured: 'Cấu hình Firebase chưa đầy đủ',
@@ -453,6 +459,12 @@ export const translations = {
       title: 'Photo Evidence',
       comingSoon: 'Coming Soon',
     },
+    // Nav aliases (sidebar labels)
+    chests: { title: 'Treasure Chests' },
+    shop: { title: 'Shop' },
+    statistics: { title: 'Statistics' },
+    monitoring: { title: 'Monitoring' },
+    dashboard: { title: 'Dashboard' },
     // Common Errors
     errors: {
       firebaseNotConfigured: 'Firebase configuration incomplete',
