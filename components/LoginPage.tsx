@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { loginWithEmail, signupWithEmail, loginWithGoogle, loginWithGoogleRedirect, sendVerificationEmail, logout, sendResetPasswordEmail } from '@/lib/firebase/auth'
+import { loginWithEmail, signupWithEmail, loginWithGoogle, sendVerificationEmail, logout, sendResetPasswordEmail } from '@/lib/firebase/auth'
 import { createFamily, joinFamilyByCode, getFamilyByRootCode } from '@/lib/firebase/family'
 import { getAllUsers } from '@/lib/firebase/profile'
 import { useI18n } from '@/lib/i18n/context'
@@ -223,16 +223,11 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      if (typeof window !== 'undefined') {
-        const pendingData = {
-          isLogin, wantRoot, wantSuperRoot, rootAction, rootCode, superRootCode,
-          familyCode, familyName, customFamilyCode, customRootCode, useCustomCodes, timestamp: Date.now()
-        }
-        localStorage.setItem('pending_google_auth_state', JSON.stringify(pendingData))
-      }
-      await loginWithGoogleRedirect()
+      await loginWithGoogle()
+      // popup tự xử lý, onAuthStateChanged trong page.tsx sẽ bắt kết quả
     } catch (err: any) {
       setError(getFirebaseErrorMessage(err, language))
+      setLoading(false)
     }
   }
 
