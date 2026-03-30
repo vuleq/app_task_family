@@ -170,8 +170,19 @@ export default function LoginPage() {
           if (familyId) localStorage.setItem(`signup_familyId_${userId}`, familyId)
         }
 
-        await new Promise(resolve => setTimeout(resolve, 800))
-        if (typeof window !== 'undefined') window.location.reload()
+        // Logout ngay sau khi đăng ký để user phải xác thực email trước khi login
+        await logout()
+
+        // Hiện thông báo rõ ràng thay vì reload im lặng
+        setToast({
+          show: true,
+          message: language === 'vi'
+            ? '🎉 Đăng ký thành công! Vui lòng kiểm tra email và bấm link xác thực trước khi đăng nhập.'
+            : '🎉 Account created! Please check your email and click the verification link before logging in.',
+          type: 'success'
+        })
+        setIsLogin(true)
+        setLoading(false)
       }
     } catch (err: any) {
       setError(err.message || t('login.errorOccurred'))
