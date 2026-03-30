@@ -75,6 +75,23 @@ export default function Home() {
       setUser(firebaseUser)
       console.log('[page.tsx] 🔐 User authenticated:', firebaseUser.email)
 
+      // 1b. Kiểm tra email đã xác thực chưa (bỏ qua Google vì Google đã xác thực sẵn)
+      const isGoogleUser = firebaseUser.providerData?.some(p => p.providerId === 'google.com')
+      if (!firebaseUser.emailVerified && !isGoogleUser) {
+        const { logout } = await import('@/lib/firebase/auth')
+        await logout()
+        setUser(null)
+        setProfile(null)
+        setError(
+          language === 'vi'
+            ? 'Email của bạn chưa được xác thực. Vui lòng kiểm tra hộp thư và bấm link xác thực, sau đó đăng nhập lại.'
+            : 'Your email is not verified. Please check your inbox and click the verification link, then log in again.'
+        )
+        setLoading(false)
+        clearTimeout(timeoutId)
+        return
+      }
+
       try {
         // 2. Chờ Firebase initialized (với retry logic nhẹ nhàng hơn)
         let dbInstance = null
