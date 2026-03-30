@@ -521,10 +521,31 @@ export const openChest = async (userChestId: string, userId: string): Promise<Ch
   const userProfile = await getProfile(userId)
   if (!userProfile) throw new Error('Không tìm thấy thông tin người dùng')
 
-  // Punkverse cooldown: nếu nhận trong vòng 1 tuần → loại khỏi pool lần này
-  const oneWeekAgo = Timestamp.fromMillis(Timestamp.now().toMillis() - 7 * 24 * 60 * 60 * 1000)
-  const lastPunkverseAt = userProfile.lastPunkverseAt as Timestamp | undefined
-  const punkverseOnCooldown = lastPunkverseAt && lastPunkverseAt.toMillis() >= oneWeekAgo.toMillis()
+  // Punkverse giới hạn 2 lần/tuần: đếm số vé đã nhận từ đầu tuần (Thứ 2)
+  const now = new Date()
+  const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1 // 0=Mon … 6=Sun
+  const weekStart = new Date(now)
+  weekStart.setDate(now.getDate() - dayOfWeek)
+  weekStart.setHours(0, 0, 0, 0)
+  const weekStartTs = Timestamp.fromMillis(weekStart.getTime())
+
+  const punkverseThisWeekSnap = await getDocs(
+    query(
+      collection(checkDb(), 'userChests'),
+      where('userId', '==', userId),
+      where('opened', '==', true)
+    )
+  )
+  const punkverseThisWeekCount = punkverseThisWeekSnap.docs.filter(d => {
+    const data = d.data()
+    return (
+      data.receivedItem?.id === 'punkverse_ticket' &&
+      data.openedAt &&
+      (data.openedAt as Timestamp).toMillis() >= weekStartTs.toMillis()
+    )
+  }).length
+
+  const punkverseOnCooldown = punkverseThisWeekCount >= 2
   const effectivePool = punkverseOnCooldown
     ? itemPool.filter(item => item.id !== 'punkverse_ticket')
     : itemPool
@@ -572,11 +593,6 @@ export const openChest = async (userChestId: string, userId: string): Promise<Ch
     await updateProfile(userId, { coins: userProfile.coins + receivedItem.value })
   } else if (receivedItem.type === 'special' && receivedItem.id === 'special_levelup') {
     await updateProfile(userId, { xp: userProfile.xp + 1000 })
-  }
-
-  // Nếu nhận được Punkverse → lưu timestamp cooldown vào profile
-  if (receivedItem.id === 'punkverse_ticket') {
-    await updateProfile(userId, { lastPunkverseAt: Timestamp.now() })
   }
 
   return receivedItem
