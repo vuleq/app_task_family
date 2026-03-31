@@ -357,14 +357,16 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Danh sách nhiệm vụ */}
-              <div id="tasks-section" className="kid-card">
-                <TasksList
-                  currentUser={user}
-                  profile={profile}
-                  onTaskComplete={handleProfileUpdate}
-                />
-              </div>
+              {/* Danh sách nhiệm vụ - chỉ hiển thị cho member */}
+              {!profile.isRoot && (
+                <div id="tasks-section" className="kid-card">
+                  <TasksList
+                    currentUser={user}
+                    profile={profile}
+                    onTaskComplete={handleProfileUpdate}
+                  />
+                </div>
+              )}
 
               {/* Phê duyệt nhiệm vụ - chỉ hiển thị cho root */}
               {profile.isRoot && (
