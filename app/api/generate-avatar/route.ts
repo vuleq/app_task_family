@@ -67,48 +67,46 @@ export async function POST(request: Request) {
       // Not cached, proceed to generate
     }
 
-    // Generate with Gemini
+    // Generate with Gemini Imagen
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
       return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 })
     }
 
-    const prompt = `Create a cute chibi anime style avatar of a ${genderPrompt} ${professionPrompt.en}. 
-Style: chibi, kawaii, colorful, cartoon, game character, full body, white background.
-Level: ${levelDesc}.
-The character should look friendly and playful, suitable for a family task management app for kids.
+    const prompt = `Cute chibi anime style avatar of a ${genderPrompt} ${professionPrompt.en}. 
+Chibi kawaii colorful cartoon game character, full body, white background.
+Level description: ${levelDesc}.
+Friendly and playful character for a family task app for kids.
 No text, no watermark, clean white background.`
 
     const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
+          instances: [{ prompt }],
+          parameters: { sampleCount: 1 },
         }),
       }
     )
 
     if (!geminiRes.ok) {
       const err = await geminiRes.json()
-      console.error('Gemini error:', err)
+      console.error('Imagen error:', err)
       return NextResponse.json({ error: 'Failed to generate image' }, { status: 500 })
     }
 
     const geminiData = await geminiRes.json()
-    const imagePart = geminiData?.candidates?.[0]?.content?.parts?.find(
-      (p: any) => p.inlineData?.mimeType?.startsWith('image/')
-    )
+    const imageData = geminiData?.predictions?.[0]?.bytesBase64Encoded
 
-    if (!imagePart?.inlineData?.data) {
+    if (!imageData) {
       return NextResponse.json({ error: 'No image in response' }, { status: 500 })
     }
 
     // Upload to Cloudinary
     const uploadRes = await cloudinary.uploader.upload(
-      `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`,
+      `data:image/png;base64,${imageData}`,
       {
         public_id: publicId,
         overwrite: false,
