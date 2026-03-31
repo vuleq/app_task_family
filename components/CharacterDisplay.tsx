@@ -1,7 +1,11 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { UserProfile } from '@/lib/firebase/profile'
-import { calculateLevel, getCharacterAssets, getXPProgress } from '@/lib/utils/level'
+import { calculateLevel, getCharacterAssets, getXPProgress, getAssetLevel } from '@/lib/utils/level'
+
+// Professions that have static images
+const STATIC_PROFESSIONS = ['bs', 'ch', 'cs']
 
 interface CharacterDisplayProps {
   profile: UserProfile
@@ -14,28 +18,50 @@ export default function CharacterDisplay({
   size = 'medium',
   showLevelInfo = true 
 }: CharacterDisplayProps) {
-  // Outfit đã được tắt theo yêu cầu
-  // const [showOutfit, setShowOutfit] = useState(true)
   const level = calculateLevel(profile.xp)
-  // Lấy assets với characterBase, gender và profession
-  const assets = getCharacterAssets(
-    level, 
-    profile.characterBase,
-    profile.gender, 
-    profile.profession
-  )
+  const assets = getCharacterAssets(level, profile.characterBase, profile.gender, profile.profession)
   const xpProgress = getXPProgress(profile.xp)
-  
-  // Debug log
-  console.log('CharacterDisplay Debug:', {
-    level,
-    characterBase: profile.characterBase,
-    gender: profile.gender,
-    profession: profile.profession,
-    characterPath: assets.character,
-    outfitPath: assets.outfit,
-    backgroundPath: assets.background
-  })
+
+  // For new professions, we need to generate/fetch the avatar
+  const needsGenerated = !!(
+    profile.profession &&
+    profile.gender &&
+    level >= 5 &&
+    !STATIC_PROFESSIONS.includes(profile.profession)
+  )
+
+  const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+
+  useEffect(() => {
+    if (!needsGenerated) return
+    const assetLevel = getAssetLevel(level)
+    const cacheKey = `avatar_${profile.gender}_${profile.profession}_level${assetLevel}`
+    const cached = sessionStorage.getItem(cacheKey)
+    if (cached) {
+      setGeneratedUrl(cached)
+      return
+    }
+    setGenerating(true)
+    fetch('/api/generate-avatar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gender: profile.gender, profession: profile.profession, level: assetLevel }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.url) {
+          setGeneratedUrl(data.url)
+          sessionStorage.setItem(cacheKey, data.url)
+        }
+      })
+      .catch(console.error)
+      .finally(() => setGenerating(false))
+  }, [needsGenerated, profile.gender, profile.profession, level])
+
+  const characterSrc = needsGenerated
+    ? (generatedUrl || assets.character || '/pic-avatar/avatar1.png')
+    : (assets.character || '/pic-avatar/avatar1.png')
   
   const sizeClasses = {
     small: 'w-24 h-24 sm:w-32 sm:h-32',
@@ -86,38 +112,36 @@ export default function CharacterDisplay({
           />
         )} */}
         
-        {/* Face - Layer 2b (mặt từ avatar1-7) */}
-        {assets.face ? (
+        {/* Generated avatar for new professions (phi, hk, it) */}
+        {needsGenerated && (
+          generating ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/60">
+              <div className="w-8 h-8 border-4 border-violet-400 border-t-transparent rounded-full animate-spin mb-2" />
+              <span className="text-xs text-violet-500 font-bold">Đang tạo nhân vật...</span>
+            </div>
+          ) : generatedUrl ? (
+            <img
+              key={`generated-${profile.profession}-${level}`}
+              src={generatedUrl}
+              alt="Character"
+              className="absolute inset-0 w-full h-full object-contain"
+              style={{ zIndex: 6, pointerEvents: 'none' }}
+              onError={(e) => { (e.target as HTMLImageElement).src = '/pic-avatar/avatar1.png' }}
+            />
+          ) : null
+        )}
+
+        {/* Face/character layer - only show for static professions */}
+        {!needsGenerated && (assets.face ? (
           <img
             key={`face-${profile.characterBase || 'default'}-${level}`}
             src={assets.face}
             alt="Face"
             className="absolute inset-0 w-full h-full object-contain"
-            style={{ 
-              zIndex: 6, // Face ở trên base body
-              pointerEvents: 'none',
-              width: '100%',
-              height: '100%',
-              display: 'block',
-              opacity: 1,
-              visibility: 'visible',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0
-            }}
+            style={{ zIndex: 6, pointerEvents: 'none', width: '100%', height: '100%', display: 'block', opacity: 1, visibility: 'visible', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
             onError={(e) => {
               const target = e.target as HTMLImageElement
-              console.error('❌ Failed to load face:', assets.face)
-              // Fallback về avatar đầy đủ nếu không có face
-              if (assets.character) {
-                target.src = assets.character
-              }
-            }}
-            onLoad={(e) => {
-              const img = e.target as HTMLImageElement
-              console.log('✅ Face loaded:', assets.face)
+              if (assets.character) target.src = assets.character
             }}
           />
         ) : (
@@ -127,35 +151,17 @@ export default function CharacterDisplay({
             src={assets.character || '/pic-avatar/avatar1.png'}
             alt="Character"
             className="absolute inset-0 w-full h-full object-contain"
-            style={{ 
-              zIndex: 6,
-              pointerEvents: 'none',
-              width: '100%',
-              height: '100%',
-              display: 'block',
-              opacity: 1,
-              visibility: 'visible',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0
-            }}
+            style={{ zIndex: 6, pointerEvents: 'none', width: '100%', height: '100%', display: 'block', opacity: 1, visibility: 'visible', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
             onError={(e) => {
               const target = e.target as HTMLImageElement
-              console.error('❌ Failed to load character avatar:', assets.character)
               if (assets.character !== '/pic-avatar/avatar1.png') {
                 target.src = '/pic-avatar/avatar1.png'
               } else {
                 target.style.display = 'none'
               }
             }}
-            onLoad={(e) => {
-              const img = e.target as HTMLImageElement
-              console.log('✅ Character avatar loaded (fallback):', assets.character)
-            }}
           />
-        )}
+        ))}
         
         {/* Outfit - Đã tắt theo yêu cầu */}
         {/* {showOutfit && assets.outfit && (
