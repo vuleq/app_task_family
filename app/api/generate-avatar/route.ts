@@ -80,13 +80,13 @@ Friendly and playful character for a family task app for kids.
 No text, no watermark, clean white background.`
 
     const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          instances: [{ prompt }],
-          parameters: { sampleCount: 1 },
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
         }),
       }
     )
@@ -98,15 +98,18 @@ No text, no watermark, clean white background.`
     }
 
     const geminiData = await geminiRes.json()
-    const imageData = geminiData?.predictions?.[0]?.bytesBase64Encoded
+    const imagePart = geminiData?.candidates?.[0]?.content?.parts?.find(
+      (p: any) => p.inlineData?.mimeType?.startsWith('image/')
+    )
 
-    if (!imageData) {
+    if (!imagePart?.inlineData?.data) {
+      console.error('No image part in response:', JSON.stringify(geminiData).slice(0, 300))
       return NextResponse.json({ error: 'No image in response' }, { status: 500 })
     }
 
     // Upload to Cloudinary
     const uploadRes = await cloudinary.uploader.upload(
-      `data:image/png;base64,${imageData}`,
+      `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`,
       {
         public_id: publicId,
         overwrite: false,
