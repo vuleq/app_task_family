@@ -163,7 +163,7 @@ export const REWARD_IMAGE_BY_ID: Record<string, string> = {
 
 // Item pools dùng chung cho từng tier
 // Tất cả phần thưởng có xác suất đều nhau (weight bằng nhau)
-const TIER_POOLS = {
+export const TIER_POOLS = {
   // 50 coins: XP50 | XP100 | Pack39k (mỗi loại ~33%)
   tier1: [
     { id: 'xp50_coins',  type: 'xp',      name: 'XP 50 + Coins',        value: 50,  rarity: 'common', weight: 1, image: REWARD_URLS.xp50coins,  description: 'Nhận 50 XP + Coins' },

@@ -14,6 +14,7 @@ import {
   setupFamilyChests,
   CHEST_IMAGE_URLS,
   REWARD_IMAGE_BY_ID,
+  TIER_POOLS,
   Chest,
   UserChest,
   ChestItem,
@@ -227,6 +228,16 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     if (chest.closedImageUrl) return chest.closedImageUrl
     const type = getEffectiveChestType(chest)
     return CHEST_IMAGE_URLS[type] || null
+  }
+
+  // Trả về item pool cho tooltip dựa theo GIÁ rương (cost), không dùng itemPool từ DB
+  // Đảm bảo tất cả rương đều hiển thị đúng phần thưởng theo tier giá
+  const getItemPoolForTooltip = (cost: number): ChestItem[] => {
+    if (cost <= 50)  return TIER_POOLS.tier1
+    if (cost <= 150) return TIER_POOLS.tier2
+    if (cost <= 200) return TIER_POOLS.tier3
+    if (cost <= 300) return TIER_POOLS.tier4
+    return TIER_POOLS.tier5
   }
 
   const getUserChestImageUrl = (userChest: UserChest): string | null => {
@@ -451,10 +462,8 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
 
           // ── Normal Card View ──
           const weeklyLimitReached = hasReachedWeeklyLimit(chest)
-          // Deduplicate item pool for tooltip (same id may appear with different weights)
-          const uniqueItems = chest.itemPool.filter(
-            (item, idx, arr) => arr.findIndex(i => i.id === item.id) === idx
-          )
+          // Dùng TIER_POOLS theo giá rương để tooltip luôn đúng, kể cả khi DB có data cũ
+          const tooltipItems = getItemPoolForTooltip(chest.cost)
           return (
             <div key={chest.id} className={`kid-card p-5 flex flex-col group relative hover:rotate-1 transition-all border-4 ${themes[chestType]}`}>
               <div className="flex justify-between items-start mb-3">
@@ -506,7 +515,7 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
                     🎁 {language === 'vi' ? 'Phần thưởng có thể nhận' : 'Possible Rewards'}
                   </p>
                   <div className="space-y-1.5">
-                    {uniqueItems.map(item => {
+                    {tooltipItems.map(item => {
                       const itemImg = REWARD_IMAGE_BY_ID[item.id] || item.image
                       return (
                         <div key={item.id} className="flex items-center gap-2">
