@@ -369,7 +369,7 @@ export default function ProfilePage({ profile, onUpdate }: ProfilePageProps) {
                 </div>
 
                 <div className="p-5 bg-amber-50 rounded-3xl border-2 border-amber-100 group">
-                  <label className="block text-[10px] font-black text-amber-400 uppercase mb-2">🔐 {t('profile.rootCode')}</label>
+                  <label className="block text-[10px] font-black text-amber-400 uppercase mb-2">{t('profile.rootCode')}</label>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 min-w-0 bg-white border-2 border-amber-100 rounded-xl px-4 py-3 text-amber-900 font-mono font-black text-base overflow-x-auto whitespace-nowrap group-hover:border-amber-200 transition-colors">
                       {familyInfo.rootCode}
@@ -469,16 +469,16 @@ function UserManagementSection({ currentUserId, familyId }: { currentUserId: str
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {users.map(user => (
           <div key={user.id} className="p-4 bg-violet-50/50 rounded-2xl border-2 border-violet-100 flex items-center justify-between group hover:border-violet-200 transition-all">
-            <div className="flex items-center gap-4">
-               <div className="w-12 h-12 rounded-xl bg-white border-2 border-violet-100 flex items-center justify-center overflow-hidden">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+               <div className="w-12 h-12 rounded-xl bg-white border-2 border-violet-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                   {user.avatar ? (
                     <img src={user.avatar} className="w-full h-full object-cover" />
                   ) : (
                     <span className="font-black text-violet-300">{user.name.charAt(0)}</span>
                   )}
                </div>
-               <div>
-                  <p className="font-black text-violet-900 leading-none mb-1">{user.name}</p>
+               <div className="min-w-0">
+                  <p className="font-black text-violet-900 leading-none mb-1 truncate">{user.name}</p>
                   <p className="text-[10px] text-violet-400 font-bold uppercase tracking-widest">XP: {user.xp} • 🪙 {user.coins}</p>
                </div>
             </div>
