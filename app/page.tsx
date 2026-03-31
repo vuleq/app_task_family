@@ -366,15 +366,17 @@ export default function Home() {
                 />
               </div>
 
-              {/* Phê duyệt nhiệm vụ */}
-              <div id="approval-section" className="kid-card">
-                <TaskApproval
-                  currentUserId={user.uid}
-                  currentUserRole={profile.role}
-                  familyId={profile.familyId}
-                  onApprovalComplete={handleProfileUpdate}
-                />
-              </div>
+              {/* Phê duyệt nhiệm vụ - chỉ hiển thị cho root */}
+              {profile.isRoot && (
+                <div id="approval-section" className="kid-card">
+                  <TaskApproval
+                    currentUserId={user.uid}
+                    currentUserRole={profile.role}
+                    familyId={profile.familyId}
+                    onApprovalComplete={handleProfileUpdate}
+                  />
+                </div>
+              )}
 
               {/* Cửa hàng đổi thưởng */}
               <div id="shop-section" className="kid-card">

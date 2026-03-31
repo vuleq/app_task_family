@@ -245,17 +245,21 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
             t={t}
           />
 
-          <DailyProgressSummary
-            language={language}
-            tasks={tasks}
-            currentUserId={currentUser.uid}
-            selectedDate={selectedDate}
-          />
+          {!profile.isRoot && (
+            <>
+              <DailyProgressSummary
+                language={language}
+                tasks={tasks}
+                currentUserId={currentUser.uid}
+                selectedDate={selectedDate}
+              />
 
-          <div className="grid grid-cols-1 gap-6">
-            {taskLimits && <TaskLimits taskLimits={taskLimits} TASK_LIMITS={TASK_LIMITS} language={language} />}
-            {completionProgress && <TaskCompletionProgress completionProgress={completionProgress} COMPLETION_REWARDS={COMPLETION_REWARDS} t={t} />}
-          </div>
+              <div className="grid grid-cols-1 gap-6">
+                {taskLimits && <TaskLimits taskLimits={taskLimits} TASK_LIMITS={TASK_LIMITS} language={language} />}
+                {completionProgress && <TaskCompletionProgress completionProgress={completionProgress} COMPLETION_REWARDS={COMPLETION_REWARDS} t={t} />}
+              </div>
+            </>
+          )}
         </section>
 
         {showTemplates && (
