@@ -199,12 +199,12 @@ export default function MemberTasksView({ currentUserId: _currentUserId, familyI
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {typeCfg && (
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${typeCfg.color}`}>
-              {typeCfg.label[language as 'vi' | 'en']}
+              {typeCfg.label[language as 'vi' | 'en'] ?? typeCfg.label['en']}
             </span>
           )}
           {statusCfg && (
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusCfg.color}`}>
-              {statusCfg.label[language as 'vi' | 'en']}
+              {statusCfg.label[language as 'vi' | 'en'] ?? statusCfg.label['en']}
             </span>
           )}
         </div>
@@ -317,7 +317,7 @@ export default function MemberTasksView({ currentUserId: _currentUserId, familyI
         {(['all', 'pending', 'in_progress', 'completed', 'approved'] as const).map(s => {
           const label = s === 'all'
             ? (language === 'vi' ? 'Tất cả' : 'All')
-            : STATUS_CONFIG[s].label[language as 'vi' | 'en']
+            : STATUS_CONFIG[s].label[language as 'vi' | 'en'] ?? STATUS_CONFIG[s].label['en']
           const count = statusCounts[s] ?? 0
           const active = filterStatus === s
           return (

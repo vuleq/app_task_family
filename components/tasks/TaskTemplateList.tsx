@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { TaskTemplate } from '@/lib/firebase/tasks'
 import { UserProfile } from '@/lib/firebase/profile'
 import { getTranslatedTemplateTitle } from '@/lib/i18n/templateTranslations'
+import { Language } from '@/lib/i18n/translations'
 import CreateDefaultTemplates from '../CreateDefaultTemplates'
 
 interface TaskTemplateListProps {
@@ -9,7 +10,7 @@ interface TaskTemplateListProps {
     users: UserProfile[]
     currentUser: { uid: string }
     profile: UserProfile
-    language: 'vi' | 'en'
+    language: Language
     t: any
     onUseTemplate: (template: TaskTemplate) => void
     onDeleteTemplate: (templateId: string) => void

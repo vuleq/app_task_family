@@ -2,7 +2,7 @@
  * Translation strings for the application
  */
 
-export type Language = 'vi' | 'en' | 'ja' | 'ja' | 'es'
+export type Language = 'vi' | 'en' | 'ja' | 'es'
 
 export const translations = {
   vi: {

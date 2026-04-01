@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { Language } from '@/lib/i18n/translations'
 import { checkDb } from '@/lib/firebase/config'
 import { UserProfile } from '@/lib/firebase/profile'
 import { useI18n } from '@/lib/i18n/context'
@@ -181,7 +182,7 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
           <div className="relative group shrink-0">
             <select
               value={language}
-              onChange={(e) => setLanguage(e.target.value as 'vi' | 'en')}
+              onChange={(e) => setLanguage(e.target.value as Language)}
               className="appearance-none pl-12 pr-6 py-3 bg-white border-4 border-violet-100 rounded-2xl text-xs font-black text-violet-700 hover:border-violet-300 focus:outline-none focus:ring-4 focus:ring-violet-50 transition-all cursor-pointer shadow-soft uppercase tracking-widest"
               title="Ngôn ngữ / Language"
             >

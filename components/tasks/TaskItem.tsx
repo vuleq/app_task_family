@@ -2,12 +2,13 @@ import React from 'react'
 import { Task } from '@/hooks/useTasks'
 import { UserProfile } from '@/lib/firebase/profile'
 import { getTranslatedTaskTitle } from '@/lib/i18n/templateTranslations'
+import { Language } from '@/lib/i18n/translations'
 import PhotoEvidence from '../PhotoEvidence'
 
 interface TaskItemProps {
     task: Task
     profile: UserProfile
-    language: 'vi' | 'en'
+    language: Language
     t: any
     onStart: (task: Task) => void
     onComplete: (task: Task) => void

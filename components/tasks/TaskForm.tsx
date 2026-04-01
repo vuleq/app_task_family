@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { UserProfile } from '@/lib/firebase/profile'
+import { Language } from '@/lib/i18n/translations'
 
 interface TaskFormProps {
     users: UserProfile[]
     currentUser: { uid: string }
-    language: 'vi' | 'en'
+    language: Language
     t: any
     initialData?: {
         title: string
