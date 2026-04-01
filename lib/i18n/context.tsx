@@ -18,7 +18,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedLang = localStorage.getItem('app_language') as Language | null
-      if (savedLang && (savedLang === 'vi' || savedLang === 'en')) {
+      if (savedLang && (['vi', 'en', 'ja', 'es'] as Language[]).includes(savedLang)) {
         setLanguageState(savedLang)
       }
     }

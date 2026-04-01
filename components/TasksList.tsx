@@ -187,9 +187,11 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
             >
               <option value="vi">Tiếng Việt</option>
               <option value="en">English</option>
+              <option value="ja">日本語</option>
+              <option value="es">Español</option>
             </select>
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl pointer-events-none group-hover:scale-110 transition-transform">
-              {language === 'vi' ? '🇻🇳' : '🇬🇧'}
+              {language === 'vi' ? '🇻🇳' : language === 'ja' ? '🇯🇵' : language === 'es' ? '🇪🇸' : '🇬🇧'}
             </span>
           </div>
 
