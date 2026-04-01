@@ -372,6 +372,7 @@ export default function Home() {
                   <TaskApproval
                     currentUserId={user.uid}
                     currentUserRole={profile.role}
+                    isRoot={profile.isRoot}
                     familyId={profile.familyId}
                     onApprovalComplete={handleProfileUpdate}
                   />

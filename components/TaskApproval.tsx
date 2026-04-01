@@ -37,11 +37,12 @@ interface Task {
 interface TaskApprovalProps {
   currentUserId: string
   currentUserRole: 'parent' | 'child'
+  isRoot?: boolean
   familyId: string
   onApprovalComplete?: () => void
 }
 
-export default function TaskApproval({ currentUserId, currentUserRole, familyId, onApprovalComplete }: TaskApprovalProps) {
+export default function TaskApproval({ currentUserId, currentUserRole, isRoot, familyId, onApprovalComplete }: TaskApprovalProps) {
   const { t, language } = useI18n()
   const [pendingTasks, setPendingTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
@@ -64,7 +65,7 @@ export default function TaskApproval({ currentUserId, currentUserRole, familyId,
 
       tasksData = tasksData.filter(task => {
         const isCreator = task.createdBy === currentUserId
-        const isParent = currentUserRole === 'parent'
+        const isParent = currentUserRole === 'parent' || isRoot === true
         return isCreator || isParent
       })
 
