@@ -88,7 +88,7 @@ export default function TaskMonitoring({ currentUserId, profile }: TaskMonitorin
           return taskDate >= startDate
         })
 
-        const dailyTasks = filteredTasks.filter(t => t.type === 'daily' && !t.parentTaskId)
+        const dailyTasks = filteredTasks.filter(t => (t.type === 'daily' || t.type === 'recurring') && !t.parentTaskId)
         const weeklyTasks = filteredTasks.filter(t => t.type === 'weekly' && !t.parentTaskId)
         const monthlyTasks = filteredTasks.filter(t => t.type === 'monthly' && !t.parentTaskId)
 
