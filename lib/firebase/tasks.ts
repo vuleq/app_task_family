@@ -39,8 +39,8 @@ export interface Task {
   assignedToName: string
   createdBy: string
   createdByName?: string
-  status: 'pending' | 'in_progress' | 'completed' | 'approved'
-  type: 'daily' | 'weekly' | 'monthly'
+  status: 'pending' | 'in_progress' | 'completed' | 'approved' | 'expired'
+  type: 'daily' | 'weekly' | 'monthly' | 'recurring'
   category?: 'hoc' | 'khac' // Category: việc học hoặc việc khác
   xpReward: number
   coinReward: number
