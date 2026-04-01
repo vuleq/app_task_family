@@ -21,7 +21,8 @@ interface TaskTemplateListProps {
         selectedUsers: string[],
         users: UserProfile[],
         bulkXP: number | '',
-        bulkCoin: number | ''
+        bulkCoin: number | '',
+        bulkType: 'keep' | 'daily' | 'weekly' | 'monthly' | 'recurring'
     ) => void
 }
 
@@ -45,6 +46,7 @@ export default function TaskTemplateList({
     const [bulkXP, setBulkXP] = useState<number | ''>('')
     const [bulkCoin, setBulkCoin] = useState<number | ''>('')
     const [selectedUsers, setSelectedUsers] = useState<string[]>([])
+    const [bulkType, setBulkType] = useState<'keep' | 'daily' | 'weekly' | 'monthly' | 'recurring'>('keep')
 
     const filteredTemplates = templateFilter === 'all'
         ? templates
@@ -263,6 +265,26 @@ export default function TaskTemplateList({
                         </button>
                     </div>
 
+                    <div className="relative z-10 space-y-2 mb-2">
+                        <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest ml-1 flex items-center gap-2">
+                            📋 {language === 'vi' ? 'Loại nhiệm vụ' : 'Task Type'}
+                        </label>
+                        <div className="relative">
+                            <select
+                                value={bulkType}
+                                onChange={(e) => setBulkType(e.target.value as any)}
+                                className="w-full px-6 py-4 border-2 border-emerald-100 rounded-2xl bg-white text-emerald-900 font-black focus:border-emerald-300 outline-none transition-all appearance-none cursor-pointer shadow-inner pr-12"
+                            >
+                                <option value="keep">{language === 'vi' ? '📋 Giữ nguyên loại của từng mẫu' : '📋 Keep each template type'}</option>
+                                <option value="daily">📅 {t('tasks.taskTypeDaily')}</option>
+                                <option value="weekly">🗓️ {t('tasks.taskTypeWeekly')}</option>
+                                <option value="monthly">🌙 {t('tasks.taskTypeMonthly')}</option>
+                                <option value="recurring">🔁 {t('tasks.taskTypeRecurring')}</option>
+                            </select>
+                            <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-400 font-black">▼</div>
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
                         <div className="space-y-4">
                             <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest ml-1 flex items-center gap-2">
@@ -336,12 +358,13 @@ export default function TaskTemplateList({
                     <div className="pt-4 relative z-10">
                         <button
                             onClick={() => {
-                                onBulkCreate(selectedTemplates, selectedUsers, users, bulkXP, bulkCoin)
+                                onBulkCreate(selectedTemplates, selectedUsers, users, bulkXP, bulkCoin, bulkType)
                                 setShowBulkCreate(false)
                                 setSelectedTemplates([])
                                 setSelectedUsers([])
                                 setBulkXP('')
                                 setBulkCoin('')
+                                setBulkType('keep')
                             }}
                             disabled={selectedUsers.length === 0}
                             className="w-full btn-playful bg-emerald-500 text-white px-8 py-6 rounded-[2.5rem] text-xl font-black shadow-kid hover:bg-emerald-600 disabled:opacity-50 disabled:grayscale transition-all active:scale-95 flex items-center justify-center gap-4 group"

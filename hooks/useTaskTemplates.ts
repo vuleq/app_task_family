@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { getTaskTemplates, deleteTaskTemplate, TaskTemplate, createRecurringDailyTasks } from '@/lib/firebase/tasks'
+import { createRecurringTaskDef } from '@/lib/firebase/recurringTasks'
 import { UserProfile } from '@/lib/firebase/profile'
 import { addDoc, collection, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/config'
@@ -113,7 +114,8 @@ export function useTaskTemplates({ currentUser, profile, language, t, showToast,
         selectedUsers: string[],
         users: UserProfile[],
         bulkXP: number | '',
-        bulkCoin: number | ''
+        bulkCoin: number | '',
+        bulkType: 'keep' | 'daily' | 'weekly' | 'monthly' | 'recurring' = 'keep'
     ) => {
         if (!profile.isRoot) {
             showToast(language === 'vi' ? '⚠️ Chỉ bố mẹ (ông bà) mới có thể tạo nhiệm vụ!' : '⚠️ Only parents (grandparents) can create tasks!', 'error')
@@ -144,8 +146,24 @@ export function useTaskTemplates({ currentUser, profile, language, t, showToast,
                 for (const user of assignedUsers) {
                     try {
                         let taskIds: string[] = []
+                        const effectiveType = bulkType === 'keep' ? template.type : bulkType
 
-                        if (template.type === 'daily') {
+                        if (effectiveType === 'recurring') {
+                            const defIds = await createRecurringTaskDef(
+                                {
+                                    title: template.title,
+                                    description: template.description,
+                                    xpReward: finalXP,
+                                    coinReward: finalCoin,
+                                    category: template.category,
+                                },
+                                [{ id: user.id, name: user.name }],
+                                currentUser.uid,
+                                profile.name,
+                                profile.familyId || ''
+                            )
+                            taskIds = defIds
+                        } else if (effectiveType === 'daily') {
                             if (!db) throw new Error('Firestore chưa được khởi tạo')
                             const now = new Date()
                             const vietnamTime = new Date(now.getTime() + 7 * 60 * 60 * 1000)
@@ -168,8 +186,8 @@ export function useTaskTemplates({ currentUser, profile, language, t, showToast,
                                 taskDate: taskDate
                             })
                             taskIds.push(docRef.id)
-                        } else if (template.type === 'weekly' || template.type === 'monthly') {
-                            const days = template.type === 'weekly' ? 6 : 26
+                        } else if (effectiveType === 'weekly' || effectiveType === 'monthly') {
+                            const days = effectiveType === 'weekly' ? 6 : 26
                             const result = await createRecurringDailyTasks(
                                 {
                                     title: template.title,
@@ -183,7 +201,7 @@ export function useTaskTemplates({ currentUser, profile, language, t, showToast,
                                 currentUser.uid,
                                 profile.name,
                                 days,
-                                template.type,
+                                effectiveType,
                                 profile.familyId || ''
                             )
                             taskIds = result.dailyTaskIds
