@@ -311,7 +311,7 @@ export default function TaskTemplateList({
                                 ) : (
                                     users.filter(u => !u.isRoot && !u.isSuperRoot).map(user => (
                                         <label key={user.id} className={`flex items-center space-x-4 p-4 rounded-2xl cursor-pointer transition-all border-2 ${selectedUsers.includes(user.id) ? 'bg-white border-emerald-300 shadow-soft scale-[1.02]' : 'bg-white/50 border-transparent hover:bg-white'}`}>
-                                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all shadow-soft ${selectedUsers.includes(user.id) ? 'bg-emerald-500 border-white' : 'bg-white border-emerald-100'}`}>
+                                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all shadow-soft flex-shrink-0 ${selectedUsers.includes(user.id) ? 'bg-emerald-500 border-white' : 'bg-white border-emerald-100'}`}>
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedUsers.includes(user.id)}
@@ -320,11 +320,11 @@ export default function TaskTemplateList({
                                                 />
                                                 {selectedUsers.includes(user.id) && <span className="text-white text-xs font-black">✓</span>}
                                             </div>
-                                            <div className="flex items-center gap-3">
-                                               <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-xs font-black text-emerald-600 border border-emerald-200">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                               <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-xs font-black text-emerald-600 border border-emerald-200 flex-shrink-0">
                                                   {user.name.charAt(0)}
                                                </div>
-                                               <span className="text-sm font-black text-emerald-900 uppercase tracking-tight">{user.name}</span>
+                                               <span className="text-sm font-black text-emerald-900 uppercase tracking-tight truncate">{user.name}</span>
                                             </div>
                                         </label>
                                     ))

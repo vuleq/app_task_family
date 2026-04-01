@@ -23,8 +23,8 @@ export interface TaskTemplate {
   id: string
   title: string
   description: string
-  type: 'daily' | 'weekly' | 'monthly'
-  category?: 'hoc' | 'khac' // Category: việc học hoặc việc khác
+  type: 'daily' | 'weekly' | 'monthly' | 'recurring'
+  category?: 'hoc' | 'khac'
   xpReward: number
   coinReward: number
   createdBy: string
