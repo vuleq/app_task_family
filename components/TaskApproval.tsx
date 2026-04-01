@@ -25,7 +25,7 @@ interface Task {
   createdBy: string
   createdByName?: string
   status: string
-  type: 'daily' | 'weekly' | 'monthly'
+  type: 'daily' | 'weekly' | 'monthly' | 'recurring'
   xpReward: number
   coinReward: number
   evidence?: string
@@ -96,7 +96,9 @@ export default function TaskApproval({ currentUserId, currentUserRole, familyId,
   const handleApprove = async (task: Task) => {
     try {
       const { canCompleteTask } = await import('@/lib/firebase/taskLimits')
-      const limitCheck = await canCompleteTask(task.assignedTo, task.type, task.coinReward, familyId)
+      // recurring tasks dùng limit của daily
+      const limitType = (task.type === 'recurring' ? 'daily' : task.type) as 'daily' | 'weekly' | 'monthly'
+      const limitCheck = await canCompleteTask(task.assignedTo, limitType, task.coinReward, familyId)
       
       if (!limitCheck.allowed) {
         setToast({ 

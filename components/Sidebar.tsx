@@ -308,14 +308,24 @@ export default function Sidebar({ profile, onUpdate, onThemeChange }: SidebarPro
                 {/* Bottom Actions */}
                 <div className="relative px-4 py-4 border-t border-white/10 space-y-2">
                     <button
-                        onClick={() => setLanguage(language === 'vi' ? 'en' : 'vi')}
+                        onClick={() => {
+                            const langs: ('vi' | 'en' | 'ja' | 'es')[] = ['vi', 'en', 'ja', 'es']
+                            const next = langs[(langs.indexOf(language as any) + 1) % langs.length]
+                            setLanguage(next)
+                        }}
                         className="w-full flex items-center justify-between px-3 py-3 text-white/70 hover:text-white hover:bg-white/10 rounded-2xl transition-all font-black active:scale-95 group border border-transparent hover:border-white/10"
                     >
                         <div className="flex items-center gap-3 text-sm">
-                            <span className="text-xl group-hover:scale-125 transition-transform duration-300">{language === 'vi' ? '🇻🇳' : '🇺🇸'}</span>
-                            <span className="uppercase tracking-tight">{language === 'vi' ? 'Tiếng Việt' : 'English'}</span>
+                            <span className="text-xl group-hover:scale-125 transition-transform duration-300">
+                                {language === 'vi' ? '🇻🇳' : language === 'ja' ? '🇯🇵' : language === 'es' ? '🇪🇸' : '🇺🇸'}
+                            </span>
+                            <span className="uppercase tracking-tight">
+                                {language === 'vi' ? 'Tiếng Việt' : language === 'ja' ? '日本語' : language === 'es' ? 'Español' : 'English'}
+                            </span>
                         </div>
-                        <span className="text-[9px] font-black text-violet-300 bg-white/10 px-2 py-1 rounded-full">{language === 'vi' ? 'VI' : 'EN'}</span>
+                        <span className="text-[9px] font-black text-violet-300 bg-white/10 px-2 py-1 rounded-full">
+                            {language.toUpperCase()}
+                        </span>
                     </button>
 
                     <button
