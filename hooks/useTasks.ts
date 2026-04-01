@@ -13,6 +13,7 @@ import {
     ensureRecurringTasksForToday,
     expireOverdueRecurringTasks,
     createRecurringTaskDef,
+    ensureRecurringTasksForFamily,
 } from '@/lib/firebase/recurringTasks'
 import { getTaskStats } from '@/lib/firebase/taskLimits'
 import { getCompletionProgress } from '@/lib/firebase/completionRewards'
@@ -89,7 +90,10 @@ export function useTasks({ currentUser, profile, language, t, showToast, onTaskC
             // Expire overdue recurring tasks, then generate today's instances for this user
             try {
                 await expireOverdueRecurringTasks(profile.familyId)
-                if (!profile.isRoot) {
+                if (profile.isRoot) {
+                    // Root generates for ALL members so they don't need to open app first
+                    await ensureRecurringTasksForFamily(profile.familyId)
+                } else {
                     await ensureRecurringTasksForToday(profile.familyId, currentUser.uid)
                 }
             } catch (error) {

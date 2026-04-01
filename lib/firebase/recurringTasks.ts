@@ -175,3 +175,70 @@ export const createRecurringTaskDef = async (
 
   return ids
 }
+
+/**
+ * Called by root on load: expire overdue tasks + generate today's recurring instances
+ * for ALL members in the family (so members don't need to open app first).
+ */
+export const ensureRecurringTasksForFamily = async (familyId: string): Promise<void> => {
+  const db_ = checkDb()
+
+  // 1. Expire overdue tasks for the whole family
+  await expireOverdueRecurringTasks(familyId)
+
+  // 2. Get all active recurring defs for this family
+  const defsSnap = await getDocs(
+    query(
+      collection(db_, 'recurringTaskDefs'),
+      where('familyId', '==', familyId),
+      where('active', '==', true)
+    )
+  )
+  if (defsSnap.empty) return
+
+  const today = getVietnamDateString()
+
+  // 3. Get all recurring task instances already created today for this family
+  const existingSnap = await getDocs(
+    query(
+      collection(db_, 'tasks'),
+      where('familyId', '==', familyId),
+      where('taskDate', '==', today),
+      where('type', '==', 'recurring')
+    )
+  )
+  const existingDefIds = new Set(
+    existingSnap.docs.map(d => d.data().recurringDefId as string).filter(Boolean)
+  )
+
+  // 4. Create missing instances
+  const creates: Promise<any>[] = []
+  defsSnap.forEach(defDoc => {
+    if (existingDefIds.has(defDoc.id)) return
+    const def = defDoc.data()
+    creates.push(
+      addDoc(collection(db_, 'tasks'), {
+        title: def.title,
+        description: def.description,
+        type: 'recurring',
+        category: def.category || null,
+        assignedTo: def.assignedTo,
+        assignedToName: def.assignedToName,
+        createdBy: def.createdBy,
+        createdByName: def.createdByName,
+        status: 'pending',
+        xpReward: def.xpReward,
+        coinReward: def.coinReward,
+        familyId,
+        createdAt: Timestamp.now(),
+        taskDate: today,
+        recurringDefId: defDoc.id,
+        expiresAt: Timestamp.fromDate(
+          new Date(getVietnamMidnightToday().getTime() + 24 * 60 * 60 * 1000)
+        ),
+      })
+    )
+  })
+
+  await Promise.all(creates)
+}
