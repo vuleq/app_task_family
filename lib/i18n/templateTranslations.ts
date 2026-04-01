@@ -57,24 +57,22 @@ export const templateTitleTranslations: Record<string, string> = {
   'Không dùng thiết bị điện tử quá giờ': 'No electronic devices after hours',
 }
 
+import { Language } from './translations'
+
 /**
  * Get translated template title based on current language
  */
-export function getTranslatedTemplateTitle(title: string, language: 'vi' | 'en'): string {
-  if (language === 'vi') {
-    return title // Return original Vietnamese title
-  }
-  // Return English translation if available, otherwise return original
+export function getTranslatedTemplateTitle(title: string, language: Language): string {
+  if (language === 'vi') return title
+  // ja/es: fallback to English translation
   return templateTitleTranslations[title] || title
 }
 
 /**
  * Get translated task title (handles prefix format: "Nhiệm vụ ngày - Việc học - Title")
  */
-export function getTranslatedTaskTitle(title: string, language: 'vi' | 'en'): string {
-  if (language === 'vi') {
-    return title // Return original Vietnamese title
-  }
+export function getTranslatedTaskTitle(title: string, language: Language): string {
+  if (language === 'vi') return title
   
   // Check if title has prefix format: "Nhiệm vụ ngày/tuần/tháng - Việc học/khác - Template Title"
   const prefixPattern = /^(Nhiệm vụ (ngày|tuần|tháng)) - (Việc (học|khác)) - (.+)$/
