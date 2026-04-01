@@ -131,7 +131,11 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
       if (task.assignedTo !== currentUser.uid) return false
+      if (task.status === 'expired') return false // excluded from main list, shown in expired section
       if (task.type === 'daily' && task.taskDate) {
+        if (task.taskDate !== selectedDate) return false
+      }
+      if (task.type === 'recurring' && task.taskDate) {
         if (task.taskDate !== selectedDate) return false
       }
       if (categoryFilter !== 'all') {
@@ -346,6 +350,42 @@ export default function TasksList({ currentUser, profile, onTaskComplete }: Task
               )}
             </div>
           )}
+
+          {/* Expired recurring tasks section */}
+          {!profile.isRoot && (() => {
+            const expiredTasks = tasks.filter(t => t.assignedTo === currentUser.uid && t.status === 'expired')
+            if (expiredTasks.length === 0) return null
+            return (
+              <div className="mt-6">
+                <h4 className="text-base font-black text-red-400 flex items-center gap-2 uppercase tracking-tight mb-3">
+                  <span className="p-1.5 bg-red-50 rounded-xl">⏰</span>
+                  {t('tasks.expiredTasks')}
+                  <span className="bg-red-100 text-red-500 text-xs font-black px-2 py-0.5 rounded-full border border-red-200">
+                    {t('tasks.expiredTasksCount').replace('{count}', expiredTasks.length.toString())}
+                  </span>
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3">
+                  {expiredTasks.map(task => (
+                    <div key={task.id} className="relative opacity-60 grayscale-[40%]">
+                      <div className="absolute top-2 right-2 z-10 bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">
+                        {t('tasks.expiredBadge')}
+                      </div>
+                      <TaskItem
+                        task={task}
+                        profile={profile}
+                        language={language}
+                        t={t}
+                        onStart={handleStartTask}
+                        onComplete={handleCompleteTask}
+                        onDelete={handleDeleteTask}
+                        onEvidenceUploaded={loadTasks}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
 
           {tasks.length === 0 && !loadingTasks && (
             <div className="text-center py-24 bg-gradient-to-br from-violet-50 to-white rounded-[3rem] border-4 border-violet-100 shadow-kid relative overflow-hidden">

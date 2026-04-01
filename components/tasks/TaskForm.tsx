@@ -9,13 +9,13 @@ interface TaskFormProps {
     initialData?: {
         title: string
         description: string
-        type: 'daily' | 'weekly' | 'monthly'
+        type: 'daily' | 'weekly' | 'monthly' | 'recurring'
         xpReward: number
         coinReward: number
         category?: 'hoc' | 'khac' | ''
     } | null
     onSubmit: (
-        taskData: { title: string; description: string; type: 'daily' | 'weekly' | 'monthly'; xpReward: number; coinReward: number; category?: 'hoc' | 'khac' },
+        taskData: { title: string; description: string; type: 'daily' | 'weekly' | 'monthly' | 'recurring'; xpReward: number; coinReward: number; category?: 'hoc' | 'khac' },
         selectedUsers: string[],
         saveAsTemplate: boolean
     ) => void
@@ -25,7 +25,7 @@ interface TaskFormProps {
 export default function TaskForm({ users, currentUser, language, t, initialData, onSubmit, onCancel }: TaskFormProps) {
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
-    const [type, setType] = useState<'daily' | 'weekly' | 'monthly'>('daily')
+    const [type, setType] = useState<'daily' | 'weekly' | 'monthly' | 'recurring'>('daily')
     const [xpReward, setXpReward] = useState(10)
     const [coinReward, setCoinReward] = useState(5)
     const [category, setCategory] = useState<'hoc' | 'khac' | ''>('')
@@ -111,11 +111,13 @@ export default function TaskForm({ users, currentUser, language, t, initialData,
                                 <option value="daily">📅 {t('tasks.taskTypeDaily')}</option>
                                 <option value="weekly">🗓️ {t('tasks.taskTypeWeekly')}</option>
                                 <option value="monthly">🌙 {t('tasks.taskTypeMonthly')}</option>
+                                <option value="recurring">🔁 {t('tasks.taskTypeRecurring')}</option>
                             </select>
                             <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-violet-400 font-black">▼</div>
                         </div>
                         {type === 'weekly' && <p className="text-[10px] text-accent-500 font-black mt-2 ml-1 animate-pulse flex items-center gap-1"><span>ℹ️</span> {t('tasks.weeklyTaskInfo')}</p>}
                         {type === 'monthly' && <p className="text-[10px] text-accent-500 font-black mt-2 ml-1 animate-pulse flex items-center gap-1"><span>ℹ️</span> {t('tasks.monthlyTaskInfo')}</p>}
+                        {type === 'recurring' && <p className="text-[10px] text-accent-500 font-black mt-2 ml-1 animate-pulse flex items-center gap-1"><span>ℹ️</span> {t('tasks.recurringTaskInfo')}</p>}
                     </div>
 
                     <div className="space-y-2">
@@ -220,10 +222,11 @@ export default function TaskForm({ users, currentUser, language, t, initialData,
                         className="w-full btn-playful bg-violet-600 text-white px-8 py-5 rounded-[2rem] text-xl font-black shadow-kid hover:bg-violet-700 disabled:opacity-50 disabled:grayscale transition-all active:scale-95 flex items-center justify-center gap-3 group"
                     >
                         <span className="text-2xl transition-transform group-hover:rotate-12">
-                            {type === 'daily' ? '🚀' : type === 'weekly' ? '🔥' : '💎'}
+                            {type === 'daily' ? '🚀' : type === 'weekly' ? '🔥' : type === 'recurring' ? '🔁' : '💎'}
                         </span>
                         {type === 'daily' ? t('tasks.addTask') :
                             type === 'weekly' ? (language === 'vi' ? 'Tạo 6 nhiệm vụ ngày' : 'Create 6 daily tasks') :
+                            type === 'recurring' ? (language === 'vi' ? 'Tạo nhiệm vụ lặp lại' : 'Create recurring task') :
                                 (language === 'vi' ? 'Tạo 26 nhiệm vụ ngày' : 'Create 26 daily tasks')}
                     </button>
                 </div>

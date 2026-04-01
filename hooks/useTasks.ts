@@ -9,6 +9,11 @@ import {
     deleteMultipleTasks,
     saveTaskTemplate
 } from '@/lib/firebase/tasks'
+import {
+    ensureRecurringTasksForToday,
+    expireOverdueRecurringTasks,
+    createRecurringTaskDef,
+} from '@/lib/firebase/recurringTasks'
 import { getTaskStats } from '@/lib/firebase/taskLimits'
 import { getCompletionProgress } from '@/lib/firebase/completionRewards'
 
@@ -20,8 +25,8 @@ export interface Task {
     assignedToName: string
     createdBy: string
     createdByName?: string
-    status: 'pending' | 'in_progress' | 'completed' | 'approved'
-    type: 'daily' | 'weekly' | 'monthly'
+    status: 'pending' | 'in_progress' | 'completed' | 'approved' | 'expired'
+    type: 'daily' | 'weekly' | 'monthly' | 'recurring'
     category?: 'hoc' | 'khac'
     xpReward: number
     coinReward: number
@@ -36,6 +41,8 @@ export interface Task {
     groupKey?: string
     requiredCount?: number
     completedCount?: number
+    recurringDefId?: string
+    expiresAt?: any
 }
 
 interface UseTasksProps {
@@ -79,6 +86,16 @@ export function useTasks({ currentUser, profile, language, t, showToast, onTaskC
 
             if (!profile.familyId) return
 
+            // Expire overdue recurring tasks, then generate today's instances for this user
+            try {
+                await expireOverdueRecurringTasks(profile.familyId)
+                if (!profile.isRoot) {
+                    await ensureRecurringTasksForToday(profile.familyId, currentUser.uid)
+                }
+            } catch (error) {
+                console.error('Error handling recurring tasks:', error)
+            }
+
             const tasksRef = collection(db, 'tasks')
             const q = query(tasksRef, where('familyId', '==', profile.familyId))
             const snapshot = await getDocs(q)
@@ -113,7 +130,7 @@ export function useTasks({ currentUser, profile, language, t, showToast, onTaskC
     }, [currentUser.uid, profile.isRoot, profile.familyId])
 
     const handleAddTask = async (
-        newTask: { title: string, description: string, type: 'daily' | 'weekly' | 'monthly', xpReward: number, coinReward: number, category?: 'hoc' | 'khac' },
+        newTask: { title: string, description: string, type: 'daily' | 'weekly' | 'monthly' | 'recurring', xpReward: number, coinReward: number, category?: 'hoc' | 'khac' },
         selectedUsers: string[],
         users: UserProfile[],
         saveAsTemplate: boolean
@@ -182,6 +199,21 @@ export function useTasks({ currentUser, profile, language, t, showToast, onTaskC
                         profile.familyId || ''
                     )
                     taskIds = result.dailyTaskIds
+                } else if (newTask.type === 'recurring') {
+                    const defIds = await createRecurringTaskDef(
+                        {
+                            title: newTask.title,
+                            description: newTask.description,
+                            xpReward: newTask.xpReward,
+                            coinReward: newTask.coinReward,
+                            category: newTask.category,
+                        },
+                        [{ id: user.id, name: user.name }],
+                        currentUser.uid,
+                        profile.name,
+                        profile.familyId || ''
+                    )
+                    taskIds = defIds
                 }
                 totalTaskIds = [...totalTaskIds, ...taskIds]
             }
@@ -190,7 +222,7 @@ export function useTasks({ currentUser, profile, language, t, showToast, onTaskC
                 await saveTaskTemplate(
                     newTask.title,
                     newTask.description,
-                    newTask.type,
+                    newTask.type === 'recurring' ? 'daily' : newTask.type,
                     newTask.xpReward,
                     newTask.coinReward,
                     currentUser.uid,
@@ -206,6 +238,8 @@ export function useTasks({ currentUser, profile, language, t, showToast, onTaskC
                 message = t('tasks.taskCreatedWeekly').replace('{userCount}', userCount.toString()).replace('{dailyCount}', totalTaskIds.length.toString())
             } else if (newTask.type === 'monthly') {
                 message = t('tasks.taskCreatedMonthly').replace('{userCount}', userCount.toString()).replace('{dailyCount}', totalTaskIds.length.toString())
+            } else if (newTask.type === 'recurring') {
+                message = t('tasks.taskCreatedRecurring').replace('{userCount}', userCount.toString())
             } else {
                 message = t('tasks.taskCreatedDaily').replace('{userCount}', userCount.toString()).replace('{taskCount}', totalTaskIds.length.toString())
             }

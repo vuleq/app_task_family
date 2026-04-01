@@ -62,6 +62,14 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == resource.data.createdBy;
     }
 
+    // Recurring Task Definitions - created by root, read by assigned member
+    match /recurringTaskDefs/{defId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && request.auth.uid == resource.data.createdBy;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.createdBy;
+    }
+
     // Rewards/Shop collection
     match /rewards/{rewardId} {
       allow read: if request.auth != null;

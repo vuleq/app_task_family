@@ -104,6 +104,13 @@ export const translations = {
       completionDays: 'ngày',
       completionWeeks: 'tuần',
       completionRewardReceived: 'Đã nhận thưởng',
+      taskTypeRecurring: '🔁 Nhiệm vụ lặp lại hàng ngày',
+      recurringTaskInfo: 'ℹ️ Tự động xuất hiện mỗi ngày. Hết hạn lúc 00:00 (giờ VN) nếu chưa hoàn thành.',
+      taskCreatedRecurring: 'Đã tạo nhiệm vụ lặp lại!\n- {userCount} người được giao\n- Tự động xuất hiện mỗi ngày',
+      expiredTasks: 'Nhiệm vụ hết hạn',
+      expiredTasksCount: '{count} nhiệm vụ hết hạn',
+      expiredBadge: 'Hết hạn',
+      noExpiredTasks: 'Không có nhiệm vụ hết hạn',
     },
     // Profile
     profile: {
@@ -344,6 +351,13 @@ export const translations = {
       completionDays: 'days',
       completionWeeks: 'weeks',
       completionRewardReceived: 'Reward received',
+      taskTypeRecurring: '🔁 Recurring Daily Task',
+      recurringTaskInfo: 'ℹ️ Appears automatically every day. Expires at midnight (Vietnam time) if not completed.',
+      taskCreatedRecurring: 'Recurring task created!\n- {userCount} people assigned\n- Appears automatically every day',
+      expiredTasks: 'Expired Tasks',
+      expiredTasksCount: '{count} expired tasks',
+      expiredBadge: 'Expired',
+      noExpiredTasks: 'No expired tasks',
     },
     // Profile
     profile: {
