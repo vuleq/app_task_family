@@ -162,47 +162,46 @@ export const REWARD_IMAGE_BY_ID: Record<string, string> = {
  */
 
 // Item pools dùng chung cho từng tier
-// Xác suất = weight / tổng weight của tier đó
-const TIER_POOLS = {
-  // 50 coins: XP50(55%) XP100(35%) Pack39k(10%)
+// Tất cả phần thưởng có xác suất đều nhau (weight bằng nhau)
+export const TIER_POOLS = {
+  // 50 coins: XP50 | XP100 | Pack39k (mỗi loại ~33%)
   tier1: [
-    { id: 'xp50_coins',  type: 'xp',     name: 'XP 50 + Coins',       value: 50,  rarity: 'common', weight: 55, image: REWARD_URLS.xp50coins,  description: 'Nhận 50 XP + Coins' },
-    { id: 'xp100_coins', type: 'xp',     name: 'XP 100 + Coins',      value: 100, rarity: 'common', weight: 35, image: REWARD_URLS.xp100coins, description: 'Nhận 100 XP + Coins' },
-    { id: 'fifa39k',     type: 'special', name: 'Gói Thẻ Cầu Thủ 39k', value: 1,  rarity: 'rare',   weight: 10, image: REWARD_URLS.fifa39k,    description: 'Gói thẻ cầu thủ FIFA 365 2026' },
+    { id: 'xp50_coins',  type: 'xp',      name: 'XP 50 + Coins',        value: 50,  rarity: 'common', weight: 1, image: REWARD_URLS.xp50coins,  description: 'Nhận 50 XP + Coins' },
+    { id: 'xp100_coins', type: 'xp',      name: 'XP 100 + Coins',       value: 100, rarity: 'common', weight: 1, image: REWARD_URLS.xp100coins, description: 'Nhận 100 XP + Coins' },
+    { id: 'fifa39k',     type: 'special', name: 'Gói Thẻ Cầu Thủ 39k',  value: 1,   rarity: 'rare',   weight: 1, image: REWARD_URLS.fifa39k,    description: 'Gói thẻ cầu thủ FIFA 365 2026' },
   ] as ChestItem[],
 
-  // 100 coins: XP100(45%) XP200(35%) Pack39k(20%)
+  // 150 coins: XP100 | XP200 | Pack39k (mỗi loại ~33%)
   tier2: [
-    { id: 'xp100_coins', type: 'xp',     name: 'XP 100 + Coins',       value: 100, rarity: 'common', weight: 45, image: REWARD_URLS.xp100coins, description: 'Nhận 100 XP + Coins' },
-    { id: 'xp200_coins', type: 'xp',     name: 'XP 200 + Coins',       value: 200, rarity: 'rare',   weight: 35, image: REWARD_URLS.xp200coins, description: 'Nhận 200 XP + Coins' },
-    { id: 'fifa39k',     type: 'special', name: 'Gói Thẻ Cầu Thủ 39k', value: 1,   rarity: 'rare',   weight: 20, image: REWARD_URLS.fifa39k,    description: 'Gói thẻ cầu thủ FIFA 365 2026' },
+    { id: 'xp100_coins', type: 'xp',      name: 'XP 100 + Coins',       value: 100, rarity: 'common', weight: 1, image: REWARD_URLS.xp100coins, description: 'Nhận 100 XP + Coins' },
+    { id: 'xp200_coins', type: 'xp',      name: 'XP 200 + Coins',       value: 200, rarity: 'rare',   weight: 1, image: REWARD_URLS.xp200coins, description: 'Nhận 200 XP + Coins' },
+    { id: 'fifa39k',     type: 'special', name: 'Gói Thẻ Cầu Thủ 39k',  value: 1,   rarity: 'rare',   weight: 1, image: REWARD_URLS.fifa39k,    description: 'Gói thẻ cầu thủ FIFA 365 2026' },
   ] as ChestItem[],
 
-  // 150 coins: XP200(42%) Pack39k(32%) CGV(26%)
+  // 200 coins: XP100 | XP200 | Pack39k | Vé phim (mỗi loại 25%)
   tier3: [
-    { id: 'xp200_coins', type: 'xp',     name: 'XP 200 + Coins',       value: 200, rarity: 'rare', weight: 42, image: REWARD_URLS.xp200coins, description: 'Nhận 200 XP + Coins' },
-    { id: 'fifa39k',     type: 'special', name: 'Gói Thẻ Cầu Thủ 39k', value: 1,   rarity: 'epic', weight: 32, image: REWARD_URLS.fifa39k,    description: 'Gói thẻ cầu thủ FIFA 365 2026' },
-    { id: 'cgv_ticket',  type: 'special', name: 'Vé Xem Phim CGV',      value: 1,   rarity: 'epic', weight: 26, image: REWARD_URLS.cgvTicket,  description: 'Vé xem phim rạp CGV' },
+    { id: 'xp100_coins', type: 'xp',      name: 'XP 100 + Coins',       value: 100, rarity: 'common', weight: 1, image: REWARD_URLS.xp100coins, description: 'Nhận 100 XP + Coins' },
+    { id: 'xp200_coins', type: 'xp',      name: 'XP 200 + Coins',       value: 200, rarity: 'rare',   weight: 1, image: REWARD_URLS.xp200coins, description: 'Nhận 200 XP + Coins' },
+    { id: 'fifa39k',     type: 'special', name: 'Gói Thẻ Cầu Thủ 39k',  value: 1,   rarity: 'rare',   weight: 1, image: REWARD_URLS.fifa39k,    description: 'Gói thẻ cầu thủ FIFA 365 2026' },
+    { id: 'cgv_ticket',  type: 'special', name: 'Vé Xem Phim CGV',      value: 1,   rarity: 'epic',   weight: 1, image: REWARD_URLS.cgvTicket,  description: 'Vé xem phim rạp CGV' },
   ] as ChestItem[],
 
-  // 200 coins: XP500(40%) Pack39k(22%) CGV(18%) Premium175k(12%) FIFA365(4%) Punkverse(4%)
+  // 300 coins: Pack39k | Premium175k | Vé phim (mỗi loại ~33%) — giới hạn 2 lần/tuần
   tier4: [
-    { id: 'xp500_coins',       type: 'xp',     name: 'XP 500 + Coins',          value: 500, rarity: 'epic',      weight: 40, image: REWARD_URLS.xp500coins,      description: 'Nhận 500 XP + Coins' },
-    { id: 'fifa39k',           type: 'special', name: 'Gói Thẻ Cầu Thủ 39k',   value: 1,   rarity: 'rare',      weight: 22, image: REWARD_URLS.fifa39k,          description: 'Gói thẻ cầu thủ FIFA 365 2026' },
-    { id: 'cgv_ticket',        type: 'special', name: 'Vé Xem Phim CGV',        value: 1,   rarity: 'rare',      weight: 18, image: REWARD_URLS.cgvTicket,        description: 'Vé xem phim rạp CGV' },
-    { id: 'fifa_premium_175k', type: 'special', name: 'Gói Thẻ Premium 175k',   value: 1,   rarity: 'epic',      weight: 12, image: REWARD_URLS.fifaPremium175k,  description: 'Hộp thẻ hình Adrenalyn Premium 175k' },
-    { id: 'fifa365_box_209k',  type: 'special', name: 'Hộp Thẻ FIFA 365 209k',  value: 1,   rarity: 'legendary', weight: 4,  image: REWARD_URLS.fifa365box,       description: 'Hộp thẻ hình Panini FIFA 365 2026' },
-    { id: 'punkverse_ticket',  type: 'special', name: 'Vé Punkverse',            value: 1,   rarity: 'legendary', weight: 4,  image: REWARD_URLS.punkverse,        description: 'Vé tham dự sự kiện Punkverse' },
+    { id: 'fifa39k',           type: 'special', name: 'Gói Thẻ Cầu Thủ 39k',  value: 1, rarity: 'rare',      weight: 1, image: REWARD_URLS.fifa39k,         description: 'Gói thẻ cầu thủ FIFA 365 2026' },
+    { id: 'fifa_premium_175k', type: 'special', name: 'Gói Thẻ Premium 175k',  value: 1, rarity: 'epic',      weight: 1, image: REWARD_URLS.fifaPremium175k, description: 'Hộp thẻ hình Adrenalyn Premium 175k' },
+    { id: 'cgv_ticket',        type: 'special', name: 'Vé Xem Phim CGV',       value: 1, rarity: 'rare',      weight: 1, image: REWARD_URLS.cgvTicket,       description: 'Vé xem phim rạp CGV' },
   ] as ChestItem[],
 
-  // 300 coins: Punkverse(30%) FIFA365(30%) Premium175k(20%) CGV(12%) Pack39k(8%)
-  // Punkverse có cooldown 2 tuần (xử lý trong openChest)
+  // 500 coins: XP500 | Pack39k | Premium175k | Hộp209k | Vé phim | Vé Punkverse (mỗi loại ~17%)
+  // Punkverse có cooldown 1 tuần (xử lý trong openChest)
   tier5: [
-    { id: 'punkverse_ticket',  type: 'special', name: 'Vé Punkverse',            value: 1, rarity: 'legendary', weight: 30, image: REWARD_URLS.punkverse,        description: 'Vé tham dự sự kiện Punkverse' },
-    { id: 'fifa365_box_209k',  type: 'special', name: 'Hộp Thẻ FIFA 365 209k',  value: 1, rarity: 'legendary', weight: 30, image: REWARD_URLS.fifa365box,       description: 'Hộp thẻ hình Panini FIFA 365 2026' },
-    { id: 'fifa_premium_175k', type: 'special', name: 'Gói Thẻ Premium 175k',   value: 1, rarity: 'epic',      weight: 20, image: REWARD_URLS.fifaPremium175k,  description: 'Hộp thẻ hình Adrenalyn Premium 175k' },
-    { id: 'cgv_ticket',        type: 'special', name: 'Vé Xem Phim CGV',        value: 1, rarity: 'rare',      weight: 12, image: REWARD_URLS.cgvTicket,        description: 'Vé xem phim rạp CGV' },
-    { id: 'fifa39k',           type: 'special', name: 'Gói Thẻ Cầu Thủ 39k',   value: 1, rarity: 'rare',      weight: 8,  image: REWARD_URLS.fifa39k,          description: 'Gói thẻ cầu thủ FIFA 365 2026' },
+    { id: 'xp500_coins',       type: 'xp',      name: 'XP 500 + Coins',        value: 500, rarity: 'epic',      weight: 1, image: REWARD_URLS.xp500coins,      description: 'Nhận 500 XP + Coins' },
+    { id: 'fifa39k',           type: 'special', name: 'Gói Thẻ Cầu Thủ 39k',  value: 1,   rarity: 'rare',      weight: 1, image: REWARD_URLS.fifa39k,         description: 'Gói thẻ cầu thủ FIFA 365 2026' },
+    { id: 'fifa_premium_175k', type: 'special', name: 'Gói Thẻ Premium 175k',  value: 1,   rarity: 'epic',      weight: 1, image: REWARD_URLS.fifaPremium175k, description: 'Hộp thẻ hình Adrenalyn Premium 175k' },
+    { id: 'fifa365_box_209k',  type: 'special', name: 'Hộp Thẻ FIFA 365 209k', value: 1,   rarity: 'legendary', weight: 1, image: REWARD_URLS.fifa365box,      description: 'Hộp thẻ hình Panini FIFA 365 2026' },
+    { id: 'cgv_ticket',        type: 'special', name: 'Vé Xem Phim CGV',       value: 1,   rarity: 'rare',      weight: 1, image: REWARD_URLS.cgvTicket,       description: 'Vé xem phim rạp CGV' },
+    { id: 'punkverse_ticket',  type: 'special', name: 'Vé Punkverse',           value: 1,   rarity: 'legendary', weight: 1, image: REWARD_URLS.punkverse,       description: 'Vé tham dự sự kiện Punkverse' },
   ] as ChestItem[],
 }
 
@@ -211,22 +210,22 @@ export const CHEST_TIER_CONFIGS = [
   { name: 'Rương Đồng',   cost: 50,  chestType: 'wood',      itemPool: TIER_POOLS.tier1 },
   { name: 'Rương Cosmic', cost: 50,  chestType: 'cosmic',    itemPool: TIER_POOLS.tier1 },
 
-  // ── Tier 2: 100 coins ─────────────────────────────────────
-  { name: 'Rương Bạc',   cost: 100, chestType: 'silver',    itemPool: TIER_POOLS.tier2 },
-  { name: 'Rương Kẹo',   cost: 100, chestType: 'candy',     itemPool: TIER_POOLS.tier2 },
+  // ── Tier 2: 150 coins ─────────────────────────────────────
+  { name: 'Rương Vàng',  cost: 150, chestType: 'gold',      itemPool: TIER_POOLS.tier2 },
+  { name: 'Rương Rừng',  cost: 150, chestType: 'nature',    itemPool: TIER_POOLS.tier2 },
 
-  // ── Tier 3: 150 coins ─────────────────────────────────────
-  { name: 'Rương Vàng',  cost: 150, chestType: 'gold',      itemPool: TIER_POOLS.tier3 },
-  { name: 'Rương Rừng',  cost: 150, chestType: 'nature',    itemPool: TIER_POOLS.tier3 },
+  // ── Tier 3: 200 coins ─────────────────────────────────────
+  { name: 'Rương Bí Ẩn', cost: 200, chestType: 'mystery',   itemPool: TIER_POOLS.tier3 },
+  { name: 'Rương Tech',  cost: 200, chestType: 'tech',      itemPool: TIER_POOLS.tier3 },
 
-  // ── Tier 4: 200 coins ─────────────────────────────────────
-  { name: 'Rương Bí Ẩn', cost: 200, chestType: 'mystery',   itemPool: TIER_POOLS.tier4 },
-  { name: 'Rương Tech',  cost: 200, chestType: 'tech',      itemPool: TIER_POOLS.tier4 },
+  // ── Tier 4: 300 coins, giới hạn 2 lần/tuần ───────────────
+  { name: 'Rương Huyền Thoại', cost: 300, chestType: 'legendary', maxPerWeek: 2, itemPool: TIER_POOLS.tier4 },
+  { name: 'Rương Băng',        cost: 300, chestType: 'frozen',    maxPerWeek: 2, itemPool: TIER_POOLS.tier4 },
 
-  // ── Tier 5: 300 coins, giới hạn 2 lần/tuần ───────────────
-  // Punkverse có cooldown 2 tuần riêng → tối đa 1 vé/2 tuần dù mua bao nhiêu lần
-  { name: 'Rương Huyền Thoại', cost: 300, chestType: 'legendary', maxPerWeek: 2, itemPool: TIER_POOLS.tier5 },
-  { name: 'Rương Băng',        cost: 300, chestType: 'frozen',    maxPerWeek: 2, itemPool: TIER_POOLS.tier5 },
+  // ── Tier 5: 500 coins ─────────────────────────────────────
+  // Punkverse cooldown 1 tuần → tối đa 1 vé/tuần dù mở bao nhiêu rương
+  { name: 'Rương Bạc',   cost: 500, chestType: 'silver',    itemPool: TIER_POOLS.tier5 },
+  { name: 'Rương Kẹo',   cost: 500, chestType: 'candy',     itemPool: TIER_POOLS.tier5 },
 ]
 
 // Danh sách item mặc định cho các loại rương
@@ -522,10 +521,31 @@ export const openChest = async (userChestId: string, userId: string): Promise<Ch
   const userProfile = await getProfile(userId)
   if (!userProfile) throw new Error('Không tìm thấy thông tin người dùng')
 
-  // Punkverse cooldown: nếu nhận trong vòng 2 tuần → loại khỏi pool lần này
-  const twoWeeksAgo = Timestamp.fromMillis(Timestamp.now().toMillis() - 14 * 24 * 60 * 60 * 1000)
-  const lastPunkverseAt = userProfile.lastPunkverseAt as Timestamp | undefined
-  const punkverseOnCooldown = lastPunkverseAt && lastPunkverseAt.toMillis() >= twoWeeksAgo.toMillis()
+  // Punkverse giới hạn 2 lần/tuần: đếm số vé đã nhận từ đầu tuần (Thứ 2)
+  const now = new Date()
+  const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1 // 0=Mon … 6=Sun
+  const weekStart = new Date(now)
+  weekStart.setDate(now.getDate() - dayOfWeek)
+  weekStart.setHours(0, 0, 0, 0)
+  const weekStartTs = Timestamp.fromMillis(weekStart.getTime())
+
+  const punkverseThisWeekSnap = await getDocs(
+    query(
+      collection(checkDb(), 'userChests'),
+      where('userId', '==', userId),
+      where('opened', '==', true)
+    )
+  )
+  const punkverseThisWeekCount = punkverseThisWeekSnap.docs.filter(d => {
+    const data = d.data()
+    return (
+      data.receivedItem?.id === 'punkverse_ticket' &&
+      data.openedAt &&
+      (data.openedAt as Timestamp).toMillis() >= weekStartTs.toMillis()
+    )
+  }).length
+
+  const punkverseOnCooldown = punkverseThisWeekCount >= 2
   const effectivePool = punkverseOnCooldown
     ? itemPool.filter(item => item.id !== 'punkverse_ticket')
     : itemPool
@@ -573,11 +593,6 @@ export const openChest = async (userChestId: string, userId: string): Promise<Ch
     await updateProfile(userId, { coins: userProfile.coins + receivedItem.value })
   } else if (receivedItem.type === 'special' && receivedItem.id === 'special_levelup') {
     await updateProfile(userId, { xp: userProfile.xp + 1000 })
-  }
-
-  // Nếu nhận được Punkverse → lưu timestamp cooldown vào profile
-  if (receivedItem.id === 'punkverse_ticket') {
-    await updateProfile(userId, { lastPunkverseAt: Timestamp.now() })
   }
 
   return receivedItem
@@ -703,7 +718,15 @@ export const setupFamilyChests = async (familyId: string): Promise<void> => {
     existingByName[d.data().name] = d.id
   })
 
-  await Promise.all(CHEST_TIER_CONFIGS.map(config => {
+  const validNames = new Set(CHEST_TIER_CONFIGS.map(c => c.name))
+
+  // Xóa các rương cũ không còn trong config hiện tại
+  const deleteOps = existingSnap.docs
+    .filter(d => !validNames.has(d.data().name))
+    .map(d => deleteDoc(doc(checkDb(), 'chests', d.id)))
+
+  // Tạo hoặc cập nhật rương theo config mới
+  const upsertOps = CHEST_TIER_CONFIGS.map(config => {
     const maxPerWeek = 'maxPerWeek' in config ? (config as any).maxPerWeek as number | undefined : undefined
     const closedImageUrl = CHEST_IMAGE_URLS[config.chestType] || ''
     const existingId = existingByName[config.name]
@@ -712,7 +735,7 @@ export const setupFamilyChests = async (familyId: string): Promise<void> => {
       return updateDoc(chestRef, {
         cost: config.cost, chestType: config.chestType,
         itemPool: config.itemPool, closedImageUrl,
-        ...(maxPerWeek ? { maxPerWeek } : {}),
+        ...(maxPerWeek ? { maxPerWeek } : { maxPerWeek: null }),
       })
     }
     return addDoc(chestsRef, {
@@ -721,5 +744,7 @@ export const setupFamilyChests = async (familyId: string): Promise<void> => {
       createdAt: Timestamp.now(),
       ...(maxPerWeek ? { maxPerWeek } : {}),
     })
-  }))
+  })
+
+  await Promise.all([...deleteOps, ...upsertOps])
 }

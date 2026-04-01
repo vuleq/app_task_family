@@ -129,6 +129,7 @@ export default function Sidebar({ profile, onUpdate, onThemeChange }: SidebarPro
     const adminItems = [
         { id: 'monitoring', label: t('monitoring.title'), icon: GlobeAltIcon, sectionId: 'monitoring-section', show: profile.isRoot },
         { id: 'dashboard', label: t('dashboard.title'), icon: UsersIcon, sectionId: 'dashboard-section', show: profile.isRoot && !profile.isSuperRoot },
+        { id: 'member-tasks', label: language === 'vi' ? 'Nhiệm vụ thành viên' : 'Member Tasks', icon: CheckBadgeIcon, sectionId: 'member-tasks-section', show: profile.isRoot && !profile.isSuperRoot },
     ]
 
     const scrollToSection = (sectionId: string) => {

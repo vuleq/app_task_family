@@ -14,6 +14,7 @@ import {
   setupFamilyChests,
   CHEST_IMAGE_URLS,
   REWARD_IMAGE_BY_ID,
+  TIER_POOLS,
   Chest,
   UserChest,
   ChestItem,
@@ -227,6 +228,16 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
     if (chest.closedImageUrl) return chest.closedImageUrl
     const type = getEffectiveChestType(chest)
     return CHEST_IMAGE_URLS[type] || null
+  }
+
+  // Trả về item pool cho tooltip dựa theo GIÁ rương (cost), không dùng itemPool từ DB
+  // Đảm bảo tất cả rương đều hiển thị đúng phần thưởng theo tier giá
+  const getItemPoolForTooltip = (cost: number): ChestItem[] => {
+    if (cost <= 50)  return TIER_POOLS.tier1
+    if (cost <= 150) return TIER_POOLS.tier2
+    if (cost <= 200) return TIER_POOLS.tier3
+    if (cost <= 300) return TIER_POOLS.tier4
+    return TIER_POOLS.tier5
   }
 
   const getUserChestImageUrl = (userChest: UserChest): string | null => {
@@ -451,6 +462,8 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
 
           // ── Normal Card View ──
           const weeklyLimitReached = hasReachedWeeklyLimit(chest)
+          // Dùng TIER_POOLS theo giá rương để tooltip luôn đúng, kể cả khi DB có data cũ
+          const tooltipItems = getItemPoolForTooltip(chest.cost)
           return (
             <div key={chest.id} className={`kid-card p-5 flex flex-col group relative hover:rotate-1 transition-all border-4 ${themes[chestType]}`}>
               <div className="flex justify-between items-start mb-3">
@@ -493,6 +506,35 @@ export default function ChestSystem({ currentUserId, profile, onChestOpened }: C
                  >
                    {purchasing === chest.id ? 'BUYING...' : profile.coins >= chest.cost ? 'BUY!' : 'NOT ENOUGH'}
                  </button>
+              </div>
+
+              {/* Reward preview tooltip — appears on hover */}
+              <div className="absolute inset-x-0 bottom-full mb-2 z-50 pointer-events-none opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-200 px-1">
+                <div className="bg-gray-900/95 backdrop-blur-sm rounded-2xl p-3 shadow-2xl border border-white/10">
+                  <p className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-2">
+                    🎁 {language === 'vi' ? 'Phần thưởng có thể nhận' : 'Possible Rewards'}
+                  </p>
+                  <div className="space-y-1.5">
+                    {tooltipItems.map(item => {
+                      const itemImg = REWARD_IMAGE_BY_ID[item.id] || item.image
+                      return (
+                        <div key={item.id} className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {itemImg
+                              ? <img src={itemImg} alt={item.name} className="w-6 h-6 object-contain" />
+                              : <span className="text-sm">🎁</span>}
+                          </div>
+                          <span className="text-white text-[10px] font-bold truncate flex-1">{item.name}</span>
+                          <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full flex-shrink-0 ${getRarityColor(item.rarity)}`}>
+                            {getRarityName(item.rarity)}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+                {/* Arrow */}
+                <div className="w-3 h-3 bg-gray-900/95 border-r border-b border-white/10 rotate-45 mx-auto -mt-1.5" />
               </div>
             </div>
           )

@@ -20,6 +20,7 @@ import BackgroundMusic from '@/components/BackgroundMusic'
 import Statistics from '@/components/Statistics'
 import TaskMonitoring from '@/components/TaskMonitoring'
 import RootMemberDashboard from '@/components/RootMemberDashboard'
+import MemberTasksView from '@/components/MemberTasksView'
 import { recordDailyLogin } from '@/lib/firebase/loginHistory'
 import SuperRootDashboard from '@/components/SuperRootDashboard'
 import CharacterCreation from '@/components/CharacterCreation'
@@ -349,24 +350,35 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Danh sách nhiệm vụ */}
-              <div id="tasks-section" className="kid-card">
-                <TasksList
-                  currentUser={user}
-                  profile={profile}
-                  onTaskComplete={handleProfileUpdate}
-                />
-              </div>
+              {/* Member Tasks View - chỉ hiển thị cho root user */}
+              {profile.isRoot && !profile.isSuperRoot && (
+                <div id="member-tasks-section">
+                  <MemberTasksView currentUserId={user.uid} familyId={profile.familyId} />
+                </div>
+              )}
 
-              {/* Phê duyệt nhiệm vụ */}
-              <div id="approval-section" className="kid-card">
-                <TaskApproval
-                  currentUserId={user.uid}
-                  currentUserRole={profile.role}
-                  familyId={profile.familyId}
-                  onApprovalComplete={handleProfileUpdate}
-                />
-              </div>
+              {/* Danh sách nhiệm vụ - chỉ hiển thị cho member */}
+              {!profile.isRoot && (
+                <div id="tasks-section" className="kid-card">
+                  <TasksList
+                    currentUser={user}
+                    profile={profile}
+                    onTaskComplete={handleProfileUpdate}
+                  />
+                </div>
+              )}
+
+              {/* Phê duyệt nhiệm vụ - chỉ hiển thị cho root */}
+              {profile.isRoot && (
+                <div id="approval-section" className="kid-card">
+                  <TaskApproval
+                    currentUserId={user.uid}
+                    currentUserRole={profile.role}
+                    familyId={profile.familyId}
+                    onApprovalComplete={handleProfileUpdate}
+                  />
+                </div>
+              )}
 
               {/* Cửa hàng đổi thưởng */}
               <div id="shop-section" className="kid-card">
