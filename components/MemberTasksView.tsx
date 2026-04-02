@@ -13,16 +13,18 @@ interface MemberTasksViewProps {
 }
 
 const STATUS_CONFIG = {
-  pending:    { label: { vi: 'Chờ làm', en: 'Pending' },     color: 'bg-slate-100 text-slate-600 border-slate-200' },
-  in_progress:{ label: { vi: 'Đang làm', en: 'In Progress' }, color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  completed:  { label: { vi: 'Chờ duyệt', en: 'Waiting' },   color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-  approved:   { label: { vi: 'Đã duyệt', en: 'Approved' },   color: 'bg-green-100 text-green-700 border-green-200' },
+  pending:    { label: { vi: 'Chờ làm', en: 'Pending', ja: '未着手', es: 'Pendiente' },     color: 'bg-slate-100 text-slate-600 border-slate-200' },
+  in_progress:{ label: { vi: 'Đang làm', en: 'In Progress', ja: '進行中', es: 'En progreso' }, color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  completed:  { label: { vi: 'Chờ duyệt', en: 'Waiting', ja: '承認待ち', es: 'Esperando' },   color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  approved:   { label: { vi: 'Đã duyệt', en: 'Approved', ja: '承認済み', es: 'Aprobado' },   color: 'bg-green-100 text-green-700 border-green-200' },
+  expired:    { label: { vi: 'Hết hạn', en: 'Expired', ja: '期限切れ', es: 'Vencido' },      color: 'bg-red-100 text-red-600 border-red-200' },
 }
 
 const TYPE_CONFIG = {
-  daily:   { label: { vi: 'Ngày', en: 'Daily' },    color: 'bg-violet-100 text-violet-700' },
-  weekly:  { label: { vi: 'Tuần', en: 'Weekly' },   color: 'bg-indigo-100 text-indigo-700' },
-  monthly: { label: { vi: 'Tháng', en: 'Monthly' }, color: 'bg-pink-100 text-pink-700' },
+  daily:     { label: { vi: 'Ngày', en: 'Daily', ja: 'デイリー', es: 'Diario' },       color: 'bg-violet-100 text-violet-700' },
+  weekly:    { label: { vi: 'Tuần', en: 'Weekly', ja: 'ウィークリー', es: 'Semanal' }, color: 'bg-indigo-100 text-indigo-700' },
+  monthly:   { label: { vi: 'Tháng', en: 'Monthly', ja: 'マンスリー', es: 'Mensual' }, color: 'bg-pink-100 text-pink-700' },
+  recurring: { label: { vi: 'Lặp lại', en: 'Recurring', ja: '繰り返し', es: 'Recurrente' }, color: 'bg-teal-100 text-teal-700' },
 }
 
 export default function MemberTasksView({ currentUserId: _currentUserId, familyId }: MemberTasksViewProps) {
@@ -199,12 +201,12 @@ export default function MemberTasksView({ currentUserId: _currentUserId, familyI
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {typeCfg && (
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${typeCfg.color}`}>
-              {typeCfg.label[language as 'vi' | 'en'] ?? typeCfg.label['en']}
+              {typeCfg.label[language as keyof typeof typeCfg.label] ?? typeCfg.label['en']}
             </span>
           )}
           {statusCfg && (
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusCfg.color}`}>
-              {statusCfg.label[language as 'vi' | 'en'] ?? statusCfg.label['en']}
+              {statusCfg.label[language as keyof typeof statusCfg.label] ?? statusCfg.label['en']}
             </span>
           )}
         </div>
@@ -292,10 +294,11 @@ export default function MemberTasksView({ currentUserId: _currentUserId, familyI
           onChange={e => setFilterType(e.target.value)}
           className="text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 font-medium focus:outline-none focus:border-violet-400"
         >
-          <option value="all">{language === 'vi' ? 'Tất cả loại' : 'All types'}</option>
-          <option value="daily">{language === 'vi' ? 'Ngày' : 'Daily'}</option>
-          <option value="weekly">{language === 'vi' ? 'Tuần' : 'Weekly'}</option>
-          <option value="monthly">{language === 'vi' ? 'Tháng' : 'Monthly'}</option>
+          <option value="all">{language === 'vi' ? 'Tất cả loại' : language === 'ja' ? 'すべての種類' : language === 'es' ? 'Todos los tipos' : 'All types'}</option>
+          <option value="daily">{language === 'vi' ? 'Ngày' : language === 'ja' ? 'デイリー' : language === 'es' ? 'Diario' : 'Daily'}</option>
+          <option value="weekly">{language === 'vi' ? 'Tuần' : language === 'ja' ? 'ウィークリー' : language === 'es' ? 'Semanal' : 'Weekly'}</option>
+          <option value="monthly">{language === 'vi' ? 'Tháng' : language === 'ja' ? 'マンスリー' : language === 'es' ? 'Mensual' : 'Monthly'}</option>
+          <option value="recurring">{language === 'vi' ? 'Lặp lại' : language === 'ja' ? '繰り返し' : language === 'es' ? 'Recurrente' : 'Recurring'}</option>
         </select>
 
         <input
@@ -317,7 +320,7 @@ export default function MemberTasksView({ currentUserId: _currentUserId, familyI
         {(['all', 'pending', 'in_progress', 'completed', 'approved'] as const).map(s => {
           const label = s === 'all'
             ? (language === 'vi' ? 'Tất cả' : 'All')
-            : STATUS_CONFIG[s].label[language as 'vi' | 'en'] ?? STATUS_CONFIG[s].label['en']
+            : STATUS_CONFIG[s].label[language as keyof typeof STATUS_CONFIG[typeof s]['label']] ?? STATUS_CONFIG[s].label['en']
           const count = statusCounts[s] ?? 0
           const active = filterStatus === s
           return (

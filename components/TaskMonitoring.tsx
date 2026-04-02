@@ -226,7 +226,7 @@ export default function TaskMonitoring({ currentUserId, profile }: TaskMonitorin
                    <div className="w-12 h-12 rounded-full bg-violet-100 flex items-center justify-center text-xl shadow-inner group-hover:scale-110 transition-transform">👤</div>
                    <div>
                       <h4 className="text-xl font-black text-violet-900 uppercase tracking-tight">{stat.userName}</h4>
-                      <p className="text-[10px] font-black text-violet-300 uppercase tracking-widest">{t('profile.professionChild')}</p>
+                      <p className="text-[10px] font-black text-violet-300 uppercase tracking-widest">{language === 'vi' ? 'Thành viên' : language === 'ja' ? 'メンバー' : language === 'es' ? 'Miembro' : 'Member'}</p>
                    </div>
                 </div>
                 
@@ -244,8 +244,8 @@ export default function TaskMonitoring({ currentUserId, profile }: TaskMonitorin
                 {/* Daily */}
                 <div className="bg-gradient-to-br from-blue-400 to-blue-600 rounded-[1.8rem] p-5 text-white shadow-soft border-4 border-blue-300/30 group-hover:scale-[1.02] transition-transform">
                   <div className="flex items-center justify-between mb-3 text-white/80">
-                    <span className="text-xs font-black uppercase tracking-widest">📅 {language === 'vi' ? 'Ngày' : 'Daily'}</span>
-                    <span className="text-lg font-black">
+                    <span className="text-xs font-black uppercase tracking-widest truncate">📅 {language === 'vi' ? 'Ngày' : language === 'ja' ? 'デイリー' : language === 'es' ? 'Diario' : 'Daily'}</span>
+                    <span className="text-lg font-black flex-shrink-0 ml-1">
                       {stat.daily.total > 0 ? `${Math.round((stat.daily.completed / stat.daily.total) * 100)}%` : '0%'}
                     </span>
                   </div>
@@ -264,8 +264,8 @@ export default function TaskMonitoring({ currentUserId, profile }: TaskMonitorin
                 {/* Weekly */}
                 <div className="bg-gradient-to-br from-violet-400 to-violet-600 rounded-[1.8rem] p-5 text-white shadow-soft border-4 border-violet-300/30 group-hover:scale-[1.02] transition-transform">
                   <div className="flex items-center justify-between mb-3 text-white/80">
-                    <span className="text-xs font-black uppercase tracking-widest">📆 {language === 'vi' ? 'Tuần' : 'Weekly'}</span>
-                    <span className="text-lg font-black">
+                    <span className="text-xs font-black uppercase tracking-widest truncate">📆 {language === 'vi' ? 'Tuần' : language === 'ja' ? 'ウィークリー' : language === 'es' ? 'Semanal' : 'Weekly'}</span>
+                    <span className="text-lg font-black flex-shrink-0 ml-1">
                       {stat.weekly.total > 0 ? `${Math.round((stat.weekly.completed / stat.weekly.total) * 100)}%` : '0%'}
                     </span>
                   </div>
@@ -284,8 +284,8 @@ export default function TaskMonitoring({ currentUserId, profile }: TaskMonitorin
                 {/* Monthly */}
                 <div className="bg-gradient-to-br from-orange-400 to-amber-600 rounded-[1.8rem] p-5 text-white shadow-soft border-4 border-amber-300/30 group-hover:scale-[1.02] transition-transform">
                   <div className="flex items-center justify-between mb-3 text-white/80">
-                    <span className="text-xs font-black uppercase tracking-widest">🗓️ {language === 'vi' ? 'Tháng' : 'Monthly'}</span>
-                    <span className="text-lg font-black">
+                    <span className="text-xs font-black uppercase tracking-widest truncate">🗓️ {language === 'vi' ? 'Tháng' : language === 'ja' ? 'マンスリー' : language === 'es' ? 'Mensual' : 'Monthly'}</span>
+                    <span className="text-lg font-black flex-shrink-0 ml-1">
                       {stat.monthly.total > 0 ? `${Math.round((stat.monthly.completed / stat.monthly.total) * 100)}%` : '0%'}
                     </span>
                   </div>

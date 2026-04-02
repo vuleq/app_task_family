@@ -92,7 +92,7 @@ export default function Statistics({ currentUserId, profile }: StatisticsProps) 
       <div className="flex justify-between items-center mb-8 relative z-10">
         <h3 className="text-xl font-black text-violet-900 flex items-center gap-3 uppercase tracking-tight">
           <span className="text-2xl">📊</span>
-          {language === 'vi' ? 'Thống Kê' : 'Statistics'}
+          {language === 'vi' ? 'Thống Kê' : language === 'ja' ? '統計' : language === 'es' ? 'Estadísticas' : 'Statistics'}
         </h3>
         <button
           onClick={loadStatistics}
@@ -109,7 +109,7 @@ export default function Statistics({ currentUserId, profile }: StatisticsProps) 
           <div className="flex items-center gap-3 mb-2 opacity-80">
              <span className="text-xl">👥</span>
              <p className="text-[10px] font-black uppercase tracking-widest">
-               {language === 'vi' ? 'Tổng Users' : 'Total Users'}
+               {language === 'vi' ? 'Tổng Users' : language === 'ja' ? '総ユーザー' : language === 'es' ? 'Total usuarios' : 'Total Users'}
              </p>
           </div>
           <p className="text-4xl font-black">{stats.totalUsers}</p>
@@ -120,7 +120,7 @@ export default function Statistics({ currentUserId, profile }: StatisticsProps) 
           <div className="flex items-center gap-3 mb-2 opacity-80">
              <span className="text-xl">✅</span>
              <p className="text-[10px] font-black uppercase tracking-widest">
-               {language === 'vi' ? 'Users Hoạt Động' : 'Active Users'}
+               {language === 'vi' ? 'Users Hoạt Động' : language === 'ja' ? 'アクティブユーザー' : language === 'es' ? 'Usuarios activos' : 'Active Users'}
              </p>
           </div>
           <div className="flex items-baseline gap-3">
@@ -138,7 +138,7 @@ export default function Statistics({ currentUserId, profile }: StatisticsProps) 
           <div className="flex items-center gap-3 mb-2 opacity-80">
              <span className="text-xl">📋</span>
              <p className="text-[10px] font-black uppercase tracking-widest">
-               {language === 'vi' ? 'Tổng Nhiệm Vụ' : 'Total Tasks'}
+               {language === 'vi' ? 'Tổng Nhiệm Vụ' : language === 'ja' ? '総タスク' : language === 'es' ? 'Total tareas' : 'Total Tasks'}
              </p>
           </div>
           <p className="text-4xl font-black">{stats.totalTasks}</p>
@@ -149,7 +149,7 @@ export default function Statistics({ currentUserId, profile }: StatisticsProps) 
           <div className="flex items-center gap-3 mb-2 opacity-80">
              <span className="text-xl">🎉</span>
              <p className="text-[10px] font-black uppercase tracking-widest">
-               {language === 'vi' ? 'Đã Hoàn Thành' : 'Completed'}
+               {language === 'vi' ? 'Đã Hoàn Thành' : language === 'ja' ? '完了済み' : language === 'es' ? 'Completado' : 'Completed'}
              </p>
           </div>
           <div className="flex items-baseline gap-3">
