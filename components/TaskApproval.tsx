@@ -32,6 +32,7 @@ interface Task {
   parentTaskId?: string
   groupKey?: string
   completedDate?: string
+  startedAt?: any
 }
 
 interface TaskApprovalProps {
