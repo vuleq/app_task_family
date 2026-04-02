@@ -63,6 +63,12 @@ export default function TaskApproval({ currentUserId, currentUserRole, isRoot, f
         ...doc.data()
       })) as Task[]
 
+      // Only show expired tasks that member actually started (not just pending ones that expired)
+      tasksData = tasksData.filter(task => {
+        if (task.status === 'expired' && !task.startedAt) return false
+        return true
+      })
+
       tasksData = tasksData.filter(task => {
         const isCreator = task.createdBy === currentUserId
         const isParent = currentUserRole === 'parent' || isRoot === true

@@ -242,7 +242,7 @@ export default function MemberTasksView({ currentUserId: _currentUserId, familyI
     return (
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
         <div className="text-center py-8 text-slate-400 animate-pulse">
-          {language === 'vi' ? 'Đang tải...' : 'Loading...'}
+          {language === 'vi' ? 'Đang tải...' : language === 'ja' ? '読み込み中...' : language === 'es' ? 'Cargando...' : 'Loading...'}
         </div>
       </div>
     )
@@ -255,7 +255,7 @@ export default function MemberTasksView({ currentUserId: _currentUserId, familyI
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h2 className="text-lg font-black text-violet-900 flex items-center gap-2 uppercase tracking-tight">
             <span className="text-2xl">👥</span>
-            {language === 'vi' ? 'Nhiệm vụ của thành viên' : 'Member Tasks'}
+            {language === 'vi' ? 'Nhiệm vụ của thành viên' : language === 'ja' ? 'メンバータスク' : language === 'es' ? 'Tareas de miembros' : 'Member Tasks'}
             <span className="text-sm font-bold text-violet-400">({filtered.length})</span>
           </h2>
           <div className="flex items-center gap-2 flex-wrap">
@@ -268,14 +268,14 @@ export default function MemberTasksView({ currentUserId: _currentUserId, familyI
               }`}
             >
               {groupByMember
-                ? (language === 'vi' ? '👤 Theo thành viên' : '👤 Grouped')
-                : (language === 'vi' ? '📋 Danh sách' : '📋 Flat list')}
+                ? (language === 'vi' ? '👤 Theo thành viên' : language === 'ja' ? '👤 グループ' : language === 'es' ? '👤 Agrupado' : '👤 Grouped')
+                : (language === 'vi' ? '📋 Danh sách' : language === 'ja' ? '📋 リスト' : language === 'es' ? '📋 Lista' : '📋 Flat list')}
             </button>
             <button
               onClick={loadData}
               className="text-xs px-3 py-1.5 rounded-xl font-bold border border-slate-200 text-slate-500 hover:border-slate-400 transition-colors"
             >
-              ↻ {language === 'vi' ? 'Làm mới' : 'Refresh'}
+              ↻ {language === 'vi' ? 'Làm mới' : language === 'ja' ? '更新' : language === 'es' ? 'Actualizar' : 'Refresh'}
             </button>
           </div>
         </div>
@@ -288,7 +288,7 @@ export default function MemberTasksView({ currentUserId: _currentUserId, familyI
           onChange={e => setFilterMember(e.target.value)}
           className="text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 font-medium focus:outline-none focus:border-violet-400"
         >
-          <option value="all">{language === 'vi' ? '👥 Tất cả thành viên' : '👥 All members'}</option>
+          <option value="all">{language === 'vi' ? '👥 Tất cả thành viên' : language === 'ja' ? '👥 全メンバー' : language === 'es' ? '👥 Todos los miembros' : '👥 All members'}</option>
           {members.map(m => (
             <option key={m.id} value={m.id}>{m.name}</option>
           ))}
@@ -359,39 +359,39 @@ export default function MemberTasksView({ currentUserId: _currentUserId, familyI
             }`}
           >
             {allSelected
-              ? (language === 'vi' ? '☑ Bỏ chọn tất cả' : '☑ Deselect all')
-              : (language === 'vi' ? '☐ Chọn tất cả' : '☐ Select all')}
+              ? (language === 'vi' ? '☑ Bỏ chọn tất cả' : language === 'ja' ? '☑ 全解除' : language === 'es' ? '☑ Deseleccionar todo' : '☑ Deselect all')
+              : (language === 'vi' ? '☐ Chọn tất cả' : language === 'ja' ? '☐ 全選択' : language === 'es' ? '☐ Seleccionar todo' : '☐ Select all')}
           </button>
 
           {someSelected && (
             <>
               <span className="text-xs text-slate-500">
-                {language === 'vi' ? `Đã chọn ${selectedIds.size} task` : `${selectedIds.size} selected`}
+                {language === 'vi' ? `Đã chọn ${selectedIds.size} task` : language === 'ja' ? `${selectedIds.size}件選択中` : language === 'es' ? `${selectedIds.size} seleccionados` : `${selectedIds.size} selected`}
               </span>
               {!confirmDelete ? (
                 <button
                   onClick={() => setConfirmDelete(true)}
                   className="text-xs font-bold px-3 py-1.5 rounded-lg bg-red-100 text-red-600 border border-red-200 hover:bg-red-200 transition-colors ml-auto"
                 >
-                  🗑 {language === 'vi' ? `Xóa ${selectedIds.size} task` : `Delete ${selectedIds.size} tasks`}
+                  🗑 {language === 'vi' ? `Xóa ${selectedIds.size} task` : language === 'ja' ? `${selectedIds.size}件削除` : language === 'es' ? `Eliminar ${selectedIds.size}` : `Delete ${selectedIds.size} tasks`}
                 </button>
               ) : (
                 <div className="ml-auto flex items-center gap-2">
                   <span className="text-xs font-bold text-red-600">
-                    {language === 'vi' ? 'Xác nhận xóa?' : 'Confirm delete?'}
+                    {language === 'vi' ? 'Xác nhận xóa?' : language === 'ja' ? '削除しますか？' : language === 'es' ? '¿Confirmar eliminación?' : 'Confirm delete?'}
                   </span>
                   <button
                     onClick={handleDeleteSelected}
                     disabled={deleting}
                     className="text-xs font-black px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
                   >
-                    {deleting ? '...' : (language === 'vi' ? '✓ Xóa ngay' : '✓ Delete')}
+                    {deleting ? '...' : (language === 'vi' ? '✓ Xóa ngay' : language === 'ja' ? '✓ 削除' : language === 'es' ? '✓ Eliminar' : '✓ Delete')}
                   </button>
                   <button
                     onClick={() => setConfirmDelete(false)}
                     className="text-xs font-bold px-3 py-1.5 rounded-lg bg-white text-slate-500 border border-slate-200 hover:border-slate-400 transition-colors"
                   >
-                    {language === 'vi' ? 'Huỷ' : 'Cancel'}
+                    {language === 'vi' ? 'Huỷ' : language === 'ja' ? 'キャンセル' : language === 'es' ? 'Cancelar' : 'Cancel'}
                   </button>
                 </div>
               )}
@@ -405,7 +405,7 @@ export default function MemberTasksView({ currentUserId: _currentUserId, familyI
         {filtered.length === 0 ? (
           <div className="text-center py-12 text-slate-400">
             <div className="text-4xl mb-3">📭</div>
-            <p className="font-semibold">{language === 'vi' ? 'Không có nhiệm vụ nào' : 'No tasks found'}</p>
+            <p className="font-semibold">{language === 'vi' ? 'Không có nhiệm vụ nào' : language === 'ja' ? 'タスクが見つかりません' : language === 'es' ? 'No se encontraron tareas' : 'No tasks found'}</p>
           </div>
         ) : groupByMember ? (
           <div className="space-y-5">
@@ -424,7 +424,7 @@ export default function MemberTasksView({ currentUserId: _currentUserId, familyI
                     {confirmDeleteMember === member.id ? (
                       <>
                         <span className="text-[10px] font-bold text-red-600">
-                          {language === 'vi' ? 'Xóa hết?' : 'Delete all?'}
+                          {language === 'vi' ? 'Xóa hết?' : language === 'ja' ? '全削除？' : language === 'es' ? '¿Eliminar todo?' : 'Delete all?'}
                         </span>
                         <button
                           onClick={() => handleDeleteAllForMember(member.id)}
@@ -445,7 +445,7 @@ export default function MemberTasksView({ currentUserId: _currentUserId, familyI
                         onClick={() => setConfirmDeleteMember(member.id)}
                         className="text-[10px] font-bold px-2 py-0.5 rounded border bg-red-50 text-red-500 border-red-200 hover:bg-red-100 transition-colors"
                       >
-                        🗑 {language === 'vi' ? 'Xóa tất cả' : 'Delete all'}
+                        🗑 {language === 'vi' ? 'Xóa tất cả' : language === 'ja' ? '全削除' : language === 'es' ? 'Eliminar todo' : 'Delete all'}
                       </button>
                     )}
 
