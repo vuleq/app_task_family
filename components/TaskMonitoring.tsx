@@ -188,7 +188,7 @@ export default function TaskMonitoring({ currentUserId, profile }: TaskMonitorin
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 relative z-10">
         <h3 className="text-2xl font-black text-violet-900 flex items-center gap-3 uppercase tracking-tight">
           <span className="text-3xl">📊</span>
-          {language === 'vi' ? 'Theo Dõi Hoạt Động' : 'Activity Monitoring'}
+          {language === 'vi' ? 'Theo Dõi Hoạt Động' : language === 'ja' ? 'アクティビティ監視' : language === 'es' ? 'Monitoreo de actividad' : 'Activity Monitoring'}
         </h3>
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <select
@@ -196,9 +196,9 @@ export default function TaskMonitoring({ currentUserId, profile }: TaskMonitorin
             onChange={(e) => setSelectedPeriod(e.target.value as 'today' | 'week' | 'month')}
             className="flex-1 sm:flex-none appearance-none px-6 py-3 border-4 border-violet-50 rounded-2xl text-xs font-black bg-white text-violet-700 shadow-soft focus:outline-none focus:ring-4 focus:ring-violet-50 uppercase tracking-widest cursor-pointer"
           >
-            <option value="today">{language === 'vi' ? 'Hôm nay' : 'Today'}</option>
-            <option value="week">{language === 'vi' ? '7 ngày qua' : 'Last 7 days'}</option>
-            <option value="month">{language === 'vi' ? '30 ngày qua' : 'Last 30 days'}</option>
+            <option value="today">{language === 'vi' ? 'Hôm nay' : language === 'ja' ? '今日' : language === 'es' ? 'Hoy' : 'Today'}</option>
+            <option value="week">{language === 'vi' ? '7 ngày qua' : language === 'ja' ? '過去7日間' : language === 'es' ? 'Últimos 7 días' : 'Last 7 days'}</option>
+            <option value="month">{language === 'vi' ? '30 ngày qua' : language === 'ja' ? '過去30日間' : language === 'es' ? 'Últimos 30 días' : 'Last 30 days'}</option>
           </select>
           <button
             onClick={loadMonitoringData}

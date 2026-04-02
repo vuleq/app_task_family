@@ -54,7 +54,7 @@ export default function TaskApproval({ currentUserId, currentUserRole, isRoot, f
       const tasksRef = collection(db, 'tasks')
       const q = query(
         tasksRef, 
-        where('status', '==', 'completed'),
+        where('status', 'in', ['completed', 'expired']),
         where('familyId', '==', familyId)
       )
       const snapshot = await getDocs(q)

@@ -39,7 +39,12 @@ export default function MemberTasksView({ currentUserId: _currentUserId, familyI
   const [filterMember, setFilterMember] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
-  const [filterDate, setFilterDate] = useState<string>('')
+  // Default to today so the list isn't overwhelming
+  const [filterDate, setFilterDate] = useState<string>(() => {
+    const now = new Date()
+    const vn = new Date(now.getTime() + 7 * 60 * 60 * 1000)
+    return `${vn.getUTCFullYear()}-${String(vn.getUTCMonth() + 1).padStart(2, '0')}-${String(vn.getUTCDate()).padStart(2, '0')}`
+  })
   const [groupByMember, setGroupByMember] = useState(true)
 
   // Selection
